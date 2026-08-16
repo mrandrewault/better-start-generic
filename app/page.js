@@ -122,23 +122,36 @@ function Story({item, index, onRate, onSave, onShare, saved}) {
   const playerUrl = type === "video" ? `https://www.youtube-nocookie.com/embed/${item.videoId}?autoplay=1&rel=0` : item.embedUrl;
   useLayoutEffect(() => {
     const tile = tileRef.current;
-    const cluster = tile?.closest(".tetrisCluster");
-    if (!tile || !cluster) return;
+    const body = tile?.querySelector(".tileBody");
+    if (!tile || !body) return;
     const fitContents = () => {
       const headline = tile.querySelector("h3");
       if (!headline) return;
+      tile.classList.remove("fit-tight");
       headline.style.fontSize = "";
       let size = parseFloat(getComputedStyle(headline).fontSize);
-      while ((tile.scrollHeight > tile.clientHeight + 1 || headline.scrollWidth > headline.clientWidth + 1) && size > 14) {
-        size -= 1;
+      const fits = () => {
+        const tileBox = tile.getBoundingClientRect(), bodyBox = body.getBoundingClientRect(), headlineBox = headline.getBoundingClientRect();
+        return headline.scrollWidth <= headline.clientWidth + 1 && body.scrollHeight <= body.clientHeight + 1 && bodyBox.top >= tileBox.top - 1 && bodyBox.bottom <= tileBox.bottom + 1 && headlineBox.top >= tileBox.top - 1 && headlineBox.bottom <= tileBox.bottom - 5;
+      };
+      while (!fits() && size > 13) {
+        size -= .75;
         headline.style.fontSize = `${size}px`;
+      }
+      if (!fits()) {
+        tile.classList.add("fit-tight");
+        while (!fits() && size > 11) {
+          size -= .5;
+          headline.style.fontSize = `${size}px`;
+        }
       }
     };
     const observer = new ResizeObserver(fitContents);
-    observer.observe(cluster);
+    observer.observe(tile);
     tile.querySelectorAll("img").forEach(image => image.addEventListener("load", fitContents));
     requestAnimationFrame(fitContents);
-    return () => observer.disconnect();
+    document.fonts?.ready.then(() => requestAnimationFrame(fitContents));
+    return () => { observer.disconnect(); tile.querySelectorAll("img").forEach(image => image.removeEventListener("load", fitContents)); };
   }, [item.canonicalUrl, playing]);
   return <article ref={tileRef} className={`tile tile-${type} tile-pattern-${index % 9} ${item.image ? "tile-has-image" : "tile-no-image"} ${categoryClass(item.section)}`}>
     {playable && playing ? <div className="inlinePlayer"><iframe src={playerUrl} title={item.title} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen /></div> : item.image && (playable ? <button className="imageLink mediaTrigger" onClick={() => setPlaying(true)} aria-label={`Play ${item.title}`}><img src={item.image} alt="" onError={event => {event.currentTarget.src = FALLBACK;}} /><span className="play">▶</span></button> : <a className="imageLink" href={item.url} target="_blank" rel="noreferrer"><img src={item.image} alt="" onError={event => {event.currentTarget.src = FALLBACK;}} /></a>)}

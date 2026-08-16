@@ -1,4 +1,4 @@
-# Better Start Reader V9
+# Better Start Reader V10
 
 Rage-free articles, videos and small joy breaks in a playful editorial wall.
 
@@ -40,6 +40,10 @@ The Upstash integration adds its own connection variables automatically.
   places receive a strong boost, while faraway lists are capped as wanderlust
   discoveries. Until the Interview supplies locations, the generic edition
   keeps narrow geographic utility lists scarce rather than guessing a home.
+- Every card re-measures its wrapped headline after layout, web-font and image
+  changes. Tight frames drop subordinate summary/feedback copy first, then
+  reduce the individual headline only as far as needed to keep every line
+  visible inside its frame.
 
 ## Safe update
 

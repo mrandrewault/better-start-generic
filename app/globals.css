@@ -182,3 +182,7 @@
 
 /* V8: the consequential-news band always uses the available width. */
 .importantGrid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+
+/* V10: measured headline fitting may remove subordinate copy, never title text. */
+.tetrisCluster .fit-tight .tileBody p,.tetrisCluster .fit-tight .controls{display:none!important}
+.tetrisCluster .fit-tight .meta{margin-top:6px}.tetrisCluster .tile-video .tileBody{max-height:100%;overflow:hidden}
