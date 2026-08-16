@@ -17,11 +17,11 @@ const claimUnique = (items = [], seen = new Set()) => items.filter(item => {
 });
 const arrangeForFrames = items => {
   const arranged = [...items];
-  const compactSlots = [1, 3, 4, 8];
-  const visualSlots = [0, 2, 6, 5, 7, 9].filter(index => index < arranged.length);
-  const needsVisualFrame = item => ["video", "bandcamp", "visual", "social", "joy"].includes(item?.format);
-  compactSlots.filter(index => index < arranged.length && needsVisualFrame(arranged[index])).forEach(index => {
-    const swap = visualSlots.find(candidate => !needsVisualFrame(arranged[candidate]));
+  const compactSlots = [1, 3, 4, 7, 8, 9].filter(index => index < arranged.length);
+  const visualSlots = [0, 2, 5, 6].filter(index => index < arranged.length);
+  const needsVisualFrame = item => !!item?.image || ["video", "bandcamp", "visual", "social", "joy"].includes(item?.format);
+  visualSlots.filter(index => !needsVisualFrame(arranged[index])).forEach(index => {
+    const swap = compactSlots.find(candidate => needsVisualFrame(arranged[candidate]));
     if (swap !== undefined) [arranged[index], arranged[swap]] = [arranged[swap], arranged[index]];
   });
   return arranged;
@@ -158,6 +158,8 @@ export default function Home() {
     return () => { clearInterval(clock); clearInterval(editionTimer); document.removeEventListener("visibilitychange", onVisible); };
   }, []);
   const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
+  const daypart = now.getHours() < 10 ? "sunrise" : now.getHours() < 12 ? "lateMorning" : now.getHours() < 17 ? "afternoon" : "evening";
+  const helloThought = daypart === "sunrise" ? "Fresh coffee. Open curtains. The world still contains wonders." : daypart === "lateMorning" ? "A bright little detour before the day gets away." : daypart === "afternoon" ? "A second wind, made of curiosity instead of caffeine." : "A softer landing for the end of the day.";
   const date = now.toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"});
   const uniqueFavorites = useMemo(() => claimUnique(data?.favorites || [], new Set(identityKeys(data?.ribbonFavorite))), [data]);
   const wall = useMemo(() => { const pageSeen = new Set(); [data?.ribbonFavorite, data?.goodNews, ...(data?.favorites || []), ...(data?.important || [])].filter(Boolean).forEach(item => identityKeys(item).forEach(key => pageSeen.add(key))); const stories = claimUnique(data?.gallery || [], pageSeen), media = claimUnique(data?.media || [], pageSeen), mixed = []; while (stories.length || media.length) { mixed.push(...stories.splice(0, 3)); if (media.length) mixed.push(media.shift()); } const result = [], pool = [...mixed], lastSeen = new Map(); while (pool.length) { const recent = result.slice(-20).map(item => item.source); let index = pool.findIndex(item => !recent.includes(item.source)); if (index < 0) { let oldest = Infinity; pool.forEach((item, candidate) => { const seen = lastSeen.get(item.source) ?? -Infinity; if (seen < oldest) { oldest = seen; index = candidate; } }); } const item = pool.splice(Math.max(0, index), 1)[0]; lastSeen.set(item.source, result.length); result.push(item); } const edition = data?.edition || 0, joyful = [], reserved = [...joyHistory]; for (let start = 0, bench = 0; start < result.length; start += 24, bench++) { const group = result.slice(start, start + 24), position = Math.min(group.length, 6 + bench % 5), joyType = JOY_TYPES[(edition + bench) % JOY_TYPES.length], choice = chooseJoy(joyType, edition, bench, reserved); reserved.push({signature: choice.signature, ts: Date.now()}); group.splice(position, 0, {format: "joy", joyType, variant: choice.variant, signature: choice.signature, edition, title: "A small Better Start joy break", source: "Better Start Joy Bench", section: "JOY", canonicalUrl: `joy-${edition}-${bench}-${choice.signature}`, url: `#joy-${edition}-${bench}`}); joyful.push(...group); } return joyful; }, [data, joyHistory]);
@@ -168,9 +170,9 @@ export default function Home() {
   const toggleSave = item => setSaved(current => { const exists = current.some(savedItem => itemKey(savedItem) === itemKey(item)), next = exists ? current.filter(savedItem => itemKey(savedItem) !== itemKey(item)) : [{...item, savedAt: Date.now()}, ...current]; localStorage.setItem("betterStartReaderSaved", JSON.stringify(next.slice(0, 200))); return next.slice(0, 200); });
   const share = async item => { const text = `I found this on Better Start — rage-free news, information and good times.\n\n${item.title}`, params = new URLSearchParams({u: item.url, t: item.title, s: item.source || "", c: item.section || ""}); if (item.image) params.set("i", item.image); const shareUrl = `${location.origin}/share?${params}`; try { if (navigator.share) await navigator.share({title: `${item.title} — Better Start`, text, url: shareUrl}); else { await navigator.clipboard.writeText(`${text}\n${shareUrl}`); setEditionNote("Branded share link copied"); } } catch {} };
   const savedKeys = useMemo(() => new Set(saved.map(itemKey)), [saved]);
-  return <main className="shell">
+  return <main className={`shell daypart-${daypart}`}>
     <header className="mast"><div><div className="brand">Better Start Reader</div><div className="edition">Rage-free news, discovery & good times</div></div><div className="mastTools"><button className="savedButton" onClick={() => setShowSaved(value => !value)}>Saved <b>{saved.length}</b></button><button className={`radio ${radio ? "radioOn" : ""}`} onClick={() => setRadio(!radio)} aria-label={`Better Start Radio ${radio ? "on" : "off"}`} title="Better Start Radio placeholder"><span>♪</span><small>{radio ? "ON" : "RADIO"}</small></button></div></header>
-    <div className="hello"><h1>{greeting}.</h1><p>{date}</p></div>
+    <div className="hello"><h1>{greeting}.</h1><div className="helloAside"><p>{date}</p><span>{helloThought}</span></div></div>
 
     <section className="ribbon" aria-label="Quick facts"><div className="weatherFact"><b>{greeting}</b><span>{date}</span></div><RollingFact label="Bright spot">{data?.ribbonFavorite?.title || "Looking for a small win…"}</RollingFact><RollingFact label={editionNote}>{data?.goodNews?.title || "Finding something cheerful…"}</RollingFact></section>
 

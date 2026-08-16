@@ -88,7 +88,9 @@ function compose(candidates, count, seed = {}, random = Math.random) {
       const sourcePenalty = (sourceCounts[item.source] || 0) * 10 + (recent.some(previous => previous.source === item.source) ? 500 : 0);
       const topicPenalty = (topicCounts[item.section] || 0) * 6 + (chosen.slice(-2).some(previous => previous.section === item.section) ? 30 : 0);
       const formatPenalty = (formatCounts[item.format] || 0) * 8;
-      const visualBonus = item.image && !(formatCounts.visual || 0) ? 12 : 0;
+      // Prefer stories that bring real photography, artwork or video texture.
+      // Text-only pieces still make the edition, but must win on substance.
+      const visualBonus = item.image ? 22 : -9;
       const serendipityBonus = item.interestHits === 0 && chosen.length > 3 ? 5 : 0;
       const moodBonus = /discover|new|beautiful|guide|best|love|return|release|photo|album/i.test(`${item.title} ${item.summary}`) ? 4 : 0;
       const compositionScore = item.score - sourcePenalty - topicPenalty - formatPenalty + visualBonus + serendipityBonus + moodBonus + random() * 14;

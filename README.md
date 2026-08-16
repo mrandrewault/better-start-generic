@@ -1,4 +1,4 @@
-# Better Start Reader V4
+# Better Start Reader V5
 
 Rage-free articles, videos and small joy breaks in a playful editorial wall.
 
@@ -24,6 +24,10 @@ The Upstash integration adds its own connection variables automatically.
 - A final browser-side URL and normalized-headline check prevents a story from
   appearing in more than one section, even if a cached or blended API response
   contains it twice.
+- Image-bearing stories receive an editorial composition advantage.
+- Text-only stories are routed into compact puzzle frames.
+- The masthead is tighter and uses its full width.
+- Bright Spots use a changing time-of-day color story.
 
 ## Safe update
 

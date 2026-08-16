@@ -150,3 +150,28 @@
 @media(max-width:650px){.tetrisCluster .tile:nth-child(n).tile-joy{min-height:310px}.joyBody{min-height:310px;padding:17px}.tile-joy h3{font-size:36px}.chimeKeys{min-height:105px}.questionBody h3{font-size:31px}.joyAnswer{font-size:17px!important}.doodleBody{padding:11px}.doodleBody canvas{height:230px;min-height:230px}.doodleTools{align-items:stretch;gap:5px}.doodleTools>div{flex-wrap:wrap}.doodleTools button{font-size:7px;padding:6px}}
 @media(prefers-reduced-motion:reduce){.joyRipple{animation:none;opacity:.65;transform:translate(-50%,-50%) scale(4)}.chimeKeys button{transition:none}}
 @media(min-width:651px){.tetrisCluster.clusterCount-5 .tile:nth-child(3) p,.tetrisCluster.clusterCount-5 .tile:nth-child(3) .controls{display:none}}
+
+/* V5: denser opening, visual-first wall, and a changing Bright Spots sky. */
+.hello{justify-content:space-between;gap:30px;margin:25px 0 17px;min-height:0}
+.hello h1{flex:1;font-size:clamp(70px,10.25vw,154px);white-space:nowrap}
+.helloAside{width:min(31vw,420px);padding:0 0 7px;border-bottom:1px solid var(--line)}
+.helloAside p{margin:0 0 8px}.helloAside span{display:block;font:italic 16px/1.15 "DM Serif Display",serif;color:var(--muted)}
+.ribbon{margin-bottom:30px}.gallerySection{margin-top:34px}
+.favorite{min-height:124px;color:#201b19;border-color:#0002;box-shadow:0 8px 18px #3b281a12}
+.favorite span,.favorite b{color:inherit;opacity:.68}.favorite h3{font-size:19px}
+.daypart-sunrise .favorite:nth-child(3n+1){background:linear-gradient(145deg,#ffb5aa,#ffddd0)}
+.daypart-sunrise .favorite:nth-child(3n+2){background:linear-gradient(145deg,#ff9fbc,#ffd1a6)}
+.daypart-sunrise .favorite:nth-child(3n){background:linear-gradient(145deg,#ffc46f,#ffe3a6)}
+.daypart-lateMorning .favorite:nth-child(3n+1){background:linear-gradient(145deg,#b9dfb0,#e4efad)}
+.daypart-lateMorning .favorite:nth-child(3n+2){background:linear-gradient(145deg,#d3e99c,#fff0a3)}
+.daypart-lateMorning .favorite:nth-child(3n){background:linear-gradient(145deg,#a8dbc5,#dded9f)}
+.daypart-afternoon .favorite:nth-child(3n+1){background:linear-gradient(145deg,#a9d8ef,#d8eaf5)}
+.daypart-afternoon .favorite:nth-child(3n+2){background:linear-gradient(145deg,#b9c8f2,#d7e8ff)}
+.daypart-afternoon .favorite:nth-child(3n){background:linear-gradient(145deg,#94d7df,#c9eef0)}
+.daypart-evening .favorite:nth-child(3n+1){background:linear-gradient(145deg,#c8c7c2,#e7e1d7)}
+.daypart-evening .favorite:nth-child(3n+2){background:linear-gradient(145deg,#b8bec4,#dde0df)}
+.daypart-evening .favorite:nth-child(3n){background:linear-gradient(145deg,#d1c9c4,#eee8de)}
+.tetrisCluster .tile-no-image{background:linear-gradient(145deg,var(--card),color-mix(in srgb,var(--accent) 14%,var(--card)))}
+.tetrisCluster .tile-no-image .tileBody{height:100%;justify-content:center}
+.tetrisCluster .tile-no-image p{display:none}.tetrisCluster .tile-no-image h3{margin-block:8px}
+@media(max-width:650px){.hello{display:block;margin:28px 0 16px}.hello h1{font-size:clamp(52px,17vw,78px);white-space:normal}.helloAside{width:100%;margin-top:13px}.helloAside span{font-size:14px}.ribbon{margin-bottom:28px}.favorite{min-height:120px}.tetrisCluster .tile-no-image p{display:none}}
