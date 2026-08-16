@@ -101,88 +101,30 @@ function compose(candidates, count, seed = {}, random = Math.random) {
   }
   return chosen;
 }
-function playlistFeature(random = Math.random, avoid = new Set()) {
-  const files = fs.readdirSync(dataPath(".")).filter(name => name.endsWith("-videos.csv"));
-  if (!files.length) return null;
-  const file = files[Math.floor(random() * files.length)], rows = fs.readFileSync(dataPath(file), "utf8").trim().split(/\r?\n/).slice(1).map(row => row.split(",")[0]).filter(id => id && !avoid.has(id));
-  const videoId = rows[Math.floor(random() * rows.length)];
-  if (!videoId) return null;
-  const playlist = file.replace(/-videos\.csv$/, "");
-  return {title: `A video from Andrew's ${playlist} shelf`, url: `https://www.youtube.com/watch?v=${videoId}`, source: "YouTube library", section: /camera/i.test(playlist) ? "PHOTOGRAPHY" : "MUSIC", summary: `A daily find from the existing ${playlist} playlist.`, date: null, image: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`, score: 52, interestHits: 1, noHits: 0, videoId, format: "video"};
-}
-
-function youtubeSubscriptions() {
-  const lines = fs.readFileSync(dataPath("subscriptions.csv"), "utf8").split(/\r?\n/).slice(1);
-  return lines.map(line => {
-    const match = line.match(/^([^,]+),[^,]*,(?:"([^"]+)"|(.+))$/);
-    return match ? {id: match[1], name: match[2] || match[3]} : null;
-  }).filter(Boolean).filter(channel => !/andrew ault|drsuperfresh/i.test(channel.name));
-}
-async function loadYouTubeDiscoveries() {
-  const affinity = /music|jazz|synth|record|photo|camera|film|cinema|norm|comedy|dead|beatles|stones|dylan|criterion|leica|moog|piano|concert/i;
-  const channels = youtubeSubscriptions().filter(channel => affinity.test(channel.name));
-  const day = Math.floor(Date.now() / 86400000), rotated = channels.slice(day % Math.max(1, channels.length)).concat(channels.slice(0, day % Math.max(1, channels.length))).slice(0, 16);
-  const results = await Promise.allSettled(rotated.map(async channel => {
-    const feed = await parser.parseURL(`https://www.youtube.com/feeds/videos.xml?channel_id=${channel.id}`);
-    return (feed.items || []).slice(0, 2).map(item => {
-      const videoId = item.id?.split(":").pop() || item.link?.match(/[?&]v=([^&]+)/)?.[1];
-      return {title: plain(item.title), url: item.link, summary: `A recent find from one of Andrew's YouTube subscriptions.`, date: item.isoDate || item.pubDate || null, source: channel.name, section: /photo|camera|leica/i.test(channel.name) ? "PHOTOGRAPHY" : /film|cinema/i.test(channel.name) ? "FILM + CULTURE" : "MUSIC", image: videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : null, score: 66, interestHits: 2, noHits: 0, videoId, format: "video"};
-    });
-  }));
-  const items = []; results.forEach(result => { if (result.status === "fulfilled") items.push(...result.value); });
-  return items.filter(item => item.videoId && !isDisallowed(item) && isJoyful(item)).sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
-}
-async function loadPlaylistDiscoveries(random = Math.random, avoid = new Set()) {
-  const preferred = ["funny shit-videos.csv", "Movie clips-videos.csv", "Film Class-videos.csv", "Favorites-videos.csv", "Blue Notes-videos.csv", "Synth-videos.csv", "GD-videos.csv", "Camera-videos.csv", "Concerts-videos.csv"];
-  const picks = [];
-  preferred.forEach(file => {
-    const rows = fs.readFileSync(dataPath(file), "utf8").trim().split(/\r?\n/).slice(1).map(row => row.split(",")[0]).filter(id => id && !avoid.has(id));
-    for (let pick = 0; pick < 2 && rows.length; pick++) { const index = Math.floor(random() * rows.length), [videoId] = rows.splice(index, 1); picks.push({videoId, shelf: file.replace(/-videos\.csv$/, "")}); }
-  });
-  const results = await Promise.allSettled(picks.map(async pick => {
-    const url = `https://www.youtube.com/watch?v=${pick.videoId}`;
-    const response = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`, {next: {revalidate: 86400}});
-    if (!response.ok) return null;
-    const meta = await response.json();
-    return {title: meta.title, url, summary: "", date: null, source: meta.author_name, section: /camera/i.test(pick.shelf) ? "PHOTOGRAPHY" : /movie|film/i.test(pick.shelf) ? "FILM + CULTURE" : "MUSIC", image: meta.thumbnail_url || `https://i.ytimg.com/vi/${pick.videoId}/hqdefault.jpg`, score: 68, interestHits: 3, noHits: 0, videoId: pick.videoId, format: "video"};
-  }));
-  const items = []; results.forEach(result => { if (result.status === "fulfilled" && result.value) items.push(result.value); });
-  return items.filter(item => !/andrew ault|drsuperfresh/i.test(item.source) && !isDisallowed(item));
-}
-async function loadBandcampReleases() {
-  const sources = load("bandcamp-sources.json");
-  const results = await Promise.allSettled(sources.map(async source => {
-    const response = await fetch(new URL("music", source.url), {headers: {"User-Agent": "BetterStart/2.0"}, next: {revalidate: 3600}});
-    const html = await response.text(), items = [];
-    const blockPattern = /<li data-item-id="(album|track)-(\d+)"[\s\S]*?<a href="([^"]+)"[\s\S]*?<img src="([^"]+)"[\s\S]*?<p class="title">([\s\S]*?)<\/p>[\s\S]*?<\/li>/g;
-    for (const match of html.matchAll(blockPattern)) {
-      const titleText = plain(match[5].replace(/<br\s*\/?>/gi, " — "));
-      const url = new URL(match[3], source.url).toString();
-      items.push({title: titleText, url, summary: `A new-release shelf pick from ${source.name}. Click to listen.`, date: null, source: source.name, section: "MUSIC", image: match[4], score: 72, interestHits: 3, noHits: 0, format: "bandcamp", embedUrl: `https://bandcamp.com/EmbeddedPlayer/${match[1]}=${match[2]}/size=large/bgcol=fffefa/linkcol=d23d32/tracklist=false/artwork=small/transparent=true/`});
-      if (items.length >= 3) break;
-    }
-    return items;
-  }));
-  const items = []; results.forEach(result => { if (result.status === "fulfilled") items.push(...result.value); });
-  return items;
-}
-async function loadInstagramProfile() {
-  try {
-    const url = "https://www.instagram.com/andrew.ault.photography/";
-    const html = await (await fetch(url, {headers: {"User-Agent": "Mozilla/5.0"}, next: {revalidate: 21600}})).text();
-    const image = html.match(/property="og:image" content="([^"]+)/)?.[1]?.replace(/&amp;/g, "&");
-    return {title: "A visual pause from Andrew Ault Photography", url, summary: "A doorway into Andrew's public photography feed.", date: null, source: "@andrew.ault.photography", section: "PHOTOGRAPHY", image, score: 70, interestHits: 3, noHits: 0, format: "social"};
-  } catch { return null; }
-}
-
 function seededRandom(value = "better-start") {
   let state = 2166136261;
   for (let index = 0; index < value.length; index++) state = Math.imul(state ^ value.charCodeAt(index), 16777619);
   return () => { state += 0x6D2B79F5; let result = state; result = Math.imul(result ^ result >>> 15, result | 1); result ^= result + Math.imul(result ^ result >>> 7, result | 61); return ((result ^ result >>> 14) >>> 0) / 4294967296; };
 }
 
+async function sharedVideoSources() {
+  const fallback = load("video-sources.json"), url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL, token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+  if (!url || !token) return fallback;
+  try { const response = await fetch(url, {method:"POST", headers:{authorization:`Bearer ${token}`,"content-type":"application/json"}, body:JSON.stringify(["GET","betterstart:sources"]), cache:"no-store"}); const value = (await response.json()).result; return value ? JSON.parse(value) : fallback; } catch { return fallback; }
+}
+async function loadReaderVideos(avoid = new Set()) {
+  const videoSources = await sharedVideoSources();
+  const results = await Promise.allSettled(videoSources.map(async source => {
+    const url = source.type === "playlist" ? `https://www.youtube.com/feeds/videos.xml?playlist_id=${source.id}` : `https://www.youtube.com/feeds/videos.xml?channel_id=${source.id}`;
+    const feed = await parser.parseURL(url);
+    return (feed.items || []).slice(0, 12).map(item => { const videoId = item.id?.split(":").pop() || item.link?.match(/[?&]v=([^&]+)/)?.[1]; return {title:plain(item.title),url:item.link,summary:"",date:item.isoDate||item.pubDate||null,source:source.name,section:source.category === "music" ? "MUSIC" : source.category === "art" ? "ART + DESIGN" : source.category === "animals" ? "ANIMALS + JOY" : "PEOPLE + JOY",image:videoId?`https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`:null,score:70,interestHits:3,noHits:0,videoId,format:"video"}; });
+  }));
+  const items=[]; results.forEach(result=>{if(result.status==="fulfilled")items.push(...result.value);});
+  return unique(items.filter(item=>item.videoId&&!avoid.has(item.videoId)&&!isDisallowed(item)));
+}
+
 export async function GET(request) {
-  const params = new URL(request.url).searchParams, random = seededRandom(params.get("visit") || String(Math.floor(Date.now() / 72e5)));
+  const params = new URL(request.url).searchParams, random = seededRandom(params.get("visit") || String(Math.floor(Date.now() / 72e5))), avoidVideos = new Set((params.get("avoid") || "").split(",").filter(Boolean));
   const taste = load("taste.json"), sources = load("sources.json");
   const results = await Promise.allSettled(sources.map(async source => {
     const feed = await parser.parseURL(source.url);
@@ -207,7 +149,8 @@ export async function GET(request) {
   const ribbonFavorite = claim(compose(brightPool, 1, {}, random))[0] || null;
   const favoriteSelection = claim(compose(brightPool.filter(item => !usedUrls.has(canonicalUrl(item.url))), 6, {}, random));
   const goodNews = claim(compose(all.filter(isGoodNews), 1, {}, random))[0] || null;
-  const media = [];
+  const videoPool = await loadReaderVideos(avoidVideos);
+  const media = claim(compose(videoPool, 20, {}, random));
   const importantPool = all.filter(item => ["NASA", "Guardian Science", "Science Breakthroughs", "Technology for Good", "Nature Restored"].includes(item.source));
   const important = claim(compose(importantPool, 3, {}, random));
   const galleryPool = all.filter(item => !usedUrls.has(canonicalUrl(item.url)) && !usedTitles.has(normalizeTitle(item.title)));

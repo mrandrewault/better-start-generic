@@ -1,6 +1,6 @@
 {
-  "name": "better-start-generic",
-  "version": "1.0.0",
+  "name": "better-start-reader",
+  "version": "4.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",

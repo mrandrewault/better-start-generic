@@ -1,0 +1,32 @@
+[
+  {
+    "name": "International Anthem",
+    "url": "https://intlanthem.bandcamp.com/",
+    "type": "label",
+    "priority": 10
+  },
+  {
+    "name": "Arts & Crafts",
+    "url": "https://arts-crafts.bandcamp.com/",
+    "type": "label",
+    "priority": 10
+  },
+  {
+    "name": "Newvelle Records",
+    "url": "https://newvellerecords.bandcamp.com/",
+    "type": "label",
+    "priority": 10
+  },
+  {
+    "name": "Love Land",
+    "url": "https://lovelandcph.bandcamp.com/",
+    "type": "artist_or_label",
+    "priority": 10
+  },
+  {
+    "name": "Bill Frisell",
+    "url": "https://billfriselljazz.bandcamp.com/",
+    "type": "artist",
+    "priority": 10
+  }
+]

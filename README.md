@@ -1,21 +1,33 @@
-# Better Start — Good Things Edition
+# Better Start Reader V4
 
-The generic Better Start reading experience: a live, playful wall of good news, discovery and small moments of joy.
+Rage-free articles, videos and small joy breaks in a playful editorial wall.
 
-## Editorial promise
+## Vercel setup
 
-- Regional, national and international bright spots
-- People, animals, science, nature, outdoors, travel, food, fitness, design, arts and sports
-- No politics, rage bait, violence, culture war or doom
-- No duplicate stories and no adjacent stories from the same source
-- A varied desktop puzzle wall and an intentionally simple mobile reading flow
-- Fresh editions every two hours, persistent saves, branded sharing and Joy Bench activities
+The app works immediately with its built-in public sources. To share approved video sources and seven-day memory with Better Start Video, connect both Vercel projects to the same Upstash Redis database.
 
-## Run locally
+Add these Vercel environment variables to both projects:
 
-```bash
-pnpm install
-pnpm dev
-```
+- `YOUTUBE_API_KEY`
+- `ADMIN_SECRET`
+- `CRON_SECRET`
 
-Then open `http://localhost:3000`.
+The Upstash integration adds its own connection variables automatically.
+
+## Refresh rules
+
+- Command-R requests a new unseen-first composition.
+- The Reader replaces roughly 80% of the wall every two hours.
+- A new calendar day forces a full edition reset.
+- Videos and Joy Bench variants stay out for at least seven days in that browser.
+- Saved stories remain available.
+- A final browser-side URL and normalized-headline check prevents a story from
+  appearing in more than one section, even if a cached or blended API response
+  contains it twice.
+
+## Safe update
+
+This folder is a complete replacement build. Upload its **contents** to the
+existing Reader GitHub repository, commit the change, and let Vercel create a
+preview deployment first. The current production deployment remains available
+until you explicitly promote the preview or merge to the production branch.

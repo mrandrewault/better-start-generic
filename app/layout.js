@@ -1,7 +1,7 @@
 import './globals.css';
 
 export const metadata = {
-  title: "Better Start — Good Things Worth Knowing",
+  title: "Better Start Reader",
   description: "A playful, rage-free wall of good news, discovery and delight"
 };
 
