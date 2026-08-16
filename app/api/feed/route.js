@@ -51,6 +51,13 @@ function isGoodNews(item) {
   const value = `${item.title || ""} ${item.summary || ""}`;
   return /discover|beautiful|love|return|restor|celebrat|rescue|breakthrough|success|wins?\b|record|opens?|reun|reviv|saved?|found/i.test(value) && isJoyful(item);
 }
+function classifyGeography(item, localPlaces = []) {
+  const value = `${item.title || ""} ${item.summary || ""}`.toLowerCase();
+  const isPlaceList = /\b(best|top|favorite|favourite|guide|where to eat|where to stay|restaurants?|cafes?|coffee shops?|bakeries|donut shops?|things to do)\b[\s\S]{0,90}\b(near|in|around|at)\b/i.test(value);
+  if (!isPlaceList) return "neutral";
+  if (localPlaces.some(place => place && value.includes(place))) return "local";
+  return "wanderlust";
+}
 function score(item, source, taste) {
   const text = itemText(item); let value = (source.quality || 5) * 5, hits = 0, noHits = 0;
   for (const raw of taste.yes) if (text.includes(raw.toLowerCase())) { value += 8; if (++hits >= 7) break; }
@@ -81,7 +88,7 @@ function unique(items) {
 // A greedy magazine editor: every choice is judged by how much it improves the
 // current page, with diminishing returns for repeated sources/topics/formats.
 function compose(candidates, count, seed = {}, random = Math.random) {
-  const chosen = [], sourceCounts = {...seed.sources}, topicCounts = {...seed.topics}, formatCounts = {...seed.formats};
+  const chosen = [], sourceCounts = {...seed.sources}, topicCounts = {...seed.topics}, formatCounts = {...seed.formats}, geoCounts = {local:0,wanderlust:0}, wanderlustCap = Math.max(1, Math.floor(count * .2));
   const pool = [...candidates];
   while (chosen.length < count && pool.length) {
     let winner = 0, best = -Infinity;
@@ -95,13 +102,15 @@ function compose(candidates, count, seed = {}, random = Math.random) {
       const visualBonus = item.image ? 22 : -9;
       const serendipityBonus = item.interestHits === 0 && chosen.length > 3 ? 5 : 0;
       const moodBonus = /discover|new|beautiful|guide|best|love|return|release|photo|album/i.test(`${item.title} ${item.summary}`) ? 4 : 0;
-      const compositionScore = item.score - sourcePenalty - topicPenalty - formatPenalty + visualBonus + serendipityBonus + moodBonus + random() * 14;
+      const geographyBonus = item.geoClass === "local" ? 20 : item.geoClass === "wanderlust" ? (geoCounts.wanderlust < wanderlustCap ? 6 : -90) : 0;
+      const compositionScore = item.score - sourcePenalty - topicPenalty - formatPenalty + visualBonus + serendipityBonus + moodBonus + geographyBonus + random() * 14;
       if (compositionScore > best) { best = compositionScore; winner = index; }
     });
     const [item] = pool.splice(winner, 1); chosen.push(item);
     sourceCounts[item.source] = (sourceCounts[item.source] || 0) + 1;
     topicCounts[item.section] = (topicCounts[item.section] || 0) + 1;
     formatCounts[item.format] = (formatCounts[item.format] || 0) + 1;
+    if (item.geoClass === "local" || item.geoClass === "wanderlust") geoCounts[item.geoClass]++;
   }
   return chosen;
 }
@@ -128,14 +137,14 @@ async function loadReaderVideos(avoid = new Set()) {
 }
 
 export async function GET(request) {
-  const params = new URL(request.url).searchParams, random = seededRandom(params.get("visit") || String(Math.floor(Date.now() / 72e5))), avoidVideos = new Set((params.get("avoid") || "").split(",").filter(Boolean));
+  const params = new URL(request.url).searchParams, random = seededRandom(params.get("visit") || String(Math.floor(Date.now() / 72e5))), avoidVideos = new Set((params.get("avoid") || "").split(",").filter(Boolean)), localPlaces = (params.get("places") || "").split("|").map(value => value.trim().toLowerCase()).filter(Boolean).slice(0, 20);
   const taste = load("taste.json"), sources = load("sources.json");
   const results = await Promise.allSettled(sources.map(async source => {
     const feed = await parser.parseURL(source.url);
     return (feed.items || []).slice(0, 40).map((item, index) => {
       const scored = score(item, source, taste);
       const story = {title: plain(item.title) || "Untitled", url: item.link || "#", summary: plain(item.contentSnippet || item.content || ""), date: item.isoDate || item.pubDate || null, source: source.name, section: source.section, image: imageFor(item), ...scored};
-      return {...story, format: formatFor(story, index)};
+      return {...story, geoClass: classifyGeography(story, localPlaces), format: formatFor(story, index)};
     });
   }));
   let all = [];

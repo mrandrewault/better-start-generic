@@ -1,4 +1,4 @@
-# Better Start Reader V8
+# Better Start Reader V9
 
 Rage-free articles, videos and small joy breaks in a playful editorial wall.
 
@@ -36,6 +36,10 @@ The Upstash integration adds its own connection variables automatically.
 - The consequential-good-news band fills all three editorial slots by
   backfilling from safe science, progress, conservation, community and human-
   achievement stories when preferred sources do not supply enough pieces.
+- Place-specific lists follow an 80/20 editorial target: saved local-orbit
+  places receive a strong boost, while faraway lists are capped as wanderlust
+  discoveries. Until the Interview supplies locations, the generic edition
+  keeps narrow geographic utility lists scarce rather than guessing a home.
 
 ## Safe update
 
