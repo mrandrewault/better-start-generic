@@ -9,6 +9,8 @@ const parser = new Parser({
 });
 const dataPath = name => path.join(process.cwd(), "data", name);
 const load = name => JSON.parse(fs.readFileSync(dataPath(name), "utf8"));
+const blockedTerms = Object.values(load("content-policy.json")).flat();
+const policyText = value => ` ${String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim()} `;
 
 function plain(value = "") {
   return value.replace(/<[^>]+>/g, " ").replace(/&\w+;/g, " ").replace(/\s+/g, " ").trim();
@@ -32,8 +34,8 @@ function imageFor(item) {
 }
 function itemText(item) { return `${item.title || ""} ${item.contentSnippet || ""} ${item.content || ""}`.toLowerCase(); }
 function isDisallowed(item) {
-  const value = `${item.title || ""} ${item.summary || ""} ${item.contentSnippet || ""}`.toLowerCase();
-  return /\b(trump|maga|maha|white house|mar-a-lago|gop|republicans?|democrats?|congress|senate|house speaker|pentagon|department of justice|doj|ice agents?|fbi|supreme court|presidential election|midterms?|campaign|politics?|political|rfk jr|jd vance|war|military strike|murder|shooting|violence|violent|attack|assault|abuse|rage|outrage|scandal|feud|crisis|disaster|death|deadly|killed|guns?|ufc|mma|gambling|religious?|church|megachurch|anti-vax|antivax|vaccine conspiracy|anti-science|culture war)\b/i.test(value);
+  const value = policyText(`${item.title || ""} ${item.summary || ""} ${item.contentSnippet || ""} ${item.source || ""} ${item.section || ""}`);
+  return blockedTerms.some(term => value.includes(policyText(term)));
 }
 function isJoyful(item) {
   const value = `${item.title || ""} ${item.summary || ""}`;
@@ -156,6 +158,10 @@ export async function GET(request) {
   const media = claim(compose(videoPool, 20, {}, random));
   const importantPool = all.filter(item => ["NASA", "Guardian Science", "Science Breakthroughs", "Technology for Good", "Nature Restored"].includes(item.source));
   const important = claim(compose(importantPool, 3, {}, random));
+  if (important.length < 3) {
+    const backfillPool = all.filter(item => (!usedUrls.has(canonicalUrl(item.url)) && !usedTitles.has(normalizeTitle(item.title))) && /SCIENCE|NATURE|TECH|PROGRESS|PEOPLE|ANIMALS|OUTDOOR/i.test(item.section || ""));
+    important.push(...claim(compose(backfillPool, 3 - important.length, {}, random)));
+  }
   const galleryPool = all.filter(item => !usedUrls.has(canonicalUrl(item.url)) && !usedTitles.has(normalizeTitle(item.title)));
   const gallery = claim(compose(galleryPool, 140, {}, random));
   const serendipityPool = all.filter(item => item.noHits === 0 && !usedUrls.has(canonicalUrl(item.url)) && !usedTitles.has(normalizeTitle(item.title)));

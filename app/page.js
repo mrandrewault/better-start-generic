@@ -8,8 +8,10 @@ const EDITION_MS = 2 * 60 * 60 * 1000;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const categoryClass = section => `cat-${(section || "news").toLowerCase().replace(/[^a-z]+/g, "-").replace(/(^-|-$)/g, "")}`;
 const normalizedIdentityTitle = value => (value || "").toLowerCase().replace(/\b(the|a|an|and|or|but|to|of|for|in|on|at|with|from)\b/g, " ").replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+const emergencyBlocked = /\b(trump|maga|maha|nazi|neo[- ]?nazi|white supremac|shooting|gunman|murder|war|terroris|rape|sexual abuse|suicide|overdose|deadly|killed|outrage|religious|anti[- ]?vax|ufc|mma|gambling|google pixel|samsung galaxy|android phone)\b/i;
 const identityKeys = item => [`url:${item?.canonicalUrl || item?.url || ""}`, `title:${item?.normalizedTitle || normalizedIdentityTitle(item?.title)}`].filter(key => !key.endsWith(":"));
 const claimUnique = (items = [], seen = new Set()) => items.filter(item => {
+  if (emergencyBlocked.test(`${item?.title || ""} ${item?.summary || ""} ${item?.source || ""} ${item?.section || ""}`)) return false;
   const keys = identityKeys(item);
   if (!keys.length || keys.some(key => seen.has(key))) return false;
   keys.forEach(key => seen.add(key));

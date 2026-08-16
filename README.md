@@ -1,4 +1,4 @@
-# Better Start Reader V6
+# Better Start Reader V8
 
 Rage-free articles, videos and small joy breaks in a playful editorial wall.
 
@@ -30,6 +30,12 @@ The Upstash integration adds its own connection variables automatically.
 - Bright Spots use a changing time-of-day color story.
 - The top strip now carries a rotating bank of clickable good-news headlines;
   ticker stories are reserved from all card sections to prevent duplication.
+- `data/content-policy.json` is the single editable safety lexicon. Headlines,
+  summaries, sections and source names are checked before selection, with a
+  smaller browser-side emergency filter for stale cached responses.
+- The consequential-good-news band fills all three editorial slots by
+  backfilling from safe science, progress, conservation, community and human-
+  achievement stories when preferred sources do not supply enough pieces.
 
 ## Safe update
 

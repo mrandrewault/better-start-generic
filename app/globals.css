@@ -179,3 +179,6 @@
 /* V6: every headline in the strip leads somewhere. */
 .newsWire{grid-column:auto}.newsWire .ticker i{display:inline-flex;align-items:center;gap:18px;padding-left:100%;animation-duration:58s}.newsWire a{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;font-style:normal;text-decoration:none}.newsWire a:hover{text-decoration:underline;text-underline-offset:3px}.newsWire a em{font:700 7px "DM Sans",sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--red)}.newsWire a strong{margin-left:10px;color:var(--orange);font:12px Georgia,serif}
 @media(max-width:650px){.newsWire{flex-basis:520px!important}.newsWire .ticker i{animation-duration:48s}}
+
+/* V8: the consequential-news band always uses the available width. */
+.importantGrid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}

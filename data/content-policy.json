@@ -1,0 +1,39 @@
+{
+  "politics_and_extremism": [
+    "donald trump", "trump", "maga", "maha", "mar a lago", "white house",
+    "republican", "republicans", "democrat", "democrats", "gop", "congress", "senate", "house speaker",
+    "presidential election", "election", "elections", "election campaign", "campaign", "campaigns", "midterm election", "politics", "says mp",
+    "political", "supreme court", "department of justice", "doj", "fbi",
+    "ice agents", "pentagon", "nazi", "nazis", "neo nazi", "neo nazis", "fascist", "fascists", "fascism",
+    "white supremacist", "white supremacy", "ku klux klan", "kkk",
+    "antisemitic", "antisemitism", "hate group", "culture war"
+  ],
+  "violence_and_crime": [
+    "war", "military strike", "airstrike", "invasion", "bombing", "explosion",
+    "terrorist", "terrorism", "murder", "homicide", "massacre", "genocide",
+    "shooting", "gunman", "firearm", "guns", "stabbing", "assault", "rape",
+    "sexual abuse", "domestic abuse", "child abuse", "kidnapping", "abduction",
+    "hostage", "human trafficking", "violent", "violence", "attack", "attacks"
+  ],
+  "tragedy_and_distress": [
+    "death toll", "deadly", "killed", "dies", "died", "body found", "missing child",
+    "suicide", "overdose", "terminal illness", "cancer diagnosis", "funeral",
+    "disaster", "catastrophe", "famine", "starvation", "euthanasia"
+  ],
+  "rage_bait_and_conflict": [
+    "rage", "outrage", "furious", "backlash", "slammed", "blasted", "destroyed",
+    "humiliated", "scandal", "feud", "crisis", "controversy", "culture war",
+    "you wont believe", "internet is freaking out", "what happened next"
+  ],
+  "religion_and_pseudoscience": [
+    "megachurch", "sermon", "bible prophecy", "religious", "church", "churches", "anti vax", "antivax",
+    "vaccine conspiracy", "anti science", "maha", "faith healing"
+  ],
+  "unwanted_products": [
+    "android phone", "google pixel", "pixel phone", "samsung galaxy", "samsung phone",
+    "dell computer", "windows pc", "chromebook", "microsoft surface"
+  ],
+  "unwanted_sports_and_gambling": [
+    "ufc", "mma", "sports betting", "online betting", "gambling", "sportsbook"
+  ]
+}
