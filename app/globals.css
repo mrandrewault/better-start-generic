@@ -175,3 +175,7 @@
 .tetrisCluster .tile-no-image .tileBody{height:100%;justify-content:center}
 .tetrisCluster .tile-no-image p{display:none}.tetrisCluster .tile-no-image h3{margin-block:8px}
 @media(max-width:650px){.hello{display:block;margin:28px 0 16px}.hello h1{font-size:clamp(52px,17vw,78px);white-space:normal}.helloAside{width:100%;margin-top:13px}.helloAside span{font-size:14px}.ribbon{margin-bottom:28px}.favorite{min-height:120px}.tetrisCluster .tile-no-image p{display:none}}
+
+/* V6: every headline in the strip leads somewhere. */
+.newsWire{grid-column:auto}.newsWire .ticker i{display:inline-flex;align-items:center;gap:18px;padding-left:100%;animation-duration:58s}.newsWire a{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;font-style:normal;text-decoration:none}.newsWire a:hover{text-decoration:underline;text-underline-offset:3px}.newsWire a em{font:700 7px "DM Sans",sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--red)}.newsWire a strong{margin-left:10px;color:var(--orange);font:12px Georgia,serif}
+@media(max-width:650px){.newsWire{flex-basis:520px!important}.newsWire .ticker i{animation-duration:48s}}

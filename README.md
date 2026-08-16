@@ -1,4 +1,4 @@
-# Better Start Reader V5
+# Better Start Reader V6
 
 Rage-free articles, videos and small joy breaks in a playful editorial wall.
 
@@ -28,6 +28,8 @@ The Upstash integration adds its own connection variables automatically.
 - Text-only stories are routed into compact puzzle frames.
 - The masthead is tighter and uses its full width.
 - Bright Spots use a changing time-of-day color story.
+- The top strip now carries a rotating bank of clickable good-news headlines;
+  ticker stories are reserved from all card sections to prevent duplication.
 
 ## Safe update
 

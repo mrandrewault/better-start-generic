@@ -148,7 +148,8 @@ export async function GET(request) {
     usedUrls.add(url); usedTitles.add(title); return true;
   });
   const brightPool = all.filter(item => /PEOPLE|ANIMALS|PROGRESS|AROUND AMERICA/.test(item.section) || isGoodNews(item));
-  const ribbonFavorite = claim(compose(brightPool, 1, {}, random))[0] || null;
+  const tickerStories = claim(compose(brightPool, 8, {}, random));
+  const ribbonFavorite = tickerStories[0] || null;
   const favoriteSelection = claim(compose(brightPool.filter(item => !usedUrls.has(canonicalUrl(item.url))), 6, {}, random));
   const goodNews = claim(compose(all.filter(isGoodNews), 1, {}, random))[0] || null;
   const videoPool = await loadReaderVideos(avoidVideos);
@@ -160,5 +161,5 @@ export async function GET(request) {
   const serendipityPool = all.filter(item => item.noHits === 0 && !usedUrls.has(canonicalUrl(item.url)) && !usedTitles.has(normalizeTitle(item.title)));
   const serendipity = claim(compose(serendipityPool, 60, {}, random));
 
-  return Response.json({generatedAt: new Date().toISOString(), edition: Math.floor(Date.now() / 72e5), ribbonFavorite, goodNews, favorites: favoriteSelection, media, gallery, important, serendipity, sourceStatus: {total: sources.length, successful: results.filter(result => result.status === "fulfilled").length}}, {headers: {"Cache-Control": "no-store"}});
+  return Response.json({generatedAt: new Date().toISOString(), edition: Math.floor(Date.now() / 72e5), tickerStories, ribbonFavorite, goodNews, favorites: favoriteSelection, media, gallery, important, serendipity, sourceStatus: {total: sources.length, successful: results.filter(result => result.status === "fulfilled").length}}, {headers: {"Cache-Control": "no-store"}});
 }
