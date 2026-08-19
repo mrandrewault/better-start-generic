@@ -1,15 +1,18 @@
-# Meanwhile 07 — Personalized Vignelli Edition
+# Meanwhile 09 — Personalized Vignelli Edition
 
 This build keeps the complete generic Reader and four-step personalizer, while introducing the centered, overlapping Vignelli-inspired **Meanwhile** signature. Its three letter impressions are driven by the same four-color palette as the page, so every reload advances both the site and masthead together to a new coordinated palette.
+
+The **Add More Stuff I Didn’t Ask For** control now remains available even after the initial surprise shelf is exhausted. It first reveals any unused surprises already loaded, then requests a fresh deduplicated batch from the feed instead of disappearing.
 
 ## Refresh and public-space safety
 
 - Roughly 80% of the page refreshes every two hours.
 - The complete edition is replaced after 24 hours and on a manual browser reload.
-- Canonical URLs, normalized titles, video IDs, and image URLs are remembered for seven days to prevent repeats.
+- Every surfaced item enters one edition-wide no-repeat ledger, matched by canonical URL, normalized title, video ID, and image URL. It cannot return to Good Stuff, Bright Spots, Good News With Consequence, You Didn’t Ask For This, tickers, video modules, or visual shelves.
+- Saved stories remain available in the Saved shelf but are never recycled into the live edition.
 - Public-space safety filtering excludes nudity and sexually explicit material, including artistic imagery, using story and media metadata.
 
-This is the first fully rebranded **Meanwhile** build. It includes the generic Reader and the four-step edition customizer while preserving the established feed, safety, visual-quality, deduplication, seven-day memory, sharing and responsive-layout behavior.
+This build includes the generic Reader and the four-step edition customizer while preserving the established feed, safety, visual-quality, global no-repeat memory, sharing and responsive-layout behavior.
 
 This version makes photography and playable media a composition requirement rather than a ranking preference.
 
@@ -85,7 +88,7 @@ This version makes photography and playable media a composition requirement rath
 - A compact strip beneath the masthead explains which editorial desks are contributing to the edition.
 - New interview choices cover projects, gardening, boats, sailing and history; deeper choices cover yoga and boatbuilding.
 - Generic Reader behavior is unchanged when no personal profile exists.
-- All established safety, deduplication, source-spacing, refresh, seven-day memory, layout, mobile, Save, Share and Joy Bench rules remain active.
+- All established safety, deduplication, source-spacing, refresh, global no-repeat memory, layout, mobile, Save, Share and Joy Bench rules remain active.
 
 ## Login-free deployment
 

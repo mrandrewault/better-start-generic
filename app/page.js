@@ -6,6 +6,8 @@ const SERENDIPITY_BATCH_SIZE = 9;
 const EDITION_MS = 2 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const STORY_HISTORY_KEY = "betterStartReaderStoryHistory";
+const STORY_HISTORY_LIMIT = 5000;
 const PROFILE_KEY = "betterStartPersonalProfileV1";
 // One coordinated four-color family per visit. Each card gets a unique tint
 // or shade inside the active palette rather than jumping around the wheel.
@@ -86,19 +88,40 @@ const rebalanceVisualBlocks = (items, blockSize = 10, ratio = .5) => {
 function age(date) { if (!date) return "From the shelf"; const hours = (Date.now() - new Date(date)) / 36e5; return hours < 1 ? `${Math.max(1, Math.round(hours * 60))} min ago` : hours < 24 ? `${Math.round(hours)} hr ago` : `${Math.round(hours / 24)}d ago`; }
 const itemKey = item => item.canonicalUrl || item.url || item.normalizedTitle || normalizedIdentityTitle(item.title);
 const savedPlaces = () => { try { const value = JSON.parse(localStorage.getItem("betterStartReaderPlaces") || "[]"); return Array.isArray(value) ? value.slice(0, 20).join("|") : ""; } catch { return ""; } };
-const prioritizeUnseen = items => {
-  const seen = new Set(recentHistory("betterStartReaderStoryHistory").map(entry => entry.id));
-  return items.filter(item => !seen.has(itemKey(item)));
+const storyHistory = () => { try { const value = JSON.parse(localStorage.getItem(STORY_HISTORY_KEY) || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } };
+const storyHistoryKeys = () => new Set(storyHistory().flatMap(entry => [entry.id, ...(entry.keys || [])]).filter(Boolean));
+const filterEditionGlobally = next => {
+  const seen = storyHistoryKeys(), take = items => claimUnique(items || [], seen);
+  const tickerStories = take(next?.tickerStories || (next?.ribbonFavorite ? [next.ribbonFavorite] : []));
+  const goodNews = take(next?.goodNews ? [next.goodNews] : [])[0] || null;
+  return {...next,
+    tickerStories,
+    ribbonFavorite:tickerStories[0] || null,
+    goodNews,
+    favorites:take(next?.favorites),
+    important:take(next?.important),
+    gallery:take(next?.gallery),
+    media:take(next?.media),
+    serendipity:take(next?.serendipity),
+    visualReserve:take(next?.visualReserve)
+  };
 };
 const blendPool = (previous = [], next = []) => {
   // Keep only one fifth of the current wall when the automatic two-hour
   // refresh runs. A browser reload passes preserve=false and keeps nothing.
   const keep = previous.filter(item => Date.now() - (item._firstShownAt || 0) < DAY_MS).slice(0, Math.ceil(Math.min(previous.length, next.length) * .20));
   const used = new Set(keep.map(itemKey));
-  return [...keep, ...prioritizeUnseen(next).filter(item => !used.has(itemKey(item)))].slice(0, next.length);
+  return [...keep, ...next.filter(item => !used.has(itemKey(item)))].slice(0, next.length);
 };
 const stampNew = items => (items || []).map(item => ({...item, _firstShownAt:item._firstShownAt || Date.now()}));
-const prepareEdition = (next, previous, preserve) => ({...next, gallery: stampNew(preserve ? blendPool(previous?.gallery, next.gallery) : prioritizeUnseen(next.gallery)), media: stampNew(preserve ? blendPool(previous?.media, next.media) : prioritizeUnseen(next.media)), serendipity: stampNew(preserve ? blendPool(previous?.serendipity, next.serendipity) : prioritizeUnseen(next.serendipity))});
+const prepareEdition = (next, previous, preserve) => {
+  const clean = filterEditionGlobally(next);
+  return {...clean,
+    gallery:stampNew(preserve ? blendPool(previous?.gallery, clean.gallery) : clean.gallery),
+    media:stampNew(preserve ? blendPool(previous?.media, clean.media) : clean.media),
+    serendipity:stampNew(preserve ? blendPool(previous?.serendipity, clean.serendipity) : clean.serendipity)
+  };
+};
 function Feedback({item, onRate, onSave, onShare, saved}) { return <div className="controls" aria-label="Story feedback"><button onClick={() => onRate(item, "more")}>♡ More like this</button><button className={saved ? "savedControl" : ""} onClick={() => onSave(item)}>{saved ? "Saved ✓" : "Save"}</button><button onClick={() => onShare(item)}>Share</button><button onClick={() => onRate(item, "less")}>Less</button><button onClick={() => onRate(item, "political")}>Too political</button><button onClick={() => onRate(item, "depressing")}>Too depressing</button></div>; }
 function MeasuredTicker({children}) { const tickerRef = useRef(null); useLayoutEffect(() => { const ticker = tickerRef.current, track = ticker?.querySelector("i"); if (!ticker || !track) return; const setSpeed = () => track.style.setProperty("--ticker-duration", `${Math.max(18, track.scrollWidth / 33.3).toFixed(2)}s`); const observer = new ResizeObserver(setSpeed); observer.observe(ticker); observer.observe(track); requestAnimationFrame(setSpeed); document.fonts?.ready.then(setSpeed); return () => observer.disconnect(); }, [children]); return <span className="ticker" ref={tickerRef}><i>{children}</i></span>; }
 function RollingFact({label, children}) { return <div className="rollingFact"><b>{label}</b><MeasuredTicker>{children}</MeasuredTicker></div>; }
@@ -226,7 +249,7 @@ function Story({item, fallbackItem, index, paletteIndex = index, palette, onRate
 }
 
 export default function Home() {
-  const [data, setData] = useState(null), [batches, setBatches] = useState(1), [serendipityCount, setSerendipityCount] = useState(3), [radio, setRadio] = useState(false), [now, setNow] = useState(new Date()), [saved, setSaved] = useState([]), [showSaved, setShowSaved] = useState(false), [editionNote, setEditionNote] = useState("Composing edition"), [joyHistory, setJoyHistory] = useState([]), [profile, setProfile] = useState(null), [paletteIndex, setPaletteIndex] = useState(0);
+  const [data, setData] = useState(null), [batches, setBatches] = useState(1), [serendipityCount, setSerendipityCount] = useState(3), [serendipityLoading, setSerendipityLoading] = useState(false), [radio, setRadio] = useState(false), [now, setNow] = useState(new Date()), [saved, setSaved] = useState([]), [showSaved, setShowSaved] = useState(false), [editionNote, setEditionNote] = useState("Composing edition"), [joyHistory, setJoyHistory] = useState([]), [profile, setProfile] = useState(null), [paletteIndex, setPaletteIndex] = useState(0);
   useEffect(() => {
     setSaved(JSON.parse(localStorage.getItem("betterStartReaderSaved") || "[]")); setJoyHistory(recentHistory("betterStartReaderJoyHistory"));
     const priorPalette = Number(localStorage.getItem("betterStartPaletteIndex") || "-1"), nextPalette = (priorPalette + 1) % EDITION_PALETTES.length;
@@ -236,7 +259,7 @@ export default function Home() {
     setProfile(activeProfile);
     let lastLoad = Date.now();
     const loadEdition = async preserve => {
-      const visit = `${Math.floor(Date.now() / EDITION_MS)}-${Date.now()}-${Math.random()}`, mediaHistory = recentHistory("betterStartReaderMediaHistory"), storyHistory = recentHistory("betterStartReaderStoryHistory"), avoid = [...new Set(mediaHistory.map(entry => entry.id))].slice(-120).join(","), avoidStories = [...new Set(storyHistory.flatMap(entry => [entry.id, ...(entry.keys || [])]).map(stableHash))].slice(-900).join(","), places = savedPlaces(), profileTerms = activeProfile ? [...(activeProfile.broadInterests || []), ...(activeProfile.specificInterests || []), ...(activeProfile.details || []), ...(activeProfile.anythingElse || [])].slice(0, 48).join("|") : "";
+      const visit = `${Math.floor(Date.now() / EDITION_MS)}-${Date.now()}-${Math.random()}`, mediaHistory = recentHistory("betterStartReaderMediaHistory"), priorStories = storyHistory(), avoid = [...new Set(mediaHistory.map(entry => entry.id))].slice(-120).join(","), avoidStories = [...new Set(priorStories.flatMap(entry => [entry.id, ...(entry.keys || [])]).map(stableHash))].slice(-900).join(","), places = savedPlaces(), profileTerms = activeProfile ? [...(activeProfile.broadInterests || []), ...(activeProfile.specificInterests || []), ...(activeProfile.details || []), ...(activeProfile.anythingElse || [])].slice(0, 48).join("|") : "";
       try { const today = new Date().toISOString().slice(0, 10), priorDay = localStorage.getItem("betterStartReaderDay"), hardRefresh = priorDay !== today; const next = await (await fetch(`/api/feed?visit=${encodeURIComponent(visit)}&avoid=${encodeURIComponent(avoid)}&avoidStories=${encodeURIComponent(avoidStories)}&places=${encodeURIComponent(places)}&interests=${encodeURIComponent(profileTerms)}`, {cache: "no-store"})).json(); localStorage.setItem("betterStartReaderDay", today); setJoyHistory(recentHistory("betterStartReaderJoyHistory")); setData(previous => prepareEdition(next, previous, preserve && !hardRefresh)); setEditionNote(`${preserve && !hardRefresh ? "Freshened" : "New"} ${new Date().toLocaleTimeString([], {hour: "numeric", minute: "2-digit"})} edition`); lastLoad = Date.now(); } catch {}
     };
     loadEdition(false);
@@ -253,10 +276,29 @@ export default function Home() {
   const wall = useMemo(() => { const pageSeen = new Set(); [...(data?.tickerStories || [data?.ribbonFavorite]), data?.goodNews, ...(data?.favorites || []), ...(data?.important || [])].filter(Boolean).forEach(item => identityKeys(item).forEach(key => pageSeen.add(key))); const stories = claimUnique(data?.gallery || [], pageSeen), media = claimUnique(data?.media || [], pageSeen), mixed = []; while (stories.length || media.length) { mixed.push(...stories.splice(0, 2)); if (media.length) mixed.push(media.shift()); } const result = [], pool = [...mixed], lastSeen = new Map(); while (pool.length) { const recent = result.slice(-20).map(item => item.source); let index = pool.findIndex(item => !recent.includes(item.source)); if (index < 0) { let oldest = Infinity; pool.forEach((item, candidate) => { const seen = lastSeen.get(item.source) ?? -Infinity; if (seen < oldest) { oldest = seen; index = candidate; } }); } const item = pool.splice(Math.max(0, index), 1)[0]; lastSeen.set(item.source, result.length); result.push(item); } const balanced = rebalanceVisualBlocks(result), edition = data?.edition || 0, joyful = [], reserved = [...joyHistory]; for (let start = 0, bench = 0; start < balanced.length; start += 24, bench++) { const group = balanced.slice(start, start + 24), position = Math.min(group.length, 6 + bench % 5), joyType = JOY_TYPES[(edition + bench) % JOY_TYPES.length], choice = chooseJoy(joyType, edition, bench, reserved); reserved.push({signature: choice.signature, ts: Date.now()}); group.splice(position, 0, {format: "joy", joyType, variant: choice.variant, signature: choice.signature, edition, title: "A small Meanwhile joy break", source: "Meanwhile Joy Bench", section: "JOY", canonicalUrl: `joy-${edition}-${bench}-${choice.signature}`, url: `#joy-${edition}-${bench}`}); joyful.push(...group); } return joyful; }, [data, joyHistory]);
   const uniqueSerendipity = useMemo(() => { const pageSeen = new Set(); [...(data?.tickerStories || [data?.ribbonFavorite]), data?.goodNews, ...(data?.favorites || []), ...(data?.important || []), ...wall].filter(item => item && item.format !== "joy").forEach(item => identityKeys(item).forEach(key => pageSeen.add(key))); return claimUnique(data?.serendipity || [], pageSeen); }, [data, wall]);
   const visibleBatches = useMemo(() => Array.from({length: batches}, (_, index) => wall.slice(index * BATCH_SIZE, (index + 1) * BATCH_SIZE)).filter(batch => batch.length), [wall, batches]);
-  useEffect(() => { if (!wall.length) return; const visible = [...(data?.tickerStories || []), data?.goodNews, ...(data?.favorites || []), ...(data?.important || []), ...wall.slice(0, batches * BATCH_SIZE)].filter(Boolean), nowSeen = Date.now(), stories = recentHistory("betterStartReaderStoryHistory"), storyIds = new Set(stories.map(entry => entry.id)); visible.filter(item => item.format !== "joy" && !storyIds.has(itemKey(item))).forEach(item => stories.push({id:itemKey(item),keys:identityKeys(item),ts:nowSeen})); localStorage.setItem("betterStartReaderStoryHistory", JSON.stringify(stories.slice(-1200))); const media = recentHistory("betterStartReaderMediaHistory"), mediaIds = new Set(media.map(entry => entry.id)); visible.filter(item => item.videoId && !mediaIds.has(item.videoId)).forEach(item => media.push({id: item.videoId, ts: nowSeen})); localStorage.setItem("betterStartReaderMediaHistory", JSON.stringify(media.slice(-300))); const joy = recentHistory("betterStartReaderJoyHistory"), joyIds = new Set(joy.map(entry => entry.signature)); visible.filter(item => item.signature && !joyIds.has(item.signature)).forEach(item => joy.push({signature: item.signature, ts:nowSeen})); localStorage.setItem("betterStartReaderJoyHistory", JSON.stringify(joy.slice(-300))); }, [data, wall, batches]);
+  useEffect(() => { if (!wall.length) return; const visible = [...(data?.tickerStories || []), data?.goodNews, ...(data?.favorites || []), ...(data?.important || []), ...wall.slice(0, batches * BATCH_SIZE), ...uniqueSerendipity.slice(0, serendipityCount)].filter(Boolean), nowSeen = Date.now(), stories = storyHistory(), storyKeys = new Set(stories.flatMap(entry => [entry.id, ...(entry.keys || [])]).filter(Boolean)); visible.filter(item => item.format !== "joy").forEach(item => { const keys = identityKeys(item), id = itemKey(item); if (!id || keys.some(key => storyKeys.has(key)) || storyKeys.has(id)) return; stories.push({id,keys,ts:nowSeen}); storyKeys.add(id); keys.forEach(key => storyKeys.add(key)); }); localStorage.setItem(STORY_HISTORY_KEY, JSON.stringify(stories.slice(-STORY_HISTORY_LIMIT))); const media = recentHistory("betterStartReaderMediaHistory"), mediaIds = new Set(media.map(entry => entry.id)); visible.filter(item => item.videoId && !mediaIds.has(item.videoId)).forEach(item => media.push({id: item.videoId, ts: nowSeen})); localStorage.setItem("betterStartReaderMediaHistory", JSON.stringify(media.slice(-300))); const joy = recentHistory("betterStartReaderJoyHistory"), joyIds = new Set(joy.map(entry => entry.signature)); visible.filter(item => item.signature && !joyIds.has(item.signature)).forEach(item => joy.push({signature: item.signature, ts:nowSeen})); localStorage.setItem("betterStartReaderJoyHistory", JSON.stringify(joy.slice(-300))); }, [data, wall, batches, uniqueSerendipity, serendipityCount]);
   const rate = (item, action) => { const ratings = JSON.parse(localStorage.getItem("betterStartReaderFeedback") || "[]"); ratings.push({url: item.url, title: item.title, source: item.source, action, ts: Date.now()}); localStorage.setItem("betterStartReaderFeedback", JSON.stringify(ratings.slice(-250))); };
   const toggleSave = item => setSaved(current => { const exists = current.some(savedItem => itemKey(savedItem) === itemKey(item)), next = exists ? current.filter(savedItem => itemKey(savedItem) !== itemKey(item)) : [{...item, savedAt: Date.now()}, ...current]; localStorage.setItem("betterStartReaderSaved", JSON.stringify(next.slice(0, 200))); return next.slice(0, 200); });
   const share = async item => { const text = `I found this on Meanwhile — rage-free news, information and good times.\n\n${item.title}`, params = new URLSearchParams({u: item.url, t: item.title, s: item.source || "", c: item.section || ""}); if (item.image) params.set("i", item.image); const shareUrl = `${location.origin}/share?${params}`; try { if (navigator.share) await navigator.share({title: `${item.title} — Meanwhile`, text, url: shareUrl}); else { await navigator.clipboard.writeText(`${text}\n${shareUrl}`); setEditionNote("Branded share link copied"); } } catch {} };
+  const loadMoreSerendipity = async () => {
+    if (serendipityLoading) return;
+    if (serendipityCount < uniqueSerendipity.length) { setSerendipityCount(count => count + SERENDIPITY_BATCH_SIZE); return; }
+    setSerendipityLoading(true); setEditionNote("Finding another worthwhile detour");
+    try {
+      const mediaHistory = recentHistory("betterStartReaderMediaHistory"), priorStories = storyHistory();
+      const currentItems = [...(data?.tickerStories || []), data?.goodNews, ...(data?.favorites || []), ...(data?.important || []), ...(data?.gallery || []), ...(data?.media || []), ...(data?.serendipity || [])].filter(Boolean);
+      const avoid = [...new Set(mediaHistory.map(entry => entry.id))].slice(-120).join(",");
+      const currentStoryKeys = currentItems.flatMap(item => [itemKey(item), ...identityKeys(item)]);
+      const avoidStories = [...new Set([...priorStories.flatMap(entry => [entry.id, ...(entry.keys || [])]), ...currentStoryKeys].map(stableHash))].slice(-900).join(",");
+      const places = savedPlaces(), profileTerms = profile ? [...(profile.broadInterests || []), ...(profile.specificInterests || []), ...(profile.details || []), ...(profile.anythingElse || [])].slice(0, 48).join("|") : "";
+      const visit = `surprise-${Date.now()}-${Math.random()}`;
+      const next = await (await fetch(`/api/feed?visit=${encodeURIComponent(visit)}&avoid=${encodeURIComponent(avoid)}&avoidStories=${encodeURIComponent(avoidStories)}&places=${encodeURIComponent(places)}&interests=${encodeURIComponent(profileTerms)}`, {cache:"no-store"})).json();
+      const fresh = filterEditionGlobally(next);
+      setData(previous => ({...previous, serendipity: stampNew([...(previous?.serendipity || []), ...(fresh?.serendipity || [])])}));
+      setSerendipityCount(count => count + SERENDIPITY_BATCH_SIZE); setEditionNote("A fresh detour arrived");
+    } catch { setEditionNote("Couldn’t fetch another detour just yet"); }
+    finally { setSerendipityLoading(false); }
+  };
   const savedKeys = useMemo(() => new Set(saved.map(itemKey)), [saved]);
   const clearProfile = () => { localStorage.removeItem(PROFILE_KEY); location.href = "/"; };
   const identityClass = `identity-${data?.editorialIdentity?.id || "general"}`;
@@ -277,7 +319,7 @@ export default function Home() {
     </section>
 
     <section className="important"><div className="importantIntro"><span>Worth knowing</span><h2>Good News With Consequence</h2><p>A small, calm briefing about discoveries, progress and people making things better.</p></div><div className="importantGrid">{(data?.important || []).map((item, index) => <Story item={item} index={index} paletteIndex={1000 + index} palette={palette} onRate={rate} onSave={toggleSave} onShare={share} saved={savedKeys.has(itemKey(item))} key={item.canonicalUrl} />)}</div></section>
-    {!!uniqueSerendipity.length && <section className="serendipity"><div className="sectionHead"><div><span>One more magazine underneath</span><h2>You Didn&apos;t Ask For This…</h2></div><p>Worth the detour</p></div><div className="serendipityWall">{Array.from({length: Math.ceil(Math.min(serendipityCount, uniqueSerendipity.length) / 10)}, (_, clusterIndex) => { const cluster = arrangeForFrames(uniqueSerendipity.slice(clusterIndex * 10, Math.min(serendipityCount, (clusterIndex + 1) * 10))), variant = (clusterIndex + 1) % 3; return <div className={`tetrisCluster clusterVariant-${variant} clusterCount-${cluster.length} ${cluster.length <= 5 ? "partialCluster" : ""}`} key={clusterIndex}>{cluster.map((item, index) => { const absoluteIndex = clusterIndex * 10 + index; return <Story item={item} index={absoluteIndex} paletteIndex={2000 + absoluteIndex} palette={palette} onRate={rate} onSave={toggleSave} onShare={share} saved={savedKeys.has(itemKey(item))} key={item.canonicalUrl} />; })}</div>; })}</div>{serendipityCount < uniqueSerendipity.length && <div className="loadWrap"><button className="loadBtn surpriseBtn" onClick={() => setSerendipityCount(count => count + SERENDIPITY_BATCH_SIZE)}>Add More Stuff I Didn&apos;t Ask For<span>↓</span></button></div>}</section>}
+    {!!uniqueSerendipity.length && <section className="serendipity"><div className="sectionHead"><div><span>One more magazine underneath</span><h2>You Didn&apos;t Ask For This…</h2></div><p>Worth the detour</p></div><div className="serendipityWall">{Array.from({length: Math.ceil(Math.min(serendipityCount, uniqueSerendipity.length) / 10)}, (_, clusterIndex) => { const cluster = arrangeForFrames(uniqueSerendipity.slice(clusterIndex * 10, Math.min(serendipityCount, (clusterIndex + 1) * 10))), variant = (clusterIndex + 1) % 3; return <div className={`tetrisCluster clusterVariant-${variant} clusterCount-${cluster.length} ${cluster.length <= 5 ? "partialCluster" : ""}`} key={clusterIndex}>{cluster.map((item, index) => { const absoluteIndex = clusterIndex * 10 + index; return <Story item={item} index={absoluteIndex} paletteIndex={2000 + absoluteIndex} palette={palette} onRate={rate} onSave={toggleSave} onShare={share} saved={savedKeys.has(itemKey(item))} key={item.canonicalUrl} />; })}</div>; })}</div><div className="loadWrap"><button className="loadBtn surpriseBtn" onClick={loadMoreSerendipity} disabled={serendipityLoading}>{serendipityLoading ? "Finding More Good Stuff…" : "Add More Stuff I Didn’t Ask For"}<span>↓</span></button></div></section>}
     <footer><b>MEANWHILE</b><span>Good things worth knowing · No outrage required</span></footer>
   </main>;
 }
