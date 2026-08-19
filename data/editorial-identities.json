@@ -1,0 +1,74 @@
+{
+  "fashion": {
+    "label": "Fashion, Image + Culture",
+    "packs": ["fashion-style", "women-culture"],
+    "signals": ["fashion", "runway", "couture", "style", "costume", "wardrobe", "designer", "supermodel", "vogue", "bergdorf", "bon marche", "women writers"],
+    "references": ["System", "AnOther", "The Gentlewoman", "Kinfolk", "i-D", "Dazed", "Vogue Italia", "Document Journal", "Vestoj", "SHOWstudio", "1 Granary", "HommeGirls"],
+    "accent": "cobalt",
+    "imageTarget": 0.7
+  },
+  "sports": {
+    "label": "The Sporting Life",
+    "packs": ["sports", "wellbeing"],
+    "signals": ["sports", "team", "baseball", "basketball", "football", "soccer", "tennis", "running", "cycling", "golf"],
+    "references": ["ESPN", "The Athletic", "Sports Illustrated", "The Players' Tribune", "SLAM", "The GIST", "Defector", "Baseball America", "Runner's World"],
+    "accent": "scoreboard",
+    "imageTarget": 0.58
+  },
+  "business": {
+    "label": "Business, Ideas + Good Living",
+    "packs": ["business-culture", "philanthropy-community"],
+    "signals": ["business", "finance", "markets", "money", "founder", "company", "entrepreneur", "urbanism", "philanthropy", "money put to good use", "community foundation"],
+    "references": ["Monocle", "Financial Times Weekend", "Bloomberg Businessweek", "Fast Company", "Morningstar", "A Wealth of Common Sense", "Huddle Up"],
+    "accent": "ledger",
+    "imageTarget": 0.48
+  },
+  "outdoors": {
+    "label": "Outside + In The Field",
+    "packs": ["outdoors", "wellbeing"],
+    "signals": ["outdoors", "hiking", "nature", "wildlife", "camping", "climbing", "skiing", "surfing", "birding", "conservation"],
+    "references": ["Adventure Journal", "Field Mag", "Mountain Gazette", "Sidetracked", "Outside", "bioGraphic", "Orion", "Alpinist", "The Surfer's Journal"],
+    "accent": "field",
+    "imageTarget": 0.65
+  },
+  "food": {
+    "label": "Food, Tables + Places",
+    "packs": ["food-travel"],
+    "signals": ["food", "restaurant", "cooking", "recipe", "coffee", "wine", "baking", "dining", "chef", "travel"],
+    "references": ["Saveur", "Food & Wine", "Eater", "The Infatuation", "Serious Eats", "Cherry Bombe", "Whetstone", "Life & Thyme", "Sprudge"],
+    "accent": "saffron",
+    "imageTarget": 0.65
+  },
+  "arts": {
+    "label": "Art, Performance + Image",
+    "packs": ["arts-culture", "books-history"],
+    "signals": ["art", "museum", "painting", "photography", "theater", "dance", "opera", "performance", "film", "design"],
+    "references": ["Frieze", "Artforum", "Aperture", "BOMB", "The Brooklyn Rail", "Colossal", "It's Nice That", "American Theatre", "Dance Magazine"],
+    "accent": "gallery",
+    "imageTarget": 0.62
+  },
+  "science": {
+    "label": "Science, Nature + How Things Work",
+    "packs": ["science-tech"],
+    "signals": ["science", "space", "astronomy", "engineering", "technology", "nature", "research", "invention"],
+    "references": ["Quanta", "Nautilus", "Knowable", "Scientific American", "Science News", "NASA", "MIT Technology Review", "New Scientist"],
+    "accent": "laboratory",
+    "imageTarget": 0.55
+  },
+  "making": {
+    "label": "Making, Machines + Craft",
+    "packs": ["making-garden", "cars-boats"],
+    "signals": ["making", "diy", "craft", "repair", "garden", "cars", "automotive", "boats", "sailing", "watches", "music gear", "synth"],
+    "references": ["MAKE", "Gardenista", "Road & Track", "Hagerty", "Petrolicious", "Hodinkee", "Worn & Wound", "Tape Op", "Sound on Sound", "Synthtopia"],
+    "accent": "workshop",
+    "imageTarget": 0.58
+  },
+  "books": {
+    "label": "Books, Writers + Ideas",
+    "packs": ["books-history", "women-culture"],
+    "signals": ["books", "read", "fiction", "novelist", "author", "poetry", "essays", "history", "women writers"],
+    "references": ["Literary Hub", "The Paris Review", "New York Review of Books", "Bookforum", "The Millions", "London Review of Books"],
+    "accent": "library",
+    "imageTarget": 0.45
+  }
+}

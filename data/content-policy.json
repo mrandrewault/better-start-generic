@@ -31,9 +31,15 @@
   ],
   "unwanted_products": [
     "android phone", "google pixel", "pixel phone", "samsung galaxy", "samsung phone",
-    "dell computer", "windows pc", "chromebook", "microsoft surface"
+    "dell computer", "windows pc", "chromebook", "microsoft surface",
+    "jeff bezos", "amazon.com", "amazon founder", "amazon workers", "amazon warehouse", "amazon prime"
   ],
   "unwanted_sports_and_gambling": [
     "ufc", "mma", "sports betting", "online betting", "gambling", "sportsbook"
+  ],
+  "public_space_safety": [
+    "porn", "pornography", "pornographic", "nsfw", "nudity", "nude", "naked", "topless",
+    "full frontal", "genitals", "genital", "penis", "vulva", "vagina", "erotic", "erotica",
+    "sexually explicit", "adult content", "figure study", "boudoir"
   ]
 }

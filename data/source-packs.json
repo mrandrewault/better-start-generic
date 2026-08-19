@@ -1,0 +1,181 @@
+[
+  {
+    "id":"sports",
+    "label":"The Sporting Life",
+    "signals":["sports","team","football","baseball","basketball","soccer","tennis","fantasy","fitness","running","cycling"],
+    "sources":[
+      {"name":"ESPN Features","url":"https://www.espn.com/espn/rss/news","section":"SPORTS + PLAY","quality":8},
+      {"name":"Baseball Culture","url":"https://news.google.com/rss/search?q=baseball+MLB+ballpark+history+community+inspiring+-politics+-betting&hl=en-US&gl=US&ceid=US:en","section":"BASEBALL","quality":9},
+      {"name":"Tennis Life","url":"https://news.google.com/rss/search?q=tennis+US+Open+player+comeback+community+inspiring+-politics+-betting&hl=en-US&gl=US&ceid=US:en","section":"TENNIS","quality":9},
+      {"name":"Beautiful Game","url":"https://news.google.com/rss/search?q=soccer+football+club+community+academy+inspiring+-politics+-betting&hl=en-US&gl=US&ceid=US:en","section":"SPORTS + PLAY","quality":8},
+      {"name":"Sports History","url":"https://news.google.com/rss/search?q=sports+history+archive+anniversary+museum+legend+-politics&hl=en-US&gl=US&ceid=US:en","section":"SPORTS HISTORY","quality":8}
+    ]
+  },
+  {
+    "id":"business-culture",
+    "label":"Business, Ideas + Good Living",
+    "signals":["business","money","markets","finance","company","entrepreneur","real estate","hospitality","aviation","urbanism"],
+    "sources":[
+      {"name":"Monocle Business + Culture","url":"https://news.google.com/rss/search?q=site%3Amonocle.com+business+entrepreneurship+design+city+hospitality+-politics+-war&hl=en-US&gl=US&ceid=US:en","section":"BUSINESS + CULTURE","quality":10},
+      {"name":"Thoughtful Companies","url":"https://news.google.com/rss/search?q=company+profile+thoughtful+founder+craft+manufacturing+design+-politics&hl=en-US&gl=US&ceid=US:en","section":"BUSINESS + IDEAS","quality":9},
+      {"name":"Small Business Bright Spots","url":"https://news.google.com/rss/search?q=small+business+community+success+family+business+anniversary+-politics&hl=en-US&gl=US&ceid=US:en","section":"BUSINESS + PEOPLE","quality":9},
+      {"name":"Useful Money","url":"https://news.google.com/rss/search?q=personal+finance+useful+guide+saving+retirement+explainer+-politics+-crash&hl=en-US&gl=US&ceid=US:en","section":"MONEY + LIFE","quality":8},
+      {"name":"Better Cities","url":"https://news.google.com/rss/search?q=urbanism+public+space+main+street+revitalization+design+opens+-politics&hl=en-US&gl=US&ceid=US:en","section":"CITIES + DESIGN","quality":9}
+    ]
+  },
+  {
+    "id":"fashion-style",
+    "label":"Fashion, Image + Style",
+    "signals":["fashion","style","sneakers","menswear","womenswear","vintage clothing","watch","independent designers","runway","couture","costume design","supermodels","luxury","cosmetics","missoni","pucci","oscar de la renta"],
+    "sources":[
+      {"name":"Vogue Runway","url":"https://news.google.com/rss/search?q=site%3Avogue.com%2Ffashion-shows+runway+collection+designer+couture+-politics&hl=en-US&gl=US&ceid=US:en","section":"FASHION + STYLE","quality":10},
+      {"name":"Vogue France + Italia","url":"https://news.google.com/rss/search?q=%28site%3Avogue.fr+OR+site%3Avogue.it%29+fashion+designer+atelier+runway+-politics&hl=en-US&gl=US&ceid=US:en","section":"INTERNATIONAL FASHION","quality":10},
+      {"name":"The Fashion Image","url":"https://news.google.com/rss/search?q=fashion+photographer+editorial+archive+exhibition+portrait+-politics&hl=en-US&gl=US&ceid=US:en","section":"FASHION + PHOTOGRAPHY","quality":10},
+      {"name":"Costume Department","url":"https://news.google.com/rss/search?q=costume+designer+television+film+wardrobe+interview+-politics&hl=en-US&gl=US&ceid=US:en","section":"COSTUME + SCREEN","quality":10},
+      {"name":"Fashion Archives","url":"https://news.google.com/rss/search?q=1990s+fashion+supermodel+archive+vintage+designer+exhibition+-politics&hl=en-US&gl=US&ceid=US:en","section":"FASHION HISTORY","quality":9},
+      {"name":"Italian Houses","url":"https://news.google.com/rss/search?q=Missoni+Pucci+Versace+Prada+Italian+fashion+archive+collection+-politics&hl=en-US&gl=US&ceid=US:en","section":"ITALIAN STYLE","quality":10},
+      {"name":"AnOther Magazine","url":"https://news.google.com/rss/search?q=site%3Aanothermag.com+fashion+designer+photographer+beauty+costume+-politics&hl=en-US&gl=US&ceid=US:en","section":"FASHION + CULTURE","quality":11},
+      {"name":"The Gentlewoman","url":"https://news.google.com/rss/search?q=site%3Athegentlewoman.co.uk+profile+fashion+artist+designer+-politics&hl=en-US&gl=US&ceid=US:en","section":"WOMEN + STYLE","quality":11},
+      {"name":"System Magazine","url":"https://news.google.com/rss/search?q=site%3Asystem-magazine.com+designer+fashion+conversation+image-maker+-politics&hl=en-US&gl=US&ceid=US:en","section":"FASHION INSIDE","quality":11},
+      {"name":"Acne Paper","url":"https://news.google.com/rss/search?q=site%3Aacnepaper.com+fashion+photography+art+literature+archive+-politics&hl=en-US&gl=US&ceid=US:en","section":"FASHION + IMAGE","quality":11},
+      {"name":"1 Granary","url":"https://news.google.com/rss/search?q=site%3A1granary.com+designer+graduate+fashion+school+collection+-politics&hl=en-US&gl=US&ceid=US:en","section":"FASHION’S NEXT","quality":11},
+      {"name":"Vestoj","url":"https://news.google.com/rss/search?q=site%3Avestoj.com+clothing+identity+fashion+essay+history+-politics&hl=en-US&gl=US&ceid=US:en","section":"FASHION + IDEAS","quality":10},
+      {"name":"The Impression","url":"https://news.google.com/rss/search?q=site%3Atheimpression.com+fashion+campaign+runway+creative+director+-politics&hl=en-US&gl=US&ceid=US:en","section":"RUNWAY + CAMPAIGNS","quality":10},
+      {"name":"SHOWstudio","url":"https://news.google.com/rss/search?q=site%3Ashowstudio.com+fashion+film+designer+interview+collection+-politics&hl=en-US&gl=US&ceid=US:en","section":"FASHION + FILM","quality":10},
+      {"name":"Independent Magazine Shelf","url":"https://news.google.com/rss/search?q=%28Apartamento+OR+Family+Style+OR+Kinfolk+OR+Purple+Magazine+OR+Document+Journal%29+fashion+photography+design+-politics&hl=en-US&gl=US&ceid=US:en","section":"MAGAZINES + STYLE","quality":10},
+      {"name":"Independent Style","url":"https://news.google.com/rss/search?q=independent+fashion+designer+studio+craft+collection+-politics&hl=en-US&gl=US&ceid=US:en","section":"FASHION + STYLE","quality":9},
+      {"name":"Menswear Details","url":"https://news.google.com/rss/search?q=menswear+tailoring+workwear+style+history+craft+-politics&hl=en-US&gl=US&ceid=US:en","section":"STYLE + CRAFT","quality":8},
+      {"name":"Sneaker Design","url":"https://news.google.com/rss/search?q=sneaker+design+archive+collaboration+new+release+-politics&hl=en-US&gl=US&ceid=US:en","section":"STYLE + DESIGN","quality":8},
+      {"name":"Watchmakers","url":"https://news.google.com/rss/search?q=watchmaking+independent+watchmaker+design+craft+new+-politics&hl=en-US&gl=US&ceid=US:en","section":"STYLE + CRAFT","quality":8}
+    ]
+  },
+  {
+    "id":"women-culture",
+    "label":"Women, Culture + Modern Life",
+    "signals":["women","women's sports","wnba","women's tennis","women's running","pilates","wellness retreats","cosmetics","beauty","women leaders","women writers","ann patchett","costume design","womenswear","supermodels"],
+    "sources":[
+      {"name":"Women Who Lead","url":"https://news.google.com/rss/search?q=women+leader+founder+designer+scientist+author+profile+achievement+-politics&hl=en-US&gl=US&ceid=US:en","section":"WOMEN + IDEAS","quality":10},
+      {"name":"Women’s Sports","url":"https://news.google.com/rss/search?q=%28WNBA+OR+women%27s+tennis+OR+women%27s+soccer%29+player+profile+achievement+community+-politics+-betting&hl=en-US&gl=US&ceid=US:en","section":"WOMEN’S SPORTS","quality":10},
+      {"name":"WTA Tennis","url":"https://news.google.com/rss/search?q=site%3Awtatennis.com%2Fnews+player+feature+comeback+champion+US+Open+-politics&hl=en-US&gl=US&ceid=US:en","section":"WOMEN’S TENNIS","quality":10},
+      {"name":"Women’s Running","url":"https://news.google.com/rss/search?q=%28site%3Awomensrunning.com+OR+site%3Awomensrunning.co.uk%29+running+training+joy+profile+-politics&hl=en-US&gl=US&ceid=US:en","section":"RUNNING + WELLBEING","quality":9},
+      {"name":"Pilates + Movement","url":"https://news.google.com/rss/search?q=pilates+movement+studio+teacher+wellbeing+retreat+-politics&hl=en-US&gl=US&ceid=US:en","section":"PILATES + WELLBEING","quality":9},
+      {"name":"Beauty as Craft","url":"https://news.google.com/rss/search?q=cosmetics+beauty+founder+formulation+design+history+craft+-politics&hl=en-US&gl=US&ceid=US:en","section":"BEAUTY + CRAFT","quality":9},
+      {"name":"Women Writers","url":"https://news.google.com/rss/search?q=%28Margaret+Atwood+OR+Chimamanda+Ngozi+Adichie+OR+Zadie+Smith+OR+Elena+Ferrante+OR+Sally+Rooney+OR+Barbara+Kingsolver%29+author+book+interview+-politics&hl=en-US&gl=US&ceid=US:en","section":"BOOKS + PEOPLE","quality":11},
+      {"name":"Women’s Bookshelf","url":"https://news.google.com/rss/search?q=%28Elin+Hilderbrand+OR+Ann+Patchett+OR+Donna+Tartt+OR+Jhumpa+Lahiri+OR+Celeste+Ng+OR+Elizabeth+Strout%29+book+author+interview+-politics&hl=en-US&gl=US&ceid=US:en","section":"WOMEN + BOOKS","quality":11},
+      {"name":"International Women Writers","url":"https://news.google.com/rss/search?q=%28Han+Kang+OR+Claire+Keegan+OR+Maggie+O%27Farrell+OR+Edwidge+Danticat+OR+Rachel+Cusk+OR+Banana+Yoshimoto+OR+Sayaka+Murata%29+book+interview+-politics&hl=en-US&gl=US&ceid=US:en","section":"BOOKS + WORLD","quality":11},
+      {"name":"Edge Voices","url":"https://news.google.com/rss/search?q=%28Ottessa+Moshfegh+OR+Rachel+Kushner+OR+Carmen+Maria+Machado+OR+Ling+Ma+OR+Sigrid+Nunez+OR+Taffy+Brodesser-Akner%29+author+interview+-politics&hl=en-US&gl=US&ceid=US:en","section":"FICTION + IDEAS","quality":10},
+      {"name":"Essays + Public Minds","url":"https://news.google.com/rss/search?q=%28Claudia+Rankine+OR+Roxane+Gay+OR+Rebecca+Solnit+OR+Maggie+Nelson+OR+Leslie+Jamison+OR+Natasha+Trethewey%29+essay+author+interview+-politics&hl=en-US&gl=US&ceid=US:en","section":"ESSAYS + IDEAS","quality":10},
+      {"name":"Speculative Women","url":"https://news.google.com/rss/search?q=%28N.K.+Jemisin+OR+Susanna+Clarke+OR+Martha+Wells+OR+Naomi+Alderman+OR+V.E.+Schwab+OR+Nnedi+Okorafor+OR+Leigh+Bardugo%29+book+author+-politics&hl=en-US&gl=US&ceid=US:en","section":"SPECULATIVE + BOOKS","quality":10},
+      {"name":"The Reading Edit","url":"https://news.google.com/rss/search?q=%28Reese%27s+Book+Club+OR+Read+with+Jenna+OR+Service95+Book+Club%29+new+pick+author+-politics&hl=en-US&gl=US&ceid=US:en","section":"BOOK CLUB + CULTURE","quality":9},
+      {"name":"Women in the Arts","url":"https://news.google.com/rss/search?q=woman+artist+photographer+architect+designer+exhibition+retrospective+-politics&hl=en-US&gl=US&ceid=US:en","section":"WOMEN + ARTS","quality":10}
+    ]
+  },
+  {
+    "id":"books-history",
+    "label":"Books, History + Archives",
+    "signals":["books","read","fiction","history","essays","biography","poetry","magazine","museum","archive","archaeology"],
+    "sources":[
+      {"name":"Literary Hub","url":"https://lithub.com/feed/","section":"BOOKS + IDEAS","quality":9},
+      {"name":"JSTOR Daily","url":"https://daily.jstor.org/feed/","section":"HISTORY + IDEAS","quality":9},
+      {"name":"Smithsonian Stories","url":"https://news.google.com/rss/search?q=site%3Asmithsonianmag.com+history+discovery+archive+museum+-politics+-war&hl=en-US&gl=US&ceid=US:en","section":"HISTORY + WONDER","quality":9},
+      {"name":"Independent Bookshops","url":"https://news.google.com/rss/search?q=independent+bookstore+opens+community+author+festival+-politics&hl=en-US&gl=US&ceid=US:en","section":"BOOKS + COMMUNITY","quality":9},
+      {"name":"Beautiful Archives","url":"https://news.google.com/rss/search?q=archive+restored+digitized+collection+library+discovery+-politics+-war&hl=en-US&gl=US&ceid=US:en","section":"HISTORY + WONDER","quality":8}
+    ]
+  },
+  {
+    "id":"wellbeing",
+    "label":"Movement + Wellbeing",
+    "signals":["yoga","wellbeing","health","fitness","running","cycling","mobility","nutrition","healthy aging","active"],
+    "sources":[
+      {"name":"Yoga Practice","url":"https://news.google.com/rss/search?q=site%3Ayogajournal.com+yoga+practice+mobility+wellbeing+-politics&hl=en-US&gl=US&ceid=US:en","section":"MOVEMENT + WELLBEING","quality":9},
+      {"name":"Movement Science","url":"https://news.google.com/rss/search?q=movement+mobility+exercise+research+benefits+healthy+aging+-politics&hl=en-US&gl=US&ceid=US:en","section":"FITNESS + WELLBEING","quality":9},
+      {"name":"Running Joy","url":"https://news.google.com/rss/search?q=running+community+inspiring+trail+runner+achievement+-politics&hl=en-US&gl=US&ceid=US:en","section":"MOVEMENT + PEOPLE","quality":8},
+      {"name":"Everyday Strength","url":"https://news.google.com/rss/search?q=strength+balance+mobility+useful+guide+research+-politics&hl=en-US&gl=US&ceid=US:en","section":"FITNESS + WELLBEING","quality":8}
+    ]
+  },
+  {
+    "id":"making-garden",
+    "label":"Making, Fixing + Growing",
+    "signals":["making","fixing","woodworking","ceramics","repair","tools","home","garden","plants","diy","craft"],
+    "sources":[
+      {"name":"MAKE","url":"https://makezine.com/feed/","section":"MAKING + DIY","quality":9},
+      {"name":"Gardenista","url":"https://www.gardenista.com/feed/","section":"GARDENS + DESIGN","quality":9},
+      {"name":"Workshop Stories","url":"https://news.google.com/rss/search?q=woodworking+workshop+craftsperson+restoration+beautiful+project+-politics&hl=en-US&gl=US&ceid=US:en","section":"MAKING + CRAFT","quality":9},
+      {"name":"Repair Is Beautiful","url":"https://news.google.com/rss/search?q=repair+restoration+reuse+workshop+community+craft+-politics&hl=en-US&gl=US&ceid=US:en","section":"MAKING + CRAFT","quality":8},
+      {"name":"Garden Discoveries","url":"https://news.google.com/rss/search?q=garden+horticulture+botanical+native+plants+opens+beautiful+-politics&hl=en-US&gl=US&ceid=US:en","section":"GARDENS + NATURE","quality":9}
+    ]
+  },
+  {
+    "id":"cars-boats",
+    "label":"Cars, Boats + Beautiful Machines",
+    "signals":["cars","automotive","motorcycles","boat","boats","sailing","yacht","maritime","transportation","trains","aviation"],
+    "sources":[
+      {"name":"Hagerty Culture","url":"https://news.google.com/rss/search?q=site%3Ahagerty.com+classic+car+restoration+design+history+-crash+-politics&hl=en-US&gl=US&ceid=US:en","section":"CARS + CULTURE","quality":9},
+      {"name":"Automotive Design","url":"https://news.google.com/rss/search?q=automotive+design+concept+car+restoration+classic+beautiful+-crash+-politics&hl=en-US&gl=US&ceid=US:en","section":"CARS + DESIGN","quality":9},
+      {"name":"Sailing Life","url":"https://news.google.com/rss/search?q=sailing+sailboat+cruising+restoration+maritime+beautiful+-politics&hl=en-US&gl=US&ceid=US:en","section":"SAILING + WATER","quality":9},
+      {"name":"Boatbuilding Craft","url":"https://news.google.com/rss/search?q=boatbuilding+wooden+boat+restoration+craft+launch+-politics&hl=en-US&gl=US&ceid=US:en","section":"BOATS + CRAFT","quality":9},
+      {"name":"Rail + Aviation","url":"https://news.google.com/rss/search?q=train+aviation+design+history+restoration+museum+-politics+-crash&hl=en-US&gl=US&ceid=US:en","section":"TRANSPORT + DESIGN","quality":8}
+    ]
+  },
+  {
+    "id":"outdoors",
+    "label":"Outside + In The Field",
+    "signals":["outdoors","hiking","camping","climbing","wildlife","nature","birding","skiing","surfing","national parks","conservation"],
+    "sources":[
+      {"name":"Adventure Journal","url":"https://news.google.com/rss/search?q=site%3Aadventure-journal.com+adventure+outdoors+photography+-politics&hl=en-US&gl=US&ceid=US:en","section":"OUTDOORS + CULTURE","quality":11},
+      {"name":"Field Mag","url":"https://news.google.com/rss/search?q=site%3Afieldmag.com+hiking+outdoors+cabin+photography+-politics&hl=en-US&gl=US&ceid=US:en","section":"FIELD + DESIGN","quality":11},
+      {"name":"Mountain Gazette","url":"https://news.google.com/rss/search?q=site%3Amountaingazette.com+mountain+ski+culture+photography+-politics&hl=en-US&gl=US&ceid=US:en","section":"MOUNTAIN + CULTURE","quality":10},
+      {"name":"bioGraphic","url":"https://news.google.com/rss/search?q=site%3Abiographic.com+wildlife+conservation+discovery+-politics&hl=en-US&gl=US&ceid=US:en","section":"NATURE + CONSERVATION","quality":11},
+      {"name":"Orion","url":"https://news.google.com/rss/search?q=site%3Aorionmagazine.org+nature+essay+place+-politics&hl=en-US&gl=US&ceid=US:en","section":"NATURE + IDEAS","quality":10}
+    ]
+  },
+  {
+    "id":"food-travel",
+    "label":"Food, Tables + Places",
+    "signals":["food","restaurant","cooking","recipe","chef","coffee","wine","travel","hotels","somewhere good to eat"],
+    "sources":[
+      {"name":"Saveur","url":"https://news.google.com/rss/search?q=site%3Asaveur.com+food+recipe+travel+tradition+-politics&hl=en-US&gl=US&ceid=US:en","section":"FOOD + CULTURE","quality":11},
+      {"name":"Eater","url":"https://www.eater.com/rss/index.xml","section":"FOOD + TRAVEL","quality":10},
+      {"name":"Serious Eats","url":"https://news.google.com/rss/search?q=site%3Aseriouseats.com+recipe+technique+food+-politics&hl=en-US&gl=US&ceid=US:en","section":"COOKING + HOW","quality":10},
+      {"name":"Cherry Bombe","url":"https://news.google.com/rss/search?q=site%3Acherrybombe.com+chef+food+women+interview+-politics&hl=en-US&gl=US&ceid=US:en","section":"FOOD + PEOPLE","quality":10},
+      {"name":"Culinary Backstreets","url":"https://news.google.com/rss/search?q=site%3Aculinarybackstreets.com+food+neighborhood+travel+-politics&hl=en-US&gl=US&ceid=US:en","section":"FOOD + PLACES","quality":11},
+      {"name":"AFAR","url":"https://news.google.com/rss/search?q=site%3Aafar.com+travel+culture+hotel+food+-politics&hl=en-US&gl=US&ceid=US:en","section":"TRAVEL + CULTURE","quality":10}
+    ]
+  },
+  {
+    "id":"arts-culture",
+    "label":"Art, Performance + Image",
+    "signals":["art","museum","painting","photography","theater","dance","opera","performance","graphic design","creative"],
+    "sources":[
+      {"name":"Frieze","url":"https://news.google.com/rss/search?q=site%3Afrieze.com+artist+exhibition+museum+-politics&hl=en-US&gl=US&ceid=US:en","section":"ART + IDEAS","quality":11},
+      {"name":"Aperture","url":"https://news.google.com/rss/search?q=site%3Aaperture.org+photography+photographer+book+exhibition+-politics&hl=en-US&gl=US&ceid=US:en","section":"PHOTOGRAPHY","quality":11},
+      {"name":"Colossal","url":"https://www.thisiscolossal.com/feed/","section":"ART + DESIGN","quality":10},
+      {"name":"BOMB Magazine","url":"https://news.google.com/rss/search?q=site%3Abombmagazine.org+artist+interview+studio+-politics&hl=en-US&gl=US&ceid=US:en","section":"ARTISTS + VOICES","quality":10},
+      {"name":"Performing Arts","url":"https://news.google.com/rss/search?q=%28site%3Aplaybill.com+OR+site%3Adancemagazine.com+OR+site%3Aoperawire.com%29+performance+artist+new+-politics&hl=en-US&gl=US&ceid=US:en","section":"PERFORMING ARTS","quality":10}
+    ]
+  },
+  {
+    "id":"science-tech",
+    "label":"Science, Nature + How Things Work",
+    "signals":["science","how things work","technology","engineering","space","astronomy","research","invention"],
+    "sources":[
+      {"name":"Quanta","url":"https://api.quantamagazine.org/feed/","section":"SCIENCE + IDEAS","quality":11},
+      {"name":"Nautilus","url":"https://nautil.us/feed/","section":"SCIENCE + CULTURE","quality":11},
+      {"name":"Knowable","url":"https://knowablemagazine.org/rss","section":"SCIENCE + EXPLAINED","quality":10},
+      {"name":"NASA","url":"https://www.nasa.gov/rss/dyn/breaking_news.rss","section":"SCIENCE + NATURE","quality":11},
+      {"name":"MIT Technology Review","url":"https://news.google.com/rss/search?q=site%3Atechnologyreview.com+innovation+science+design+-politics&hl=en-US&gl=US&ceid=US:en","section":"TECHNOLOGY + IDEAS","quality":10}
+    ]
+  },
+  {
+    "id":"philanthropy-community",
+    "label":"Philanthropy + Community",
+    "signals":["philanthropy","giving","donation","community foundation","scholarship","arts access","libraries + schools","money put to good use","mackenzie scott","public spaces"],
+    "sources":[
+      {"name":"Giving With Results","url":"https://news.google.com/rss/search?q=%28philanthropy+OR+donation%29+community+impact+library+school+housing+food+access+-politics+-amazon+-bezos&hl=en-US&gl=US&ceid=US:en","section":"GIVING + COMMUNITY","quality":11},
+      {"name":"MacKenzie Scott Giving","url":"https://news.google.com/rss/search?q=%22MacKenzie+Scott%22+donation+nonprofit+community+impact+-politics+-Amazon+-Bezos&hl=en-US&gl=US&ceid=US:en","section":"PHILANTHROPY + PEOPLE","quality":11},
+      {"name":"Libraries + Learning","url":"https://news.google.com/rss/search?q=donation+opens+library+scholarship+arts+education+community+-politics&hl=en-US&gl=US&ceid=US:en","section":"LEARNING + ACCESS","quality":10},
+      {"name":"Community Foundations","url":"https://news.google.com/rss/search?q=community+foundation+grant+local+nonprofit+measurable+impact+-politics&hl=en-US&gl=US&ceid=US:en","section":"COMMUNITY + PROGRESS","quality":10},
+      {"name":"Public Good","url":"https://news.google.com/rss/search?q=philanthropic+gift+park+museum+hospital+housing+community+opens+-politics+-Amazon+-Bezos&hl=en-US&gl=US&ceid=US:en","section":"PUBLIC GOOD","quality":10}
+    ]
+  }
+]
