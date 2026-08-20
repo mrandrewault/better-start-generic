@@ -1,5 +1,6 @@
 "use client";
 import {useEffect, useLayoutEffect, useMemo, useRef, useState} from "react";
+import {EDITION_PALETTES, mastheadPalette} from "./palettes";
 
 const BATCH_SIZE = 25;
 const SERENDIPITY_BATCH_SIZE = 9;
@@ -9,22 +10,6 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const STORY_HISTORY_KEY = "betterStartReaderStoryHistory";
 const STORY_HISTORY_LIMIT = 5000;
 const PROFILE_KEY = "betterStartPersonalProfileV1";
-// One coordinated four-color family per visit. Each card gets a unique tint
-// or shade inside the active palette rather than jumping around the wheel.
-const EDITION_PALETTES = [
-  ["#C8DFDB","#EAEAEA","#F5F5F5","#4A6B65"], ["#FFCC4D","#FFF1B8","#F28C28","#6A3D12"],
-  ["#FFC349","#FF8D29","#FFF3C4","#274C77"], ["#FED24F","#F28F3B","#E15554","#3D405B"],
-  ["#DCE4C9","#A7C1A8","#6B8E6E","#F3E8D3"], ["#BDE0FE","#A2D2FF","#FFC8DD","#CDB4DB"],
-  ["#F6BD60","#F7EDE2","#84A59D","#F28482"], ["#E63946","#F1FAEE","#A8DADC","#457B9D"],
-  ["#264653","#2A9D8F","#E9C46A","#F4A261"], ["#582F0E","#936639","#A68A64","#B6AD90"],
-  ["#7400B8","#5E60CE","#48BFE3","#80FFDB"], ["#0B132B","#1C2541","#5BC0BE","#F2E9E4"],
-  ["#FF6B6B","#FFD93D","#6BCB77","#4D96FF"], ["#E07A5F","#F2CC8F","#81B29A","#3D405B"],
-  ["#355070","#6D597A","#B56576","#EAAC8B"], ["#003049","#D62828","#F77F00","#FCBF49"],
-  ["#2B2D42","#8D99AE","#EDF2F4","#EF233C"], ["#22577A","#38A3A5","#80ED99","#C7F9CC"],
-  ["#606C38","#283618","#DDA15E","#FEFAE0"], ["#03045E","#0077B6","#00B4D8","#CAF0F8"],
-  ["#F72585","#7209B7","#3A0CA3","#4CC9F0"], ["#386641","#6A994E","#A7C957","#F2E8CF"],
-  ["#F4F1DE","#E07A5F","#3D405B","#81B29A"], ["#FFADAD","#FFD6A5","#CAFFBF","#9BF6FF"]
-];
 const hexToHsl = hex => {
   const value = hex.replace("#", ""), r = parseInt(value.slice(0, 2), 16) / 255, g = parseInt(value.slice(2, 4), 16) / 255, b = parseInt(value.slice(4, 6), 16) / 255;
   const max = Math.max(r, g, b), min = Math.min(r, g, b), delta = max - min, lightness = (max + min) / 2;
@@ -302,7 +287,7 @@ export default function Home() {
   const savedKeys = useMemo(() => new Set(saved.map(itemKey)), [saved]);
   const clearProfile = () => { localStorage.removeItem(PROFILE_KEY); location.href = "/"; };
   const identityClass = `identity-${data?.editorialIdentity?.id || "general"}`;
-  const palette = EDITION_PALETTES[paletteIndex], paletteStyle = {"--palette-1":palette[0],"--palette-2":palette[1],"--palette-3":palette[2],"--palette-4":palette[3]};
+  const palette = EDITION_PALETTES[paletteIndex], masthead = mastheadPalette(palette), paletteStyle = {"--palette-1":palette[0],"--palette-2":palette[1],"--palette-3":palette[2],"--palette-4":palette[3],"--masthead-1":masthead[0],"--masthead-2":masthead[1],"--masthead-3":masthead[2]};
   const editionTitle = profile?.title?.replace(/^Meanwhile\s*[—-]\s*/i, "") || "Reader";
   return <main style={paletteStyle} className={`shell daypart-${daypart} ${identityClass}`} data-editorial-identity={data?.editorialIdentity?.label || "Meanwhile Reader"}>
     <header className="mast"><div className="mastIdentity"><div className="brand brandVignelli" aria-label="Meanwhile"><span aria-hidden="true">Meanwhile</span><span aria-hidden="true">Meanwhile</span><span aria-hidden="true">Meanwhile</span></div><div className="editionName">{editionTitle}</div><div className="edition">Rage-free news, discovery & good times</div></div><div className="mastTools"><a className="personalizeButton" href="/make-it-yours">{profile ? "Tune my edition" : "Make it yours"}</a>{profile && <button className="genericButton" onClick={clearProfile}>Generic Reader</button>}<button className="savedButton" onClick={() => setShowSaved(value => !value)}>Saved <b>{saved.length}</b></button><button className={`radio ${radio ? "radioOn" : ""}`} onClick={() => setRadio(!radio)} aria-label={`Meanwhile Radio ${radio ? "on" : "off"}`} title="Meanwhile Radio placeholder"><span>♪</span><small>{radio ? "ON" : "RADIO"}</small></button></div></header>

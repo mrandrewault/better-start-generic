@@ -1,4 +1,6 @@
-# Meanwhile 09 — Personalized Vignelli Edition
+# Meanwhile 10 — Personalized Color Hunt Edition
+
+This build adds Andrew's 40 deduplicated Color Hunt families in high rotation, plus eight new Meanwhile palettes inspired by them. Each reload advances the page and centered Vignelli masthead together. A contrast gate repairs overly pale or dark letter colors and introduces a harmonious accent when a palette is too narrow, keeping every **MEANWHILE** impression legible.
 
 This build keeps the complete generic Reader and four-step personalizer, while introducing the centered, overlapping Vignelli-inspired **Meanwhile** signature. Its three letter impressions are driven by the same four-color palette as the page, so every reload advances both the site and masthead together to a new coordinated palette.
 
