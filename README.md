@@ -1,8 +1,12 @@
-# Meanwhile 10 — Personalized Color Hunt Edition
+# Meanwhile 13 — Generic Edition: Global Freshness + Source Rotation
+
+Videos, stories, ticker items and visual-shelf entries now use one shared identity contract. YouTube video IDs participate in the same edition-wide exclusion history as canonical URLs and normalized titles, so a watched KQED or other video cannot immediately return through a different page section. Feed composition also caps source concentration and strongly prefers an eligible publication from the same editorial pool when a familiar source has exhausted its fresh material. Ordinary feed stories are limited to 45 days and specialist-source items to 120 days, preventing stale archive pieces from becoming permanent fixtures.
 
 This build adds Andrew's 40 deduplicated Color Hunt families in high rotation, plus eight new Meanwhile palettes inspired by them. Each reload advances the page and centered Vignelli masthead together. A contrast gate repairs overly pale or dark letter colors and introduces a harmonious accent when a palette is too narrow, keeping every **MEANWHILE** impression legible.
 
-This build keeps the complete generic Reader and four-step personalizer, while introducing the centered, overlapping Vignelli-inspired **Meanwhile** signature. Its three letter impressions are driven by the same four-color palette as the page, so every reload advances both the site and masthead together to a new coordinated palette.
+This build keeps the complete generic edition and four-step personalizer, while introducing the centered, overlapping Vignelli-inspired **Meanwhile** signature. Its three letter impressions are driven by the same four-color palette as the page, so every reload advances both the site and masthead together to a new coordinated palette.
+
+The generic masthead no longer includes the word **Reader**. Source spacing is now enforced after the final visual-frame arrangement, so desktop layout changes cannot create same-publication neighbors in the mobile single-column reading order. The same separation pass covers Bright Spots, Good Stuff, Good News With Consequence and You Didn’t Ask For This.
 
 The **Add More Stuff I Didn’t Ask For** control now remains available even after the initial surprise shelf is exhausted. It first reveals any unused surprises already loaded, then requests a fresh deduplicated batch from the feed instead of disappearing.
 
@@ -14,7 +18,7 @@ The **Add More Stuff I Didn’t Ask For** control now remains available even aft
 - Saved stories remain available in the Saved shelf but are never recycled into the live edition.
 - Public-space safety filtering excludes nudity and sexually explicit material, including artistic imagery, using story and media metadata.
 
-This build includes the generic Reader and the four-step edition customizer while preserving the established feed, safety, visual-quality, global no-repeat memory, sharing and responsive-layout behavior.
+This build includes the generic edition and the four-step edition customizer while preserving the established feed, safety, visual-quality, global no-repeat memory, sharing and responsive-layout behavior.
 
 This version makes photography and playable media a composition requirement rather than a ranking preference.
 
@@ -89,12 +93,12 @@ This version makes photography and playable media a composition requirement rath
 - Specialist stories are labeled quietly inside the wall.
 - A compact strip beneath the masthead explains which editorial desks are contributing to the edition.
 - New interview choices cover projects, gardening, boats, sailing and history; deeper choices cover yoga and boatbuilding.
-- Generic Reader behavior is unchanged when no personal profile exists.
+- Generic edition behavior is unchanged when no personal profile exists.
 - All established safety, deduplication, source-spacing, refresh, global no-repeat memory, layout, mobile, Save, Share and Joy Bench rules remain active.
 
 ## Login-free deployment
 
-1. Create a new GitHub repository named `meanwhile-reader` (or update the repository you already use for the generic/customizable Reader).
+1. Create a new GitHub repository named `meanwhile-reader` (or update the repository you already use for the generic/customizable edition).
 2. Upload the **contents** of this folder.
 3. In Vercel choose **Add New → Project** and import that repository.
 4. Leave the defaults unchanged and click **Deploy**.

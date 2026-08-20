@@ -52,7 +52,7 @@ function isDisallowed(item) {
 }
 function wasRecentlyShown(item, avoidStories) {
   if (!avoidStories?.size) return false;
-  return [canonicalUrl(item.url), `url:${canonicalUrl(item.url)}`, normalizeTitle(item.title), `title:${normalizeTitle(item.title)}`, item.image, `image:${item.image || ""}`].filter(Boolean).some(value => avoidStories.has(stableHash(value)));
+  return [canonicalUrl(item.url), `url:${canonicalUrl(item.url)}`, normalizeTitle(item.title), `title:${normalizeTitle(item.title)}`, item.image, `image:${item.image || ""}`, item.videoId, `video:${item.videoId || ""}`].filter(Boolean).some(value => avoidStories.has(stableHash(value)));
 }
 function hasBadMood(value) {
   return /killed|deadly|fatal|crash|unsafe|controvers|war|attack|crisis|disaster|outrage|scandal|cancer|dies?\b|death|threat|fear|horrific|tariffs?|banned|terrible|abuse|neglect|euthan|injur|defeat|worsen|\bworst\b/i.test(value);
@@ -74,7 +74,7 @@ function detectEditorialIdentity(interests, activePacks) {
     const packHits = activePacks.reduce((total, pack) => total + (identity.packs.includes(pack.id) ? pack.hits : 0), 0);
     return {id, ...identity, score:signalHits * 3 + packHits * 2};
   }).filter(identity => identity.score > 0).sort((a, b) => b.score - a.score);
-  return ranked[0] || {id:"general", label:"Meanwhile Reader", references:[], accent:"classic", imageTarget:.52, score:0};
+  return ranked[0] || {id:"general", label:"Meanwhile", references:[], accent:"classic", imageTarget:.52, score:0};
 }
 function contextAllowed(item, identity) {
   const value = `${item.title || ""} ${item.summary || ""}`;
@@ -189,12 +189,10 @@ async function loadVisualShelf(identity, count = 80) {
 }
 function isFreshLocal(item) {
   if (!item.date) return true;
-  // Specialist magazines are often valuable well beyond the daily-news cycle.
-  // Their evergreen craft, history and enthusiast pieces get a longer shelf.
-  if (item.sourcePack) return (Date.now() - new Date(item.date)) / 864e5 <= 400;
-  const evergreenSources = new Set(["NPR Music", "Criterion", "NYT Arts", "NYT Books", "Guardian Science", "Guardian Culture", "Dezeen", "Eater", "NASA"]);
-  if (evergreenSources.has(item.source)) return true;
-  return (Date.now() - new Date(item.date)) / 864e5 <= 45;
+  const age = (Date.now() - new Date(item.date)) / 864e5;
+  // If a publication has stopped producing fresh material, move laterally to
+  // another source in the category instead of recycling its archive forever.
+  return age <= (item.sourcePack ? 120 : 45);
 }
 function isGoodNews(item) {
   const value = `${item.title || ""} ${item.summary || ""}`;
@@ -266,11 +264,14 @@ function unique(items) {
 function compose(candidates, count, seed = {}, random = Math.random) {
   const chosen = [], sourceCounts = {...seed.sources}, topicCounts = {...seed.topics}, formatCounts = {...seed.formats}, geoCounts = {local:0,wanderlust:0}, wanderlustCap = Math.max(1, Math.floor(count * .2));
   const pool = [...candidates];
+  const sourceTotal = new Set(pool.map(item => item.source).filter(Boolean)).size;
+  const sourceLimit = sourceTotal > 1 ? Math.max(1, Math.ceil(count / sourceTotal) + (count > 20 ? 1 : 0)) : count;
   while (chosen.length < count && pool.length) {
     let winner = 0, best = -Infinity;
     pool.forEach((item, index) => {
       const recent = chosen.slice(-10);
-      const sourcePenalty = (sourceCounts[item.source] || 0) * 10 + (recent.some(previous => previous.source === item.source) ? 500 : 0);
+      const sourceAtLimit = (sourceCounts[item.source] || 0) >= sourceLimit && pool.some(other => other.source !== item.source && (sourceCounts[other.source] || 0) < sourceLimit);
+      const sourcePenalty = sourceAtLimit ? 10000 : (sourceCounts[item.source] || 0) * 35 + (recent.some(previous => previous.source === item.source) ? 500 : 0);
       const topicPenalty = (topicCounts[item.section] || 0) * 6 + (chosen.slice(-2).some(previous => previous.section === item.section) ? 30 : 0);
       const formatPenalty = (formatCounts[item.format] || 0) * 8;
       // Prefer stories that bring real photography, artwork or video texture.
@@ -348,7 +349,7 @@ export async function GET(request) {
   const ribbonFavorite = tickerStories[0] || null;
   const favoriteSelection = claim(compose(brightPool.filter(item => !usedUrls.has(canonicalUrl(item.url))), 6, {}, random));
   const goodNews = claim(compose(all.filter(isGoodNews), 1, {}, random))[0] || null;
-  const videoPool = (await loadReaderVideos(avoidVideos)).map(item => personalize(item, interests));
+  const videoPool = (await loadReaderVideos(avoidVideos)).filter(item => !wasRecentlyShown(item, avoidStories)).map(item => personalize(item, interests));
   const fashionFocus = editorialIdentity.id === "fashion";
   const focusMediaSignal = /fashion|runway|couture|designer|costume|wardrobe|atelier|supermodel|vogue|editorial photography|fashion photography|style archive|fashion week|women.?s tennis|wnba|author interview|novelist|book club/i;
   const relevantMedia = videoPool.filter(item => item.personalFit !== "editorial" && (!fashionFocus || focusMediaSignal.test(`${item.title} ${item.summary} ${item.section}`)));
