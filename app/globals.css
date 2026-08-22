@@ -115,6 +115,12 @@
   }
 }
 
+/* V25: one uninterrupted masonry context, so later cards fill batch-end gaps. */
+@media(min-width:901px){
+  .galleryWall{columns:3 390px;column-gap:14px}
+  .galleryWall .galleryBatch{display:contents!important;columns:auto}
+}
+
 /* Equal packing units behave like a masonry wall; shape variation comes from content height. */
 @media(min-width:901px){.tetrisCluster .tile:nth-child(n),.clusterVariant-1 .tile:nth-child(n),.clusterVariant-2 .tile:nth-child(n),.tetrisCluster .tile-video{grid-column:span 2!important}}
 
