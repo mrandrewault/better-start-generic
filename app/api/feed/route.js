@@ -13,6 +13,7 @@ const blockedTerms = Object.values(load("content-policy.json")).flat();
 const policyText = value => ` ${String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim()} `;
 const stableHash = value => { let hash = 2166136261; for (const char of String(value || "")) { hash ^= char.charCodeAt(0); hash = Math.imul(hash, 16777619); } return (hash >>> 0).toString(36); };
 const publicSpaceUnsafe = /\b(porn(?:ography|ographic)?|nsfw|nud(?:e|ity)|naked|topless|full[- ]?frontal|genitals?|penis|vulva|vagina|erotic(?:a)?|sexually explicit|adult content|figure stud(?:y|ies)|boudoir)\b/i;
+const editoriallyExcluded = /\b(pickleball|tesla|cybertruck|elon musk|mark zuckerberg|meta platforms?|marvel cinematic|gordon ramsay|guy fieri|wall street|stock market|james patterson|young adult fiction|horror film|horror novel|hunting)\b/i;
 
 function plain(value = "") {
   return value.replace(/<[^>]+>/g, " ").replace(/&\w+;/g, " ").replace(/\s+/g, " ").trim();
@@ -57,7 +58,7 @@ function isDisallowed(item) {
   const value = policyText(`${item.title || ""} ${item.summary || ""} ${item.contentSnippet || ""} ${item.source || ""} ${item.section || ""}`);
   const raw = `${item.title || ""} ${item.summary || ""} ${item.contentSnippet || ""} ${item.source || ""} ${item.section || ""}`;
   const corporateAmazon = /\bamazon(?:'s)?\b/i.test(raw) && !/\bamazon (?:rainforest|river|basin|forest|region|wildlife)\b/i.test(raw);
-  return corporateAmazon || /\bjeff bezos\b/i.test(raw) || bodyAnxiety.test(raw) || publicSpaceUnsafe.test(raw) || blockedTerms.some(term => value.includes(policyText(term)));
+  return corporateAmazon || /\bjeff bezos\b/i.test(raw) || editoriallyExcluded.test(raw) || bodyAnxiety.test(raw) || publicSpaceUnsafe.test(raw) || blockedTerms.some(term => value.includes(policyText(term)));
 }
 function wasRecentlyShown(item, avoidStories) {
   if (!avoidStories?.size) return false;
@@ -175,13 +176,13 @@ const visualSearches = {
   culture:[{query:"museum exhibition artwork",lane:"arts"},{query:"live theatre performance",lane:"arts"}],
   science:[{query:"astronomy observatory science",lane:"science"},{query:"scientific instrument laboratory",lane:"science"}],
   general:[
-    {query:"haute couture runway",lane:"fashion"},{query:"wildlife in natural habitat",lane:"animals"},
-    {query:"international street life",lane:"international"},{query:"community volunteers helping",lane:"kindness"},
-    {query:"inventor maker workshop",lane:"ingenuity"},{query:"live music performance",lane:"music"},
-    {query:"astronomy observatory science",lane:"science"},{query:"beautiful travel destination",lane:"travel"},
+    {query:"haute couture runway",lane:"fashion"},{query:"wildlife in natural habitat",lane:"outdoors"},
+    {query:"international street life",lane:"surprise"},{query:"community volunteers helping",lane:"surprise"},
+    {query:"inventor maker workshop",lane:"crafts"},{query:"live music performance",lane:"music"},
+    {query:"astronomy observatory science",lane:"thinking"},{query:"beautiful travel destination",lane:"travel"},
     {query:"regional food market",lane:"food"},{query:"community sports competition",lane:"sports"},
-    {query:"independent small business",lane:"money"},{query:"helpful robotics technology",lane:"technology"},
-    {query:"home garden design",lane:"home"},{query:"everyday curiosity collection",lane:"grabBag"},
+    {query:"independent small business",lane:"business"},{query:"helpful robotics technology",lane:"tech"},
+    {query:"home garden design",lane:"gardening"},{query:"everyday curiosity collection",lane:"trivia"},
     {query:"museum exhibition artwork",lane:"arts"}
   ]
 };
@@ -316,76 +317,71 @@ const BALANCED_MAGAZINE_RECIPE = [
 ];
 
 const BALANCED_MAGAZINE_COUNTS = {
-  arts: 1,
-  animals: 1,
-  international: 1,
-  kindness: 1,
-  ingenuity: 1,
-  fashion: 2,
-  music: 1,
-  science: 2,
-  travel: 2,
-  food: 2,
-  sports: 1,
-  money: 1,
-  technology: 1,
-  home: 1,
-  grabBag: 2,
+  music:1, sports:1, fashion:1, entertainment:1, business:1,
+  food:1, tech:1, gardening:1, outdoors:1, books:1,
+  beverage:1, home:1, crafts:1, arts:1, auto:1,
+  thinking:1, history:1, trivia:1, travel:1, surprise:1,
 };
 
 const MIX_LABELS = {
-  arts:"Arts", animals:"Animals", international:"International", kindness:"Human kindness",
-  ingenuity:"Human ingenuity", fashion:"Fashion", music:"Music", science:"Science",
-  travel:"Travel", food:"Food", sports:"Sports", money:"Money + business",
-  technology:"Technology + innovation", home:"Home, gardens + design", grabBag:"Lively grab bag"
+  music:"Music", sports:"Sports", fashion:"Fashion", entertainment:"Entertainment",
+  business:"Business", food:"Food", tech:"Technology", gardening:"Gardening",
+  outdoors:"Outdoors", books:"Books", beverage:"Beverage", home:"Home + architecture",
+  crafts:"Crafts + making", arts:"Arts", auto:"Automotive", thinking:"Thinking",
+  history:"History", trivia:"Trivia + curiosity", travel:"Travel", surprise:"Surprise"
 };
 
 // Classify the subject, never the presentation format. A photograph of Kyoto
 // is travel; a photographed recipe is food; only art-about-art belongs in arts.
 function contentLane(item) {
-  if (item?.visualSubjectLane) return item.visualSubjectLane;
+  if (item?.visualSubjectLane) return ({animals:"outdoors",international:"surprise",kindness:"surprise",ingenuity:"crafts",science:"thinking",money:"business",technology:"tech",grabBag:"trivia"}[item.visualSubjectLane] || item.visualSubjectLane);
   const title = `${item?.title || ""} ${item?.summary || ""}`.toLowerCase();
   const section = String(item?.section || "").toLowerCase();
   const pack = String(item?.sourcePack || "").toLowerCase();
   const text = `${title} ${item?.source || ""} ${item?.sourcePackLabel || ""}`.toLowerCase();
   const matches = (pattern) => pattern.test(text);
-  if (/fashion-style/.test(pack) && /fashion|designer|style|sneaker|clothing|wear|archive|runway|couture|garment/.test(title)) return "fashion";
+  if (/fashion-style/.test(pack) && /fashion|designer|style|sneaker|clothing|wear|runway|couture|garment/.test(title)) return "fashion";
   if (/women-culture/.test(pack) && /fashion|style|runway|couture|costume|garment/.test(title)) return "fashion";
   if (/fashion/.test(section)) return "fashion";
-  if (/business|finance|money/.test(section)) return "money";
-  if (/giving|philanthrop|community foundation|public good/.test(section)) return "kindness";
-  if (/making|diy|repair|workshop/.test(section)) return "ingenuity";
-  if (/garden/.test(section)) return "home";
-  if (/books|history|ideas/.test(section)) return "grabBag";
+  if (/beverage|wine|beer|brew/.test(section)) return "beverage";
+  if (/trivia|curiosity/.test(section)) return "trivia";
+  if (/automotive|cars?|boats?/.test(section)) return "auto";
+  if (/business|finance|money/.test(section)) return "business";
+  if (/garden|farm/.test(section)) return "gardening";
+  if (/books|literature|writing/.test(section)) return "books";
+  if (/history|archive/.test(section)) return "history";
   if (/music/.test(section)) return "music";
-  if (/animals/.test(section)) return "animals";
-  if (/people \+ joy/.test(section)) return "kindness";
-  if (/people \+ progress/.test(section)) return "ingenuity";
-  if (/tech/.test(section)) return "technology";
+  if (/film|theat|entertainment|culture/.test(section)) return "entertainment";
+  if (/animals|nature|outdoor/.test(section)) return "outdoors";
+  if (/people \+ joy|people \+ progress|giving|philanthrop/.test(section)) return "surprise";
+  if (/tech/.test(section)) return "tech";
   if (/sports|fitness/.test(section)) return "sports";
-  if (/world/.test(section)) return "international";
-  if (/science|nature/.test(section)) return "science";
-  if (/food \+ travel/.test(section)) return /food|restaurant|recipe|chef|dining|bakery|coffee|wine|cuisine/.test(title) ? "food" : "travel";
-  if (/architecture/.test(section)) return "home";
-  if (/art|film|culture/.test(section)) return "arts";
+  if (/science|ideas|math/.test(section)) return "thinking";
+  if (/food \+ travel/.test(section)) return /wine|beer|brew|cocktail|beverage|bar\b|coffee|tea\b|juice/.test(title) ? "beverage" : /food|restaurant|recipe|cook|chef|dining|bakery|cuisine/.test(title) ? "food" : "travel";
+  if (/architecture|interior|home/.test(section)) return "home";
+  if (/making|craft|diy|repair|workshop|furniture/.test(section)) return "crafts";
+  if (/car|auto|transport/.test(section)) return "auto";
+  if (/art|museum|photograph/.test(section)) return "arts";
   if (matches(/\b(fashion week|street style|runway|couture|fashion designer|wardrobe|costume design|textile|garment|vogue|menswear|womenswear)\b/)) return "fashion";
+  if (matches(/\b(wine|winery|vineyard|beer|brewery|cocktail|beverage|wine bar|vinyl bar|non alcoholic|juice|coffee culture|tea culture)\b/)) return "beverage";
   if (matches(/\b(food|restaurant|recipe|cook|chef|dining|bakery|coffee|wine|cocktail|cuisine|ingredient)\b/)) return "food";
   if (matches(/\b(travel|trip|journey|hotel|destination|tourism|vacation|flight|airline|city guide|weekend getaway|road trip)\b/)) return "travel";
   if (matches(/\b(sport|baseball|football|basketball|tennis|soccer|golf|running|cycling|athlete|yankees|twins|giants|wnba|mlb|nfl|nba)/)) return "sports";
-  if (matches(/\b(animal|dog|cat|wildlife|bird|pet|rescue|zoo|habitat|species|creature)/)) return "animals";
   if (matches(/\b(music|album|song|singer|band|jazz|record|concert|composer|synth|guitar|piano|orchestra)/)) return "music";
-  if (matches(/\b(home|house|interior|garden|diy|renovation|furniture|decor|woodwork|craft|repair)/)) return "home";
-  if (matches(/\b(technology|tech|robot|software|hardware|digital|computer|apple|iphone|mac|artificial intelligence|\bai\b)/)) return "technology";
-  if (matches(/\b(science|scientist|space|nasa|astronom|physics|biology|chemistry|research|planet|fossil|nature|ecology)/)) return "science";
-  if (matches(/\b(money|finance|financial|business|market|invest|economy|company|founder|entrepreneur|small business)/)) return "money";
-  if (matches(/\b(kindness|volunteer|philanthrop|donat|charity|community|neighbor|mutual aid|generosity)/)) return "kindness";
-  if (matches(/\b(invent|engineer|breakthrough|maker|discovery|create|build|restore|solution|achievement|ingenuity)/)) return "ingenuity";
-  if (matches(/\b(international|world|global|europe|asia|africa|paris|london|japan|italy|france|spain|canada|denmark|sweden|greece|india|australia)/)) return "international";
-  // Trusted desk metadata wins when the headline itself is ambiguous. This
-  // prevents a design publication from impersonating animals, food or fashion
-  // because one incidental word appeared in an article summary.
-  if (matches(/\b(art|artist|museum|gallery|photograph|architecture|theat(?:er|re)|dance|film|cinema|sculpt|paint)\b/)) return "arts";
-  return "grabBag";
+  if (matches(/\b(film|cinema|documentary|director|actor|comedy|theat(?:er|re)|ballet|criterion|festival|television|tv series)\b/)) return "entertainment";
+  if (matches(/\b(garden|gardening|flower|pollinator|small farm|farmers market|horticultur|landscape design)\b/)) return "gardening";
+  if (matches(/\b(camping|hiking|kayak|skiing|mountain bik|trail|outdoors|wildlife|bird|animal|habitat|forest|northern lights|fly fishing)\b/)) return "outdoors";
+  if (matches(/\b(book|author|novel|fiction|poetry|writer|literature|pulitzer|short stor|essay)\b/)) return "books";
+  if (matches(/\b(craft|furniture|rug|quilting|ceramic|pottery|woodwork|maker|workshop|diy|manufactur|cooper hewitt)\b/)) return "crafts";
+  if (matches(/\b(home|house|interior|architecture|architect|renovation|decor|wallpaper|building design)\b/)) return "home";
+  if (matches(/\b(car|automotive|automobile|classic auto|motorcycle|vehicle|roadster|electric car)\b/)) return "auto";
+  if (matches(/\b(technology|tech|robot|software|hardware|digital|computer|artificial intelligence|\bai\b|wearable)\b/)) return "tech";
+  if (matches(/\b(money|finance|financial|business|company|founder|entrepreneur|small business|independent brand|startup)\b/)) return "business";
+  if (matches(/\b(history|historical|archive|anniversary|heritage|civilization|retro|vintage history)\b/)) return "history";
+  if (matches(/\b(philosophy|futurist|mathemat|ted talk|big idea|invention|scientist|space|nasa|astronom|physics|research|discovery)\b/)) return "thinking";
+  if (matches(/\b(did you know|trivia|strange but true|curiosity|why do|how does|explainer|deep dive|little known)\b/)) return "trivia";
+  if (matches(/\b(art|artist|museum|gallery|photograph|sculpt|paint|collage|street art)\b/)) return "arts";
+  return "surprise";
 }
 
 function personalizedCounts(interests = []) {
@@ -395,7 +391,7 @@ function personalizedCounts(interests = []) {
   boosts.forEach(lane => {
     const desired = Math.min(5, counts[lane] + (boosts.length === 1 ? 3 : 2));
     let needed = desired - counts[lane];
-    for (const donor of ["grabBag", "science", "travel", "food", "fashion", "arts", "animals", "international", "kindness", "ingenuity", "music", "sports", "money", "technology", "home"]) {
+    for (const donor of Object.keys(counts).reverse()) {
       if (!needed || donor === lane || boosts.includes(donor)) continue;
       const available = Math.max(0, counts[donor] - 1);
       const moved = Math.min(needed, available);
@@ -532,8 +528,8 @@ export async function GET(request) {
   // The generic magazine needs real reporting inventory for every desk. Two
   // carefully chosen feeds from each under-supplied source pack provide that
   // breadth without activating a personalized editorial identity.
-  const genericPackIds = new Set(["sports","business-culture","fashion-style","making-garden","food-travel","science-tech","philanthropy-community"]);
-  const genericSources = interests.length ? [] : packCatalog.filter(pack => genericPackIds.has(pack.id)).flatMap(pack => pack.sources.slice(0, 2).map(source => ({...source, pack:pack.id, packLabel:pack.label, packHits:0})));
+  const genericPackIds = new Set(["sports","business-culture","fashion-style","books-history","making-garden","cars-boats","outdoors","food-travel","arts-culture","science-tech","philanthropy-community"]);
+  const genericSources = interests.length ? [] : packCatalog.filter(pack => genericPackIds.has(pack.id)).flatMap(pack => pack.sources.slice(0, pack.id === "food-travel" ? 4 : 2).map(source => ({...source, pack:pack.id, packLabel:pack.label, packHits:0})));
   const sources = unique([...baseSources, ...genericSources, ...specialistSources].map(source => ({...source,title:source.name,summary:""}))).map(({canonicalUrl,normalizedTitle,title,summary,...source}) => source);
   const results = await Promise.allSettled(sources.map(async source => {
     const feed = await parser.parseURL(source.url);
