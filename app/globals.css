@@ -359,6 +359,9 @@
 /* V23: desktop uses large natural-ratio images in a magazine masonry wall. */
 .personalizeButton,.welcomeActions a{background:#d83a2e!important;color:#fff!important;border:1px solid #171512!important;box-shadow:4px 4px 0 #171512!important;text-decoration:none!important}
 .personalizeButton:hover,.welcomeActions a:hover{background:#b92c23!important}
+.loadBtn,.surpriseBtn{background:#d83a2e!important;color:#fff!important;border-color:#171512!important;box-shadow:4px 4px 0 #171512!important}
+.loadBtn:hover,.surpriseBtn:hover{background:#b92c23!important}
+.importantIntro p{color:rgba(255,255,255,.82)}
 @media(min-width:901px){
   .galleryBatch,.serendipityWall{columns:3 390px;column-gap:14px}
   .galleryBatch .tetrisCluster,.galleryBatch .tetrisCluster.partialCluster,.serendipityWall .tetrisCluster,.serendipityWall .tetrisCluster.partialCluster{display:contents!important}
