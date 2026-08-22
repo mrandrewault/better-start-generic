@@ -322,3 +322,25 @@
   .tetrisCluster .tile-has-image.tile-feature .imageLink,.tetrisCluster .tile-has-image.tile-visual .imageLink,.tetrisCluster .tile-has-image.tile-social .imageLink,.tetrisCluster .tile-has-image.tile-bandcamp .imageLink{min-height:52%}
 }
 @media(max-width:650px){.welcomeVeil{padding:12px}.welcomeNote{padding:28px 21px}.welcomeNote h2{font-size:50px}.welcomeSubline{font-size:20px}.welcomeNote li{font-size:14px}.welcomeActions{align-items:stretch;flex-direction:column;gap:13px}.welcomeActions button,.welcomeActions a{width:100%;text-align:center}}
+
+/* V23: desktop uses large natural-ratio images in a magazine masonry wall. */
+.personalizeButton,.welcomeActions a{background:#d83a2e!important;color:#fff!important;border:1px solid #171512!important;box-shadow:4px 4px 0 #171512!important;text-decoration:none!important}
+.personalizeButton:hover,.welcomeActions a:hover{background:#b92c23!important}
+@media(min-width:901px){
+  .galleryBatch,.serendipityWall{columns:3 390px;column-gap:14px}
+  .galleryBatch .tetrisCluster,.galleryBatch .tetrisCluster.partialCluster,.serendipityWall .tetrisCluster,.serendipityWall .tetrisCluster.partialCluster{display:contents!important}
+  .galleryBatch .tile:nth-child(n),.galleryBatch .clusterVariant-1 .tile:nth-child(n),.galleryBatch .clusterVariant-2 .tile:nth-child(n),.serendipityWall .tile:nth-child(n),.serendipityWall .clusterVariant-1 .tile:nth-child(n),.serendipityWall .clusterVariant-2 .tile:nth-child(n){display:inline-flex;width:100%;height:auto!important;min-height:0;max-height:none;aspect-ratio:auto;overflow:hidden!important;margin:0 0 14px;break-inside:avoid;vertical-align:top;grid-column:auto!important;grid-row:auto!important}
+  .galleryBatch .tile-has-image:not(.tile-video) .imageLink,.serendipityWall .tile-has-image:not(.tile-video) .imageLink{display:block!important;width:100%;height:auto;min-height:0;flex:none}
+  .galleryBatch .tile-has-image:not(.tile-video) .imageLink img,.serendipityWall .tile-has-image:not(.tile-video) .imageLink img{display:block;width:100%;height:auto;min-height:0;max-height:none;aspect-ratio:auto;object-fit:contain;background:transparent;transform:none}
+  .galleryBatch .tile .tileBody,.serendipityWall .tile .tileBody{position:relative;inset:auto;display:flex;height:auto;min-height:0;max-height:none;overflow:visible;flex:none;padding:15px;background:var(--card);color:var(--ink)}
+  .galleryBatch .tile h3,.serendipityWall .tile h3{color:var(--accent);text-shadow:none}
+  .galleryBatch .tile-has-image p,.serendipityWall .tile-has-image p{display:block}
+  .galleryBatch .tile .controls,.serendipityWall .tile .controls{display:flex}
+  .galleryBatch .tile-video,.serendipityWall .tile-video{display:inline-flex!important;width:100%;height:auto!important;min-height:0;aspect-ratio:16/9;position:relative;background:#111}
+  .galleryBatch .tile-video .imageLink,.serendipityWall .tile-video .imageLink{position:absolute;inset:0;width:100%;height:100%}
+  .galleryBatch .tile-video .imageLink img,.serendipityWall .tile-video .imageLink img{width:100%;height:100%;object-fit:contain;background:#111}
+  .galleryBatch .tile-video .tileBody,.serendipityWall .tile-video .tileBody{position:absolute;z-index:2;inset:auto 0 0;max-height:62%;overflow:hidden;padding:38px 14px 12px;background:linear-gradient(transparent,rgba(0,0,0,.92));color:#fff}
+  .galleryBatch .tile-video h3,.galleryBatch .tile-video .kicker,.galleryBatch .tile-video .meta,.serendipityWall .tile-video h3,.serendipityWall .tile-video .kicker,.serendipityWall .tile-video .meta{color:#fff;text-shadow:0 1px 4px #000}
+  .galleryBatch .tile-video .controls,.galleryBatch .tile-video p,.serendipityWall .tile-video .controls,.serendipityWall .tile-video p{display:none}
+  .galleryBatch .tile-joy,.serendipityWall .tile-joy{min-height:390px}
+}
