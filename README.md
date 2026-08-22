@@ -1,4 +1,32 @@
-# Meanwhile 13 — Generic Edition: Global Freshness + Source Rotation
+# Meanwhile 21 — Balanced Variety Fix
+
+This revision fixes the rendered-feed photography flood found in Meanwhile 20.
+Good Stuff now receives the full editorial inventory before serendipity is
+reserved; visual-shelf cards are capped at two per 20-card window; individual
+publications are capped at two per window; and failed images fall back to an
+intentional text card instead of replacing the story with unrelated shelf
+photography. Generic editions also draw from a small set of specialist fashion,
+food, sports, business, making, science and community desks so the target mix
+has genuine reporting to choose from.
+
+This edition makes the subject mix a first-class editorial system. Every
+20-story window targets 5% arts, animals, international, human kindness, human
+ingenuity, music, sports, money/business, technology/innovation and
+home/gardens/design; 10% each fashion, science, travel, food and lively grab
+bag. These are composition targets rather than permission to publish weak work.
+
+Photography and video are formats, not subjects. A photograph of a restaurant
+is filed as food; a travel film is filed as travel. The opening avoids more than
+two closely related subjects in succession and caps pure art/photography shelf
+pieces at two. If a desk lacks a worthy current story, its space is assigned to
+an available underrepresented desk instead of the largest source pile.
+
+Personalized editions retain the same broad-world foundation. Strong interest
+signals may raise a subject to as much as 25% of a 20-story window, but every
+other available desk keeps representation. The feed response includes its
+target and actual first-20 composition for editorial auditing.
+
+## Foundation inherited from Meanwhile 19
 
 Videos, stories, ticker items and visual-shelf entries now use one shared identity contract. YouTube video IDs participate in the same edition-wide exclusion history as canonical URLs and normalized titles, so a watched KQED or other video cannot immediately return through a different page section. Feed composition also caps source concentration and strongly prefers an eligible publication from the same editorial pool when a familiar source has exhausted its fresh material. Ordinary feed stories are limited to 45 days and specialist-source items to 120 days, preventing stale archive pieces from becoming permanent fixtures.
 

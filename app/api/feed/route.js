@@ -157,20 +157,29 @@ function distributeVisuals(items, identity, blockSize = 10) {
 }
 
 const visualSearches = {
-  fashion:["fashion editorial photography", "haute couture runway", "fashion week street style", "fashion portrait photography"],
-  outdoors:["mountain landscape photography", "wildlife photography", "hiking trail landscape", "forest nature photography"],
-  sports:["sports photography", "baseball photography", "tennis photography", "running athletics photography"],
-  business:["modern architecture photography", "craft workshop photography", "city design photography", "independent shop photography"],
-  food:["food photography", "restaurant interior photography", "bakery photography", "market food photography"],
-  culture:["museum architecture photography", "theatre stage photography", "bookshop photography", "artist studio workspace photography"],
-  science:["astronomy photography", "microscopy photography", "natural history museum", "scientific instrument photography"],
-  general:["art photography", "beautiful nature photography", "architecture photography", "human interest photography"]
+  fashion:[{query:"haute couture runway",lane:"fashion"},{query:"fashion week street style",lane:"fashion"}],
+  outdoors:[{query:"wildlife in natural habitat",lane:"animals"},{query:"hiking trail landscape",lane:"travel"}],
+  sports:[{query:"women sports competition",lane:"sports"},{query:"community athletics",lane:"sports"}],
+  business:[{query:"independent small business owner",lane:"money"},{query:"craft workshop maker",lane:"ingenuity"}],
+  food:[{query:"regional food market",lane:"food"},{query:"restaurant kitchen chef",lane:"food"}],
+  culture:[{query:"museum exhibition artwork",lane:"arts"},{query:"live theatre performance",lane:"arts"}],
+  science:[{query:"astronomy observatory science",lane:"science"},{query:"scientific instrument laboratory",lane:"science"}],
+  general:[
+    {query:"haute couture runway",lane:"fashion"},{query:"wildlife in natural habitat",lane:"animals"},
+    {query:"international street life",lane:"international"},{query:"community volunteers helping",lane:"kindness"},
+    {query:"inventor maker workshop",lane:"ingenuity"},{query:"live music performance",lane:"music"},
+    {query:"astronomy observatory science",lane:"science"},{query:"beautiful travel destination",lane:"travel"},
+    {query:"regional food market",lane:"food"},{query:"community sports competition",lane:"sports"},
+    {query:"independent small business",lane:"money"},{query:"helpful robotics technology",lane:"technology"},
+    {query:"home garden design",lane:"home"},{query:"everyday curiosity collection",lane:"grabBag"},
+    {query:"museum exhibition artwork",lane:"arts"}
+  ]
 };
 async function loadVisualShelf(identity, count = 80) {
   const searches = visualSearches[identity.id] || visualSearches.general, results = [];
-  await Promise.all(searches.map(async search => {
+  await Promise.all(searches.map(async ({query, lane}) => {
     try {
-      const params = new URLSearchParams({action:"query",generator:"search",gsrsearch:search,gsrnamespace:"6",gsrlimit:"30",prop:"imageinfo",iiprop:"url|mime|extmetadata",iiurlwidth:"1400",format:"json",origin:"*"});
+      const params = new URLSearchParams({action:"query",generator:"search",gsrsearch:query,gsrnamespace:"6",gsrlimit:"10",prop:"imageinfo",iiprop:"url|mime|extmetadata",iiurlwidth:"1400",format:"json",origin:"*"});
       const response = await fetch(`https://commons.wikimedia.org/w/api.php?${params}`, {headers:{"User-Agent":"BetterStart/10.0 (visual shelf; attributed Commons media)"}, signal:AbortSignal.timeout(5500)});
       if (!response.ok) return;
       const payload = await response.json();
@@ -180,8 +189,8 @@ async function loadVisualShelf(identity, count = 80) {
         const artist = plain(metadata.Artist?.value || metadata.Credit?.value || "Wikimedia Commons contributor").slice(0, 90);
         const license = plain(metadata.LicenseShortName?.value || metadata.UsageTerms?.value || "Open license").slice(0, 50);
         const safetyMetadata = `${title} ${plain(metadata.ImageDescription?.value || "")} ${plain(metadata.Categories?.value || "")} ${plain(metadata.DepictedPeople?.value || "")}`;
-        if (!image || !/^image\/(jpeg|png|webp)$/i.test(info?.mime || "") || title.length < 5 || isDisallowed({title:safetyMetadata})) return;
-        results.push({title, url:`https://commons.wikimedia.org/wiki/${encodeURIComponent(page.title.replace(/ /g, "_"))}`, summary:"", date:null, source:`${artist} · ${license}`, section:"VISUAL SHELF", image, score:95, interestHits:4, noHits:0, personalFit:"direct", format:"visual", sourcePack:"visual-shelf", sourcePackLabel:`${identity.label} visual shelf`, visualShelf:true});
+        if (!image || !/^image\/(jpeg|png|webp)$/i.test(info?.mime || "") || title.length < 8 || /(?:^|\s)(?:img|dsc|photo|file)?[-_ ]?\d{5,}(?:\s|$)/i.test(title) || isDisallowed({title:safetyMetadata})) return;
+        results.push({title, url:`https://commons.wikimedia.org/wiki/${encodeURIComponent(page.title.replace(/ /g, "_"))}`, summary:"", date:null, source:`${artist} · ${license}`, section:"VISUAL SHELF", image, score:78, interestHits:1, noHits:0, personalFit:"editorial", format:"visual", sourcePack:"visual-shelf", sourcePackLabel:`${MIX_LABELS[lane]} visual shelf`, visualShelf:true, visualSubjectLane:lane});
       });
     } catch {}
   }));
@@ -258,6 +267,175 @@ function unique(items) {
   }
   return output;
 }
+const normalizeSource = value => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+const BALANCED_MAGAZINE_RECIPE = [
+  "arts",
+  "animals",
+  "international",
+  "kindness",
+  "ingenuity",
+  "fashion",
+  "fashion",
+  "music",
+  "science",
+  "science",
+  "travel",
+  "travel",
+  "food",
+  "food",
+  "sports",
+  "money",
+  "technology",
+  "home",
+  "grabBag",
+  "grabBag",
+];
+
+const BALANCED_MAGAZINE_COUNTS = {
+  arts: 1,
+  animals: 1,
+  international: 1,
+  kindness: 1,
+  ingenuity: 1,
+  fashion: 2,
+  music: 1,
+  science: 2,
+  travel: 2,
+  food: 2,
+  sports: 1,
+  money: 1,
+  technology: 1,
+  home: 1,
+  grabBag: 2,
+};
+
+const MIX_LABELS = {
+  arts:"Arts", animals:"Animals", international:"International", kindness:"Human kindness",
+  ingenuity:"Human ingenuity", fashion:"Fashion", music:"Music", science:"Science",
+  travel:"Travel", food:"Food", sports:"Sports", money:"Money + business",
+  technology:"Technology + innovation", home:"Home, gardens + design", grabBag:"Lively grab bag"
+};
+
+// Classify the subject, never the presentation format. A photograph of Kyoto
+// is travel; a photographed recipe is food; only art-about-art belongs in arts.
+function contentLane(item) {
+  if (item?.visualSubjectLane) return item.visualSubjectLane;
+  const title = `${item?.title || ""} ${item?.summary || ""}`.toLowerCase();
+  const section = String(item?.section || "").toLowerCase();
+  const pack = String(item?.sourcePack || "").toLowerCase();
+  const text = `${title} ${item?.source || ""} ${item?.sourcePackLabel || ""}`.toLowerCase();
+  const matches = (pattern) => pattern.test(text);
+  if (/fashion-style/.test(pack) && /fashion|designer|style|sneaker|clothing|wear|archive|runway|couture|garment/.test(title)) return "fashion";
+  if (/women-culture/.test(pack) && /fashion|style|runway|couture|costume|garment/.test(title)) return "fashion";
+  if (/fashion/.test(section)) return "fashion";
+  if (/business|finance|money/.test(section)) return "money";
+  if (/giving|philanthrop|community foundation|public good/.test(section)) return "kindness";
+  if (/making|diy|repair|workshop/.test(section)) return "ingenuity";
+  if (/garden/.test(section)) return "home";
+  if (/books|history|ideas/.test(section)) return "grabBag";
+  if (/music/.test(section)) return "music";
+  if (/animals/.test(section)) return "animals";
+  if (/people \+ joy/.test(section)) return "kindness";
+  if (/people \+ progress/.test(section)) return "ingenuity";
+  if (/tech/.test(section)) return "technology";
+  if (/sports|fitness/.test(section)) return "sports";
+  if (/world/.test(section)) return "international";
+  if (/science|nature/.test(section)) return "science";
+  if (/food \+ travel/.test(section)) return /food|restaurant|recipe|chef|dining|bakery|coffee|wine|cuisine/.test(title) ? "food" : "travel";
+  if (/architecture/.test(section)) return "home";
+  if (/art|film|culture/.test(section)) return "arts";
+  if (matches(/\b(fashion week|street style|runway|couture|fashion designer|wardrobe|costume design|textile|garment|vogue|menswear|womenswear)\b/)) return "fashion";
+  if (matches(/\b(food|restaurant|recipe|cook|chef|dining|bakery|coffee|wine|cocktail|cuisine|ingredient)\b/)) return "food";
+  if (matches(/\b(travel|trip|journey|hotel|destination|tourism|vacation|flight|airline|city guide|weekend getaway|road trip)\b/)) return "travel";
+  if (matches(/\b(sport|baseball|football|basketball|tennis|soccer|golf|running|cycling|athlete|yankees|twins|giants|wnba|mlb|nfl|nba)/)) return "sports";
+  if (matches(/\b(animal|dog|cat|wildlife|bird|pet|rescue|zoo|habitat|species|creature)/)) return "animals";
+  if (matches(/\b(music|album|song|singer|band|jazz|record|concert|composer|synth|guitar|piano|orchestra)/)) return "music";
+  if (matches(/\b(home|house|interior|garden|diy|renovation|furniture|decor|woodwork|craft|repair)/)) return "home";
+  if (matches(/\b(technology|tech|robot|software|hardware|digital|computer|apple|iphone|mac|artificial intelligence|\bai\b)/)) return "technology";
+  if (matches(/\b(science|scientist|space|nasa|astronom|physics|biology|chemistry|research|planet|fossil|nature|ecology)/)) return "science";
+  if (matches(/\b(money|finance|financial|business|market|invest|economy|company|founder|entrepreneur|small business)/)) return "money";
+  if (matches(/\b(kindness|volunteer|philanthrop|donat|charity|community|neighbor|mutual aid|generosity)/)) return "kindness";
+  if (matches(/\b(invent|engineer|breakthrough|maker|discovery|create|build|restore|solution|achievement|ingenuity)/)) return "ingenuity";
+  if (matches(/\b(international|world|global|europe|asia|africa|paris|london|japan|italy|france|spain|canada|denmark|sweden|greece|india|australia)/)) return "international";
+  // Trusted desk metadata wins when the headline itself is ambiguous. This
+  // prevents a design publication from impersonating animals, food or fashion
+  // because one incidental word appeared in an article summary.
+  if (matches(/\b(art|artist|museum|gallery|photograph|architecture|theat(?:er|re)|dance|film|cinema|sculpt|paint)\b/)) return "arts";
+  return "grabBag";
+}
+
+function personalizedCounts(interests = []) {
+  const counts = {...BALANCED_MAGAZINE_COUNTS};
+  const signals = interests.map(value => contentLane({title:value})).filter(lane => lane !== "grabBag");
+  const boosts = [...new Set(signals)].slice(0, 3);
+  boosts.forEach(lane => {
+    const desired = Math.min(5, counts[lane] + (boosts.length === 1 ? 3 : 2));
+    let needed = desired - counts[lane];
+    for (const donor of ["grabBag", "science", "travel", "food", "fashion", "arts", "animals", "international", "kindness", "ingenuity", "music", "sports", "money", "technology", "home"]) {
+      if (!needed || donor === lane || boosts.includes(donor)) continue;
+      const available = Math.max(0, counts[donor] - 1);
+      const moved = Math.min(needed, available);
+      counts[donor] -= moved; counts[lane] += moved; needed -= moved;
+    }
+  });
+  return counts;
+}
+
+function balancedMagazine(candidates, count, interests = [], random = Math.random) {
+  const remaining = unique(candidates).map((item) => ({ ...item, mixLane: contentLane(item) }));
+  const selected = [];
+  const sourceCounts = new Map();
+  const targets = interests.length ? personalizedCounts(interests) : BALANCED_MAGAZINE_COUNTS;
+  let visualArtCount = 0;
+
+  for (let position = 0; position < count && remaining.length; position += 1) {
+    const blockPosition = position % 20;
+    const block = selected.slice(position - blockPosition);
+    const blockCounts = Object.fromEntries(Object.keys(targets).map(lane => [lane, block.filter(item => item.mixLane === lane).length]));
+    const blockVisualShelfCount = block.filter(item => item.visualShelf).length;
+    const blockSourceCount = source => block.filter(item => normalizeSource(item.source) === source).length;
+    const recentLanes = selected.slice(-2).map(item => item.mixLane);
+    const lane = Object.keys(targets)
+      .filter(candidate => !recentLanes.includes(candidate) && remaining.some(item => item.mixLane === candidate))
+      .sort((a,b) => (targets[b] - blockCounts[b]) - (targets[a] - blockCounts[a]))[0]
+      || Object.keys(targets).find(candidate => remaining.some(item => item.mixLane === candidate))
+      || "grabBag";
+    const obeysFormatAndSourceCaps = item => blockCounts[item.mixLane] < targets[item.mixLane] && !((item.visualShelf && blockVisualShelfCount >= 2) || blockSourceCount(normalizeSource(item.source)) >= 2);
+    const exact = remaining.filter((item) => item.mixLane === lane && obeysFormatAndSourceCaps(item));
+    const cappedPool = remaining.filter(obeysFormatAndSourceCaps);
+    const eligible = exact.length ? exact : cappedPool.length ? cappedPool : remaining;
+    const recentSources = new Set(selected.slice(-4).map((item) => normalizeSource(item.source)));
+
+    const ranked = eligible
+      .map((item) => {
+        const source = normalizeSource(item.source);
+        const isVisualShelf = Boolean(item.visualShelf) || /visual shelf/i.test(item.source || "");
+        let score = Number(item.score || 0) + random() * 8;
+        if (item.mixLane === lane) score += 45;
+        if (item.image) score += 22;
+        if (item.personalFit === "direct") score += 25;
+        if (item.personalFit === "adjacent") score += 10;
+        score -= (sourceCounts.get(source) || 0) * 22;
+        if (recentSources.has(source)) score -= 80;
+        if (recentLanes.includes(item.mixLane)) score -= 50;
+        if (isVisualShelf && item.mixLane === "arts" && visualArtCount >= 2 && position < 20) score -= 10000;
+        return { item, score, isVisualShelf };
+      })
+      .sort((a, b) => b.score - a.score);
+
+    const winner = ranked[0];
+    if (!winner) break;
+    const index = remaining.indexOf(winner.item);
+    remaining.splice(index, 1);
+    const source = normalizeSource(winner.item.source);
+    sourceCounts.set(source, (sourceCounts.get(source) || 0) + 1);
+    if (winner.isVisualShelf && winner.item.mixLane === "arts") visualArtCount += 1;
+    selected.push({ ...winner.item, mixLabel:MIX_LABELS[winner.item.mixLane] });
+  }
+
+  return selected;
+}
 
 // A greedy magazine editor: every choice is judged by how much it improves the
 // current page, with diminishing returns for repeated sources/topics/formats.
@@ -323,7 +501,13 @@ async function loadReaderVideos(avoid = new Set()) {
 
 export async function GET(request) {
   const params = new URL(request.url).searchParams, random = seededRandom(params.get("visit") || String(Math.floor(Date.now() / 72e5))), avoidVideos = new Set((params.get("avoid") || "").split(",").filter(Boolean)), avoidStories = new Set((params.get("avoidStories") || "").split(",").filter(Boolean)), localPlaces = (params.get("places") || "").split("|").map(value => value.trim().toLowerCase()).filter(Boolean).slice(0, 20), interests = (params.get("interests") || "").split("|").map(value => value.trim().toLowerCase()).filter(Boolean).slice(0, 48);
-  const taste = load("taste.json"), baseSources = load("sources.json"), activePacks = activateSourcePacks(interests, load("source-packs.json")), editorialIdentity = detectEditorialIdentity(interests, activePacks), specialistSources = activePacks.flatMap(pack => pack.sources.map(source => ({...source, pack:pack.id, packLabel:pack.label, packHits:pack.hits}))), sources = [...baseSources, ...specialistSources];
+  const taste = load("taste.json"), baseSources = load("sources.json"), packCatalog = load("source-packs.json"), activePacks = activateSourcePacks(interests, packCatalog), editorialIdentity = detectEditorialIdentity(interests, activePacks), specialistSources = activePacks.flatMap(pack => pack.sources.map(source => ({...source, pack:pack.id, packLabel:pack.label, packHits:pack.hits})));
+  // The generic magazine needs real reporting inventory for every desk. Two
+  // carefully chosen feeds from each under-supplied source pack provide that
+  // breadth without activating a personalized editorial identity.
+  const genericPackIds = new Set(["sports","business-culture","fashion-style","making-garden","food-travel","science-tech","philanthropy-community"]);
+  const genericSources = interests.length ? [] : packCatalog.filter(pack => genericPackIds.has(pack.id)).flatMap(pack => pack.sources.slice(0, 2).map(source => ({...source, pack:pack.id, packLabel:pack.label, packHits:0})));
+  const sources = unique([...baseSources, ...genericSources, ...specialistSources].map(source => ({...source,title:source.name,summary:""}))).map(({canonicalUrl,normalizedTitle,title,summary,...source}) => source);
   const results = await Promise.allSettled(sources.map(async source => {
     const feed = await parser.parseURL(source.url);
     return (feed.items || []).slice(0, 40).map((item, index) => {
@@ -356,53 +540,46 @@ export async function GET(request) {
   // A strongly signaled fashion/women's edition never gets padded with
   // unrelated generic videos just because those thumbnails are available.
   const mediaPool = fashionFocus ? relevantMedia : [...relevantMedia, ...videoPool.filter(item => item.personalFit === "editorial").slice(0, 5)];
-  const media = claim(compose(mediaPool, 20, {}, random));
+  // Playable media competes for the same subject slots as every other story.
+  // Keeping it in a separate stream would quietly turn format into category.
+  const mediaCandidates = compose(mediaPool, 24, {}, random);
+  const media = [];
   const importantPool = all.filter(item => ["NASA", "Guardian Science", "Science Breakthroughs", "Technology for Good", "Nature Restored"].includes(item.source));
   const important = claim(compose(importantPool, 3, {}, random));
   if (important.length < 3) {
     const backfillPool = all.filter(item => (!usedUrls.has(canonicalUrl(item.url)) && !usedTitles.has(normalizeTitle(item.title))) && /SCIENCE|NATURE|TECH|PROGRESS|PEOPLE|ANIMALS|OUTDOOR/i.test(item.section || ""));
     important.push(...claim(compose(backfillPool, 3 - important.length, {}, random)));
   }
-  const galleryPool = all.filter(item => !usedUrls.has(canonicalUrl(item.url)) && !usedTitles.has(normalizeTitle(item.title)));
-  let gallery;
-  if (interests.length) {
-    const focusIds = new Set(fashionFocus ? ["fashion-style","women-culture"] : activePacks.slice(0,2).map(pack => pack.id));
-    const focus = compose(galleryPool.filter(item => focusIds.has(item.sourcePack)), fashionFocus ? 78 : 45, {}, random);
-    const focusKeys = new Set(focus.map(item => canonicalUrl(item.url)));
-    const direct = compose(galleryPool.filter(item => item.personalFit === "direct" && !focusKeys.has(canonicalUrl(item.url))), fashionFocus ? 34 : 65, {}, random);
-    const directKeys = new Set(direct.map(item => canonicalUrl(item.url)));
-    const adjacent = compose(galleryPool.filter(item => item.personalFit === "adjacent" && !focusKeys.has(canonicalUrl(item.url)) && !directKeys.has(canonicalUrl(item.url))), fashionFocus ? 17 : 28, {}, random);
-    const selectedKeys = new Set([...focus, ...direct, ...adjacent].map(item => canonicalUrl(item.url)));
-    const editorial = compose(galleryPool.filter(item => !selectedKeys.has(canonicalUrl(item.url))), fashionFocus ? 11 : 21, {}, random);
-    const personalizedPool = [];
-    while (focus.length || direct.length || adjacent.length || editorial.length) {
-      personalizedPool.push(...focus.splice(0, fashionFocus ? 11 : 7), ...direct.splice(0, fashionFocus ? 5 : 8), ...adjacent.splice(0, 3), ...editorial.splice(0, fashionFocus ? 1 : 2));
-    }
-    const backfill = galleryPool.filter(item => !new Set(personalizedPool.map(story => canonicalUrl(story.url))).has(canonicalUrl(item.url)));
-    const combined = [...personalizedPool, ...compose(backfill, 140 - personalizedPool.length, {}, random)].slice(0, 140);
-    const identityVisuals = combined.filter(item => item.image && isIdentityStory(item, editorialIdentity));
-    const identityText = combined.filter(item => !item.image && isIdentityStory(item, editorialIdentity));
-    const remaining = combined.filter(item => !isIdentityStory(item, editorialIdentity));
-    const opening = [], visualQueue = [...identityVisuals], textQueue = [...identityText], otherQueue = [...remaining];
-    while (opening.length < combined.length) {
-      if (visualQueue.length) opening.push(visualQueue.shift());
-      if (visualQueue.length) opening.push(visualQueue.shift());
-      if (textQueue.length) opening.push(textQueue.shift());
-      if (otherQueue.length && (opening.length > 18 || editorialIdentity.id !== "fashion")) opening.push(otherQueue.shift());
-      if (!visualQueue.length && !textQueue.length) opening.push(...otherQueue.splice(0));
-    }
-    gallery = claim(distributeVisuals(visualFirst(opening, editorialIdentity, 20, fashionFocus ? 14 : undefined), editorialIdentity));
-  } else gallery = claim(distributeVisuals(visualFirst(compose(galleryPool, 140, {}, random), editorialIdentity), editorialIdentity));
-  // If publishers still do not supply enough images, insert attributed,
-  // openly licensed standalone photography. These are honest visual features,
-  // never unrelated decorations attached to another story.
+  // Reserve a deep, fresh surprise shelf before the main gallery claims the
+  // remaining pool. This keeps serendipity available without weakening the
+  // page-wide URL/title dedupe or the cross-visit freshness rules.
+  const unusedStories = () => all.filter(item =>
+    !usedUrls.has(canonicalUrl(item.url)) &&
+    !usedTitles.has(normalizeTitle(item.title))
+  );
+  const serendipity = [];
+  const reserveSerendipity = pool => {
+    if (serendipity.length >= 60) return;
+    serendipity.push(...claim(compose(pool, 60 - serendipity.length, {}, random)));
+  };
+  const galleryPool = [...all.filter(item => !usedUrls.has(canonicalUrl(item.url)) && !usedTitles.has(normalizeTitle(item.title))), ...mediaCandidates];
+  // Standalone photography enters the same subject-aware selection pool. Its
+  // topic is inferred from its subject; only genuinely art-led work counts as arts.
   const allVisualShelf = (await loadVisualShelf(editorialIdentity)).filter(item => !wasRecentlyShown(item, avoidStories));
-  const visualShelf = claim(allVisualShelf.slice(0, 56));
-  gallery = distributeVisuals([...gallery, ...visualShelf], editorialIdentity).slice(0, 140);
+  const magazinePool = [...galleryPool, ...allVisualShelf.slice(0, 56)];
+  const selectedMagazine = balancedMagazine(magazinePool, 140, interests, random);
+  // Preserve the editor's 20-story windows. The client may arrange cards
+  // inside each ten-card layout cluster, but no visual pass can import a later
+  // story and silently alter the opening subject mix.
+  const gallery = claim(selectedMagazine);
   const galleryKeys = new Set(gallery.map(item => canonicalUrl(item.url)));
   const visualReserve = allVisualShelf.slice(56).filter(item => !galleryKeys.has(canonicalUrl(item.url))).slice(0, 24).map(item => ({...item, canonicalUrl:canonicalUrl(item.url)}));
-  const serendipityPool = all.filter(item => item.noHits === 0 && !usedUrls.has(canonicalUrl(item.url)) && !usedTitles.has(normalizeTitle(item.title)));
-  const serendipity = claim(compose(serendipityPool, 60, {}, random));
-
-  return Response.json({generatedAt: new Date().toISOString(), edition: Math.floor(Date.now() / 72e5), personalized:!!interests.length, editorialIdentity:{id:editorialIdentity.id,label:editorialIdentity.label,accent:editorialIdentity.accent,references:editorialIdentity.references,imageTarget:editorialIdentity.imageTarget}, composition:fashionFocus?{direct:80,adjacent:12,editorial:8}:{direct:65,adjacent:20,editorial:15}, activeSourcePacks:activePacks.map(pack => ({id:pack.id,label:pack.label,hits:pack.hits})), tickerStories, ribbonFavorite, goodNews, favorites: favoriteSelection, media, gallery, visualReserve, important, serendipity, sourceStatus: {total: sources.length, specialist:specialistSources.length, successful: results.filter(result => result.status === "fulfilled").length}}, {headers: {"Cache-Control": "no-store"}});
+  // Serendipity is composed from what remains after the primary magazine. It
+  // must never starve Good Stuff and trigger a wall of visual-shelf backfill.
+  reserveSerendipity(unusedStories().filter(item => item.noHits === 0 || item.personalFit === "editorial"));
+  reserveSerendipity(unusedStories().filter(item => item.personalFit === "adjacent"));
+  reserveSerendipity(unusedStories());
+  const targetCounts = interests.length ? personalizedCounts(interests) : BALANCED_MAGAZINE_COUNTS;
+  const actualCounts = Object.fromEntries(Object.keys(BALANCED_MAGAZINE_COUNTS).map(lane => [lane, gallery.slice(0, 20).filter(item => item.mixLane === lane).length]));
+  return Response.json({generatedAt: new Date().toISOString(), edition: Math.floor(Date.now() / 72e5), personalized:!!interests.length, editorialIdentity:{id:editorialIdentity.id,label:editorialIdentity.label,accent:editorialIdentity.accent,references:editorialIdentity.references,imageTarget:editorialIdentity.imageTarget}, composition:{window:20,targetCounts,actualCounts,labels:MIX_LABELS}, activeSourcePacks:activePacks.map(pack => ({id:pack.id,label:pack.label,hits:pack.hits})), tickerStories, ribbonFavorite, goodNews, favorites: favoriteSelection, media, gallery, visualReserve, important, serendipity, sourceStatus: {total: sources.length, specialist:specialistSources.length, successful: results.filter(result => result.status === "fulfilled").length}}, {headers: {"Cache-Control": "no-store"}});
 }

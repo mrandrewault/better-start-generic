@@ -296,3 +296,29 @@
 .editionName{margin-top:6px;font:700 11px/1 "DM Sans",sans-serif;letter-spacing:.16em;text-transform:uppercase}
 .mastIdentity .edition{margin-top:7px;text-align:center}
 @media(max-width:650px){.mast{grid-template-columns:1fr;min-height:0;gap:14px}.mastIdentity,.mastTools{grid-column:1}.mastTools{justify-self:center}.brandVignelli{width:100%;height:43px;font-size:43px}.editionName{font-size:9px}.mastIdentity .edition{display:block;font-size:8px}}
+
+/* V22: first-visit editor's note and a calmer, image-complete desktop puzzle. */
+.welcomeVeil{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:22px;background:rgba(20,18,14,.58);backdrop-filter:blur(4px)}
+.welcomeNote{position:relative;width:min(680px,100%);padding:clamp(26px,5vw,54px);background:var(--paper);border:1px solid var(--ink);box-shadow:14px 14px 0 rgba(18,17,14,.38)}
+.welcomeClose{position:absolute;right:15px;top:10px;border:0;background:none;font:300 30px/1 "DM Sans",sans-serif;cursor:pointer}
+.welcomeEyebrow{display:block;color:var(--blue);font:700 9px/1.2 "DM Sans",sans-serif;letter-spacing:.17em;text-transform:uppercase}
+.welcomeNote h2{max-width:580px;margin:15px 0 12px;font:800 clamp(48px,8vw,82px)/.86 "Fraunces",serif;letter-spacing:-.06em}
+.welcomeSubline{max-width:570px;margin:0 0 28px;font:italic 23px/1.16 "DM Serif Display",serif;color:var(--muted)}
+.welcomeNote ol{margin:0;padding:0;list-style:none;counter-reset:welcome;display:grid;gap:14px}
+.welcomeNote li{counter-increment:welcome;display:grid;grid-template-columns:25px 1fr;gap:10px;font:500 15px/1.42 "DM Sans",sans-serif}
+.welcomeNote li:before{content:counter(welcome) ".";color:var(--blue);font-weight:800}
+.welcomeActions{display:flex;align-items:center;gap:22px;margin-top:31px}
+.welcomeActions button,.welcomeActions a{border:1px solid var(--ink);padding:13px 16px;background:var(--blue);color:#fff;font:700 9px "DM Sans",sans-serif;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;box-shadow:4px 4px 0 var(--orange)}
+.welcomeActions a{border:0;background:none;color:var(--ink);box-shadow:none;text-decoration:underline;text-underline-offset:4px}
+.welcomeActions button span{margin-left:20px}
+@media(min-width:901px){
+  .tetrisCluster,.tetrisCluster.partialCluster{grid-template-rows:repeat(12,62px);grid-auto-rows:62px;gap:12px;margin-bottom:12px}
+  .tetrisCluster.partialCluster{grid-template-rows:repeat(6,62px)}
+  .tetrisCluster .tile-has-image:not(.tile-video) .imageLink{flex:1 1 52%;min-height:44%}
+  .tetrisCluster .tile-has-image:not(.tile-video) .imageLink img{width:100%;height:100%;object-fit:contain;background:color-mix(in srgb,var(--paper) 82%,var(--line));transform:none}
+  .tetrisCluster .tile-has-image:not(.tile-video) .tileBody{flex:0 1 auto;max-height:56%;padding:13px 14px}
+  .tetrisCluster .tile-has-image p{display:none}
+  .tetrisCluster .tile-has-image .controls{margin-top:8px}
+  .tetrisCluster .tile-has-image.tile-feature .imageLink,.tetrisCluster .tile-has-image.tile-visual .imageLink,.tetrisCluster .tile-has-image.tile-social .imageLink,.tetrisCluster .tile-has-image.tile-bandcamp .imageLink{min-height:52%}
+}
+@media(max-width:650px){.welcomeVeil{padding:12px}.welcomeNote{padding:28px 21px}.welcomeNote h2{font-size:50px}.welcomeSubline{font-size:20px}.welcomeNote li{font-size:14px}.welcomeActions{align-items:stretch;flex-direction:column;gap:13px}.welcomeActions button,.welcomeActions a{width:100%;text-align:center}}
