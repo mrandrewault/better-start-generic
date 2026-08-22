@@ -88,6 +88,33 @@
   .tetrisCluster .tile-video{grid-column:span 3!important}
 }
 
+/* V24: keep type-led, no-image cards on their contrast-tested color field. */
+@media(min-width:901px){
+  .galleryBatch .tile-no-image .tileBody,
+  .serendipityWall .tile-no-image .tileBody{
+    background:transparent;
+    color:var(--tile-ink);
+  }
+  .galleryBatch .tile-no-image h3,
+  .galleryBatch .tile-no-image h3 a,
+  .galleryBatch .tile-no-image .kicker,
+  .galleryBatch .tile-no-image .kicker span,
+  .galleryBatch .tile-no-image .meta,
+  .galleryBatch .tile-no-image .meta i,
+  .galleryBatch .tile-no-image p,
+  .galleryBatch .tile-no-image .controls button,
+  .serendipityWall .tile-no-image h3,
+  .serendipityWall .tile-no-image h3 a,
+  .serendipityWall .tile-no-image .kicker,
+  .serendipityWall .tile-no-image .kicker span,
+  .serendipityWall .tile-no-image .meta,
+  .serendipityWall .tile-no-image .meta i,
+  .serendipityWall .tile-no-image p,
+  .serendipityWall .tile-no-image .controls button{
+    color:var(--tile-ink)!important;
+  }
+}
+
 /* Equal packing units behave like a masonry wall; shape variation comes from content height. */
 @media(min-width:901px){.tetrisCluster .tile:nth-child(n),.clusterVariant-1 .tile:nth-child(n),.clusterVariant-2 .tile:nth-child(n),.tetrisCluster .tile-video{grid-column:span 2!important}}
 
@@ -343,4 +370,13 @@
   .galleryBatch .tile-video h3,.galleryBatch .tile-video .kicker,.galleryBatch .tile-video .meta,.serendipityWall .tile-video h3,.serendipityWall .tile-video .kicker,.serendipityWall .tile-video .meta{color:#fff;text-shadow:0 1px 4px #000}
   .galleryBatch .tile-video .controls,.galleryBatch .tile-video p,.serendipityWall .tile-video .controls,.serendipityWall .tile-video p{display:none}
   .galleryBatch .tile-joy,.serendipityWall .tile-joy{min-height:390px}
+}
+
+/* V24: type-only cards retain the colored field used to choose their ink. */
+@media(min-width:901px){
+  .galleryBatch .tile-no-image .tileBody,
+  .serendipityWall .tile-no-image .tileBody{
+    background:transparent;
+    color:var(--tile-ink);
+  }
 }
