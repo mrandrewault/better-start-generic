@@ -32,7 +32,13 @@ const categoryClass = section => `cat-${(section || "news").toLowerCase().replac
 const normalizedIdentityTitle = value => (value || "").toLowerCase().replace(/\b(the|a|an|and|or|but|to|of|for|in|on|at|with|from)\b/g, " ").replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
 const emergencyBlocked = /\b(trump|maga|maha|nazi|neo[- ]?nazi|white supremac|shooting|gunman|murder|war|terroris|rape|sexual abuse|suicide|overdose|deadly|killed|outrage|religious|anti[- ]?vax|ufc|mma|gambling|google pixel|samsung galaxy|android phone|jeff bezos|bmi|body fat|weight[- ]loss|being thin|obesity|overweight|porn(?:ography|ographic)?|nsfw|nud(?:e|ity)|naked|topless|full[- ]?frontal|genitals?|penis|vulva|vagina|erotic(?:a)?|sexually explicit)\b/i;
 const corporateAmazonBlocked = value => /\bamazon(?:'s)?\b/i.test(value) && !/\bamazon (?:rainforest|river|basin|forest|region|wildlife)\b/i.test(value);
-const identityKeys = item => [`url:${item?.canonicalUrl || item?.url || ""}`, `title:${item?.normalizedTitle || normalizedIdentityTitle(item?.title)}`, `image:${item?.image || ""}`, `video:${item?.videoId || ""}`].filter(key => !key.endsWith(":"));
+const titleFingerprint = value => normalizedIdentityTitle(value).split(/\s+/).filter(word => word.length > 2).slice(0, 9).join(" ");
+const commonsAssetKey = item => {
+  const value = `${item?.url || ""} ${item?.image || ""}`, match = value.match(/(?:File:|File%3A|\/)([^/?#]+?\.(?:jpe?g|png|webp|gif|tiff?))(?:[/?#]|$)/i);
+  if (!match) return "";
+  try { return `commons:${decodeURIComponent(match[1]).toLowerCase().replace(/[_\s]+/g, "-")}`; } catch { return `commons:${match[1].toLowerCase()}`; }
+};
+const identityKeys = item => [`url:${item?.canonicalUrl || item?.url || ""}`, `title:${item?.normalizedTitle || normalizedIdentityTitle(item?.title)}`, `topic:${titleFingerprint(item?.title)}`, commonsAssetKey(item), `image:${item?.image || ""}`, `video:${item?.videoId || ""}`].filter(key => key && !key.endsWith(":"));
 const stableHash = value => { let hash = 2166136261; for (const char of String(value || "")) { hash ^= char.charCodeAt(0); hash = Math.imul(hash, 16777619); } return (hash >>> 0).toString(36); };
 const claimUnique = (items = [], seen = new Set()) => items.filter(item => {
   const safetyText = `${item?.title || ""} ${item?.summary || ""} ${item?.source || ""} ${item?.section || ""}`;

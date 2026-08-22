@@ -30,6 +30,15 @@ function canonicalUrl(value = "") {
     return `${url.hostname}${url.pathname}${url.searchParams.toString() ? `?${url.searchParams}` : ""}`;
   } catch { return value.replace(/\/$/, ""); }
 }
+function titleFingerprint(value = "") {
+  return normalizeTitle(value).split(/\s+/).filter(word => word.length > 2).slice(0, 9).join(" ");
+}
+function commonsAssetKey(item = {}) {
+  const value = `${item.url || ""} ${item.image || ""}`;
+  const match = value.match(/(?:File:|File%3A|\/)([^/?#]+?\.(?:jpe?g|png|webp|gif|tiff?))(?:[/?#]|$)/i);
+  if (!match) return "";
+  try { return `commons:${decodeURIComponent(match[1]).toLowerCase().replace(/[_\s]+/g, "-")}`; } catch { return `commons:${match[1].toLowerCase()}`; }
+}
 function imageFor(item) {
   const html = item.content || item["content:encoded"] || "";
   const mediaContent = Array.isArray(item.mediaContent) ? item.mediaContent : [item.mediaContent];
@@ -52,7 +61,8 @@ function isDisallowed(item) {
 }
 function wasRecentlyShown(item, avoidStories) {
   if (!avoidStories?.size) return false;
-  return [canonicalUrl(item.url), `url:${canonicalUrl(item.url)}`, normalizeTitle(item.title), `title:${normalizeTitle(item.title)}`, item.image, `image:${item.image || ""}`, item.videoId, `video:${item.videoId || ""}`].filter(Boolean).some(value => avoidStories.has(stableHash(value)));
+  const topic = titleFingerprint(item.title), asset = commonsAssetKey(item);
+  return [canonicalUrl(item.url), `url:${canonicalUrl(item.url)}`, normalizeTitle(item.title), `title:${normalizeTitle(item.title)}`, topic && `topic:${topic}`, asset, item.image, `image:${item.image || ""}`, item.videoId, `video:${item.videoId || ""}`].filter(Boolean).some(value => avoidStories.has(stableHash(value)));
 }
 function hasBadMood(value) {
   return /killed|deadly|fatal|crash|unsafe|controvers|war|attack|crisis|disaster|outrage|scandal|cancer|dies?\b|death|threat|fear|horrific|tariffs?|banned|terrible|abuse|neglect|euthan|injur|defeat|worsen|\bworst\b/i.test(value);
@@ -175,8 +185,21 @@ const visualSearches = {
     {query:"museum exhibition artwork",lane:"arts"}
   ]
 };
+const visualQueryVariants = {
+  fashion:["haute couture runway 1990s","Paris couture runway","New York fashion week runway","fashion runway archive","couture collection catwalk","fashion designer atelier"],
+  arts:["museum exhibition installation","public art sculpture","artist studio painting","theatre stage performance","contemporary craft exhibition","museum restoration artwork"],
+  animals:["wildlife natural habitat","birds in natural habitat","ocean wildlife conservation","animal rescue sanctuary"],
+  international:["international street market","everyday life world cities","community festival international","historic neighborhood street life"]
+};
+function variedVisualSearches(identity) {
+  const rotation = Math.floor(Date.now() / 72e5), searches = visualSearches[identity.id] || visualSearches.general;
+  return searches.map((search, index) => {
+    const variants = visualQueryVariants[search.lane];
+    return variants?.length ? {...search, query:variants[(rotation + index * 3) % variants.length]} : search;
+  });
+}
 async function loadVisualShelf(identity, count = 80) {
-  const searches = visualSearches[identity.id] || visualSearches.general, results = [];
+  const searches = variedVisualSearches(identity), results = [];
   await Promise.all(searches.map(async ({query, lane}) => {
     try {
       const params = new URLSearchParams({action:"query",generator:"search",gsrsearch:query,gsrnamespace:"6",gsrlimit:"10",prop:"imageinfo",iiprop:"url|mime|extmetadata",iiurlwidth:"1400",format:"json",origin:"*"});
@@ -401,7 +424,11 @@ function balancedMagazine(candidates, count, interests = [], random = Math.rando
       .sort((a,b) => (targets[b] - blockCounts[b]) - (targets[a] - blockCounts[a]))[0]
       || Object.keys(targets).find(candidate => remaining.some(item => item.mixLane === candidate))
       || "grabBag";
-    const obeysFormatAndSourceCaps = item => blockCounts[item.mixLane] < targets[item.mixLane] && !((item.visualShelf && blockVisualShelfCount >= 2) || blockSourceCount(normalizeSource(item.source)) >= 2);
+    const obeysFormatAndSourceCaps = item => {
+      const source = normalizeSource(item.source), pageCount = sourceCounts.get(source) || 0;
+      const pageLimit = source === "nyt arts" ? 2 : 5;
+      return blockCounts[item.mixLane] < targets[item.mixLane] && pageCount < pageLimit && !((item.visualShelf && blockVisualShelfCount >= 2) || blockSourceCount(source) >= 2);
+    };
     const exact = remaining.filter((item) => item.mixLane === lane && obeysFormatAndSourceCaps(item));
     const cappedPool = remaining.filter(obeysFormatAndSourceCaps);
     const eligible = exact.length ? exact : cappedPool.length ? cappedPool : remaining;
@@ -522,11 +549,11 @@ export async function GET(request) {
   all = await enrichIdentityImages(all, editorialIdentity);
 
   // One shared registry across every page region makes duplicates impossible.
-  const usedUrls = new Set(), usedTitles = new Set();
+  const usedUrls = new Set(), usedTitles = new Set(), usedTopics = new Set(), usedAssets = new Set();
   const claim = items => items.filter(item => {
-    const url = canonicalUrl(item.url), title = normalizeTitle(item.title);
-    if (usedUrls.has(url) || usedTitles.has(title)) return false;
-    usedUrls.add(url); usedTitles.add(title); return true;
+    const url = canonicalUrl(item.url), title = normalizeTitle(item.title), topic = titleFingerprint(item.title), asset = commonsAssetKey(item);
+    if (usedUrls.has(url) || usedTitles.has(title) || (topic && usedTopics.has(topic)) || (asset && usedAssets.has(asset))) return false;
+    usedUrls.add(url); usedTitles.add(title); if (topic) usedTopics.add(topic); if (asset) usedAssets.add(asset); return true;
   });
   const brightPool = all.filter(item => /PEOPLE|ANIMALS|PROGRESS|AROUND AMERICA/.test(item.section) || isGoodNews(item));
   const tickerStories = claim(compose(brightPool, 8, {}, random));
