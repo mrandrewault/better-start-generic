@@ -362,6 +362,15 @@
 .loadBtn,.surpriseBtn{background:#d83a2e!important;color:#fff!important;border-color:#171512!important;box-shadow:4px 4px 0 #171512!important}
 .loadBtn:hover,.surpriseBtn:hover{background:#b92c23!important}
 .importantIntro p{color:rgba(255,255,255,.82)}
+.loading{position:relative;isolation:isolate;overflow:hidden;height:420px;border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:34px;text-align:center;color:var(--muted);background:color-mix(in srgb,var(--card) 72%,transparent)}
+.loading:before{content:"";position:absolute;z-index:-1;inset:0;background:linear-gradient(105deg,transparent 25%,rgba(255,255,255,.72) 43%,transparent 61%);translate:-100% 0;animation:meanwhile-shimmer 2.4s ease-in-out infinite}
+.loading>span{font:italic clamp(32px,4vw,54px)/1 "DM Serif Display",serif;color:var(--ink)}
+.loadingTrack{width:min(440px,78vw);height:7px;margin:27px 0 15px;border:1px solid color-mix(in srgb,var(--ink) 28%,transparent);background:color-mix(in srgb,var(--paper) 72%,white);overflow:hidden}
+.loadingTrack i{display:block;width:38%;height:100%;margin:0;background:#d83a2e;animation:meanwhile-load 1.35s cubic-bezier(.65,0,.35,1) infinite}
+.loading small{font:700 8px/1.2 "DM Sans",sans-serif;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
+@keyframes meanwhile-load{0%{translate:-105% 0}50%{translate:82% 0;width:55%}100%{translate:270% 0;width:38%}}
+@keyframes meanwhile-shimmer{0%,20%{translate:-100% 0}75%,100%{translate:100% 0}}
+@media(prefers-reduced-motion:reduce){.loading:before{animation:none}.loadingTrack i{width:55%;animation:meanwhile-load-reduced 2.2s ease-in-out infinite}@keyframes meanwhile-load-reduced{50%{opacity:.38}}}
 @media(min-width:901px){
   .galleryBatch,.serendipityWall{columns:3 390px;column-gap:14px}
   .galleryBatch .tetrisCluster,.galleryBatch .tetrisCluster.partialCluster,.serendipityWall .tetrisCluster,.serendipityWall .tetrisCluster.partialCluster{display:contents!important}

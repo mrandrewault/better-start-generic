@@ -9,6 +9,38 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const STORY_HISTORY_KEY = "betterStartReaderStoryHistory";
 const STORY_HISTORY_LIMIT = 5000;
+const SMALL_DELIGHTS = [
+  "Octopuses have three hearts.",
+  "A group of flamingos is called a flamboyance.",
+  "The earthy smell after rain has a name: petrichor.",
+  "Bananas are berries. Strawberries are not.",
+  "Sea otters sometimes hold hands while sleeping so they do not drift apart.",
+  "The dot over a lowercase i or j is called a tittle.",
+  "A day on Venus lasts longer than a year on Venus.",
+  "Scotland’s national animal is the unicorn.",
+  "The telephone helped turn ‘hello’ into an everyday greeting.",
+  "What ordinary object in your home has the best design?",
+  "Somewhere nearby, someone is learning how to do something for the first time.",
+  "A well-made chair is a small piece of architecture.",
+  "The shortest distance between two people may be a shared joke.",
+  "Honey can remain edible for an extraordinarily long time when properly sealed.",
+  "Butterflies taste with receptors on their feet.",
+  "The tiny pocket on blue jeans was originally made for a pocket watch.",
+  "What skill would you happily practice for ten quiet minutes today?",
+  "Libraries lend more than books: many now offer tools, instruments and museum passes.",
+  "The word ‘muscle’ comes from a Latin word meaning ‘little mouse.’",
+  "There are more possible chess games than atoms in the observable universe.",
+  "The first modern public aquarium opened in London in 1853.",
+  "A collection of crows is traditionally called a murder; a collection of ravens, an unkindness.",
+  "What would make today feel five percent more interesting?",
+  "Every map is also a record of what its maker thought was important.",
+  "A song you have forgotten is still waiting somewhere to surprise you.",
+  "The grooves on a vinyl record form one continuous spiral.",
+  "The oldest known recipes were written on clay tablets.",
+  "Tree roots can form partnerships with vast underground fungal networks.",
+  "A jiffy is an informal word, but scientists also use it for several very short units of time.",
+  "What is the nicest sound within earshot right now?"
+];
 const PROFILE_KEY = "betterStartPersonalProfileV1";
 const hexToHsl = hex => {
   const value = hex.replace("#", ""), r = parseInt(value.slice(0, 2), 16) / 255, g = parseInt(value.slice(2, 4), 16) / 255, b = parseInt(value.slice(4, 6), 16) / 255;
@@ -300,6 +332,7 @@ export default function Home() {
   const daypart = now.getHours() < 10 ? "sunrise" : now.getHours() < 12 ? "lateMorning" : now.getHours() < 17 ? "afternoon" : "evening";
   const helloThought = daypart === "sunrise" ? "Fresh coffee. Open curtains. The world still contains wonders." : daypart === "lateMorning" ? "A bright little detour before the day gets away." : daypart === "afternoon" ? "A second wind, made of curiosity instead of caffeine." : "A softer landing for the end of the day.";
   const date = now.toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"});
+  const smallDelight = SMALL_DELIGHTS[Math.abs(data?.edition || Math.floor(Date.now() / EDITION_MS)) % SMALL_DELIGHTS.length];
   const uniqueFavorites = useMemo(() => { const seen = new Set(); (data?.tickerStories || [data?.ribbonFavorite]).filter(Boolean).forEach(item => identityKeys(item).forEach(key => seen.add(key))); return spreadAdjacentSources(claimUnique(data?.favorites || [], seen)); }, [data]);
   const wall = useMemo(() => { const pageSeen = new Set(); [...(data?.tickerStories || [data?.ribbonFavorite]), data?.goodNews, ...(data?.favorites || []), ...(data?.important || [])].filter(Boolean).forEach(item => identityKeys(item).forEach(key => pageSeen.add(key))); const stories = claimUnique(data?.gallery || [], pageSeen), media = claimUnique(data?.media || [], pageSeen), mixed = []; while (stories.length || media.length) { mixed.push(...stories.splice(0, 2)); if (media.length) mixed.push(media.shift()); } const result = [], pool = [...mixed], lastSeen = new Map(); while (pool.length) { const recent = result.slice(-20).map(item => item.source); let index = pool.findIndex(item => !recent.includes(item.source)); if (index < 0) { let oldest = Infinity; pool.forEach((item, candidate) => { const seen = lastSeen.get(item.source) ?? -Infinity; if (seen < oldest) { oldest = seen; index = candidate; } }); } const item = pool.splice(Math.max(0, index), 1)[0]; lastSeen.set(item.source, result.length); result.push(item); } const balanced = rebalanceVisualBlocks(result), edition = data?.edition || 0, joyful = [], reserved = [...joyHistory]; for (let start = 0, bench = 0; start < balanced.length; start += 24, bench++) { const group = balanced.slice(start, start + 24), position = Math.min(group.length, 6 + bench % 5), joyType = JOY_TYPES[(edition + bench) % JOY_TYPES.length], choice = chooseJoy(joyType, edition, bench, reserved); reserved.push({signature: choice.signature, ts: Date.now()}); group.splice(position, 0, {format: "joy", joyType, variant: choice.variant, signature: choice.signature, edition, title: "A small Meanwhile joy break", source: "Meanwhile Joy Bench", section: "JOY", canonicalUrl: `joy-${edition}-${bench}-${choice.signature}`, url: `#joy-${edition}-${bench}`}); joyful.push(...group); } return joyful; }, [data, joyHistory]);
   const uniqueSerendipity = useMemo(() => { const pageSeen = new Set(); [...(data?.tickerStories || [data?.ribbonFavorite]), data?.goodNews, ...(data?.favorites || []), ...(data?.important || []), ...wall].filter(item => item && item.format !== "joy").forEach(item => identityKeys(item).forEach(key => pageSeen.add(key))); return spreadAdjacentSources(claimUnique(data?.serendipity || [], pageSeen)); }, [data, wall]);
@@ -342,13 +375,13 @@ export default function Home() {
     <header className="mast"><div className="mastIdentity"><div className="brand brandVignelli" aria-label="Meanwhile">{"Meanwhile".split("").map((letter,index) => <span aria-hidden="true" style={{color:masthead[index]}} key={`${letter}-${index}`}>{letter}</span>)}</div>{editionTitle && <div className="editionName">{editionTitle}</div>}<div className="edition">Rage-free news, discovery & good times</div></div><div className="mastTools"><a className="personalizeButton" href="/make-it-yours">{profile ? "Tune my edition" : "Make it yours"}</a>{profile && <button className="genericButton" onClick={clearProfile}>Generic Edition</button>}<button className="savedButton" onClick={() => setShowSaved(value => !value)}>Saved <b>{saved.length}</b></button><button className={`radio ${radio ? "radioOn" : ""}`} onClick={() => setRadio(!radio)} aria-label={`Meanwhile Radio ${radio ? "on" : "off"}`} title="Meanwhile Radio placeholder"><span>♪</span><small>{radio ? "ON" : "RADIO"}</small></button></div></header>
     <div className="hello"><h1>{greeting}.</h1><div className="helloAside"><p>{date}</p><span>{helloThought}</span></div></div>
 
-    <section className="ribbon" aria-label="Quick facts"><div className="weatherFact"><b>{greeting}</b><span>{date}</span></div><GoodNewsWire items={spreadAdjacentSources(data?.tickerStories || (data?.ribbonFavorite ? [data.ribbonFavorite] : []))}/><RollingFact label={editionNote}>Fresh stories, useful discoveries and excellent creatures.</RollingFact></section>
+    <section className="ribbon" aria-label="Quick facts"><div className="weatherFact"><b>{greeting}</b><span>{date}</span></div><GoodNewsWire items={spreadAdjacentSources(data?.tickerStories || (data?.ribbonFavorite ? [data.ribbonFavorite] : []))}/><RollingFact label={editionNote}>{smallDelight}</RollingFact></section>
 
     {showSaved && <section className="savedShelf"><div className="sectionHead"><div><span>Your keepers</span><h2>Saved Good Stuff</h2></div><button onClick={() => setShowSaved(false)}>Close</button></div>{saved.length ? <div className="savedGrid">{saved.map(item => <article key={itemKey(item)}><span>{item.section}</span><h3><a href={item.url} target="_blank" rel="noreferrer">{item.title}</a></h3><div><button onClick={() => share(item)}>Share</button><button onClick={() => toggleSave(item)}>Remove</button></div></article>)}</div> : <p className="emptySaved">Things you save will wait here—even when the wall refreshes.</p>}</section>}
 
     <section className="favoritesSection"><div className="sectionHead"><div><span>A few especially nice things</span><h2>Bright Spots</h2></div><p>Kindness, ingenuity & excellent dogs</p></div><div className="favorites">{uniqueFavorites.map(item => <a className="favorite" href={item.url} target="_blank" rel="noreferrer" key={item.canonicalUrl}><span>{age(item.date)}</span><h3>{item.title}</h3><b>{item.source}</b></a>)}</div></section>
 
-    <section className="gallerySection"><div className="sectionHead wallHead"><div><span>Every good magazine on the table</span><h2>Good Stuff</h2></div><p>{profile ? "Your interests, with the wider world left in" : "A deliberately broad, lively mix"}</p></div>{visibleBatches.length ? <div className="galleryWall">{visibleBatches.map((batch, batchIndex) => <div className="galleryBatch" key={batchIndex}>{arrangeFrameClusters(batch).map((cluster, clusterIndex) => { const variant = (batchIndex * 3 + clusterIndex) % 3; return <div className={`tetrisCluster clusterVariant-${variant} clusterCount-${cluster.length} ${cluster.length <= 5 ? "partialCluster" : ""}`} key={clusterIndex}>{cluster.map((item, index) => { const absoluteIndex = batchIndex * BATCH_SIZE + clusterIndex * 10 + index; return item.format === "joy" ? <JoyTile item={item} index={absoluteIndex} key={item.canonicalUrl} /> : <Story item={item} index={absoluteIndex} paletteIndex={absoluteIndex} palette={palette} onRate={rate} onSave={toggleSave} onShare={share} saved={savedKeys.has(itemKey(item))} key={item.canonicalUrl} />; })}</div>; })}</div>)}</div> : <div className="loading"><span>Composing today&apos;s wall</span><i /><i /><i /></div>}
+    <section className="gallerySection"><div className="sectionHead wallHead"><div><span>Every good magazine on the table</span><h2>Good Stuff</h2></div><p>{profile ? "Your interests, with the wider world left in" : "A deliberately broad, lively mix"}</p></div>{visibleBatches.length ? <div className="galleryWall">{visibleBatches.map((batch, batchIndex) => <div className="galleryBatch" key={batchIndex}>{arrangeFrameClusters(batch).map((cluster, clusterIndex) => { const variant = (batchIndex * 3 + clusterIndex) % 3; return <div className={`tetrisCluster clusterVariant-${variant} clusterCount-${cluster.length} ${cluster.length <= 5 ? "partialCluster" : ""}`} key={clusterIndex}>{cluster.map((item, index) => { const absoluteIndex = batchIndex * BATCH_SIZE + clusterIndex * 10 + index; return item.format === "joy" ? <JoyTile item={item} index={absoluteIndex} key={item.canonicalUrl} /> : <Story item={item} index={absoluteIndex} paletteIndex={absoluteIndex} palette={palette} onRate={rate} onSave={toggleSave} onShare={share} saved={savedKeys.has(itemKey(item))} key={item.canonicalUrl} />; })}</div>; })}</div>)}</div> : <div className="loading" role="status" aria-live="polite"><span>Getting everything ready…</span><div className="loadingTrack" aria-hidden="true"><i /></div><small>Finding good things from around the world</small></div>}
       {batches * BATCH_SIZE < wall.length && <div className="loadWrap"><button className="loadBtn" onClick={() => setBatches(count => count + 1)}>Load 25 More Good Things<span>↓</span></button></div>}
     </section>
 
