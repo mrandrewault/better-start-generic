@@ -225,6 +225,9 @@ function isFreshLocal(item) {
   const age = (Date.now() - new Date(item.date)) / 864e5;
   // If a publication has stopped producing fresh material, move laterally to
   // another source in the category instead of recycling its archive forever.
+  // NYT's desk feeds keep older entries available longer than this product's
+  // live-feed promise permits, so they receive a deliberately tighter window.
+  if (/^nyt (?:arts|books)$/i.test(item.source || "")) return age <= 7;
   return age <= (item.sourcePack ? 120 : 45);
 }
 function isGoodNews(item) {
@@ -422,7 +425,7 @@ function balancedMagazine(candidates, count, interests = [], random = Math.rando
       || "grabBag";
     const obeysFormatAndSourceCaps = item => {
       const source = normalizeSource(item.source), pageCount = sourceCounts.get(source) || 0;
-      const pageLimit = source === "nyt arts" ? 2 : 5;
+      const pageLimit = /^(?:nyt arts|nyt books)$/.test(source) ? 2 : 5;
       return blockCounts[item.mixLane] < targets[item.mixLane] && pageCount < pageLimit && !((item.visualShelf && blockVisualShelfCount >= 2) || blockSourceCount(source) >= 2);
     };
     const exact = remaining.filter((item) => item.mixLane === lane && obeysFormatAndSourceCaps(item));

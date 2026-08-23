@@ -144,6 +144,10 @@ const itemKey = item => item.canonicalUrl || item.url || item.normalizedTitle ||
 const savedPlaces = () => { try { const value = JSON.parse(localStorage.getItem("betterStartReaderPlaces") || "[]"); return Array.isArray(value) ? value.slice(0, 20).join("|") : ""; } catch { return ""; } };
 const storyHistory = () => { try { const value = JSON.parse(localStorage.getItem(STORY_HISTORY_KEY) || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } };
 const storyHistoryKeys = () => new Set(storyHistory().flatMap(entry => [entry.id, ...(entry.keys || [])]).filter(Boolean));
+const dailyStoryAvoidance = () => {
+  const cutoff = Date.now() - DAY_MS;
+  return [...new Set(storyHistory().filter(entry => (entry.ts || 0) >= cutoff).flatMap(entry => [entry.id, ...(entry.keys || [])]).filter(Boolean).map(stableHash))].slice(-900).join(",");
+};
 const filterEditionGlobally = next => {
   // The API has already applied the recent cross-visit history. Here we only
   // deduplicate regions inside this response; applying the entire lifetime
@@ -165,8 +169,15 @@ const filterEditionGlobally = next => {
 };
 const blendPool = (previous = [], next = []) => {
   // Keep only one fifth of the current wall when the automatic two-hour
-  // refresh runs. A browser reload passes preserve=false and keeps nothing.
-  const keep = previous.filter(item => Date.now() - (item._firstShownAt || 0) < DAY_MS).slice(0, Math.ceil(Math.min(previous.length, next.length) * .20));
+  // refresh runs. Slow editorial desks never occupy that carry-over, and an
+  // item may survive only one refresh. This prevents the same "good" card
+  // from becoming permanent furniture while preserving a little continuity.
+  const keep = previous
+    .filter(item => Date.now() - (item._firstShownAt || 0) < DAY_MS)
+    .filter(item => !item._carriedOnce)
+    .filter(item => !/^nyt (?:arts|books)$/i.test(item.source || ""))
+    .slice(0, Math.ceil(Math.min(previous.length, next.length) * .20))
+    .map(item => ({...item, _carriedOnce:true}));
   const used = new Set(keep.map(itemKey));
   return [...keep, ...next.filter(item => !used.has(itemKey(item)))].slice(0, next.length);
 };
@@ -319,7 +330,7 @@ export default function Home() {
     setProfile(activeProfile);
     let lastLoad = Date.now();
     const loadEdition = async preserve => {
-      const visit = `${Math.floor(Date.now() / EDITION_MS)}-${Date.now()}-${Math.random()}`, mediaHistory = recentHistory("betterStartReaderMediaHistory"), priorStories = storyHistory().slice(-90), avoid = [...new Set(mediaHistory.map(entry => entry.id))].slice(-120).join(","), avoidStories = [...new Set(priorStories.flatMap(entry => [entry.id, ...(entry.keys || [])]).map(stableHash))].slice(-420).join(","), places = savedPlaces(), profileTerms = activeProfile ? [...(activeProfile.broadInterests || []), ...(activeProfile.specificInterests || []), ...(activeProfile.details || []), ...(activeProfile.anythingElse || [])].slice(0, 48).join("|") : "";
+      const visit = `${Math.floor(Date.now() / EDITION_MS)}-${Date.now()}-${Math.random()}`, mediaHistory = recentHistory("betterStartReaderMediaHistory"), avoid = [...new Set(mediaHistory.map(entry => entry.id))].slice(-120).join(","), avoidStories = dailyStoryAvoidance(), places = savedPlaces(), profileTerms = activeProfile ? [...(activeProfile.broadInterests || []), ...(activeProfile.specificInterests || []), ...(activeProfile.details || []), ...(activeProfile.anythingElse || [])].slice(0, 48).join("|") : "";
       try { const today = new Date().toISOString().slice(0, 10), priorDay = localStorage.getItem("betterStartReaderDay"), hardRefresh = priorDay !== today; const next = await (await fetch(`/api/feed?visit=${encodeURIComponent(visit)}&avoid=${encodeURIComponent(avoid)}&avoidStories=${encodeURIComponent(avoidStories)}&places=${encodeURIComponent(places)}&interests=${encodeURIComponent(profileTerms)}`, {cache: "no-store"})).json(); localStorage.setItem("betterStartReaderDay", today); setJoyHistory(recentHistory("betterStartReaderJoyHistory")); setData(previous => prepareEdition(next, previous, preserve && !hardRefresh)); setEditionNote(`${preserve && !hardRefresh ? "Freshened" : "New"} ${new Date().toLocaleTimeString([], {hour: "numeric", minute: "2-digit"})} edition`); lastLoad = Date.now(); } catch {}
     };
     loadEdition(false);
@@ -349,11 +360,11 @@ export default function Home() {
     if (serendipityCount < uniqueSerendipity.length) { setSerendipityCount(count => count + SERENDIPITY_BATCH_SIZE); return; }
     setSerendipityLoading(true); setEditionNote("Finding another worthwhile detour");
     try {
-      const mediaHistory = recentHistory("betterStartReaderMediaHistory"), priorStories = storyHistory().slice(-90);
+      const mediaHistory = recentHistory("betterStartReaderMediaHistory");
       const currentItems = [...(data?.tickerStories || []), data?.goodNews, ...(data?.favorites || []), ...(data?.important || []), ...(data?.gallery || []), ...(data?.media || []), ...(data?.serendipity || [])].filter(Boolean);
       const avoid = [...new Set(mediaHistory.map(entry => entry.id))].slice(-120).join(",");
       const currentStoryKeys = currentItems.flatMap(item => [itemKey(item), ...identityKeys(item)]);
-      const avoidStories = [...new Set([...priorStories.flatMap(entry => [entry.id, ...(entry.keys || [])]), ...currentStoryKeys].map(stableHash))].slice(-420).join(",");
+      const avoidStories = [...new Set([...dailyStoryAvoidance().split(",").filter(Boolean), ...currentStoryKeys.map(stableHash)])].slice(-900).join(",");
       const places = savedPlaces(), profileTerms = profile ? [...(profile.broadInterests || []), ...(profile.specificInterests || []), ...(profile.details || []), ...(profile.anythingElse || [])].slice(0, 48).join("|") : "";
       const visit = `surprise-${Date.now()}-${Math.random()}`;
       const next = await (await fetch(`/api/feed?visit=${encodeURIComponent(visit)}&avoid=${encodeURIComponent(avoid)}&avoidStories=${encodeURIComponent(avoidStories)}&places=${encodeURIComponent(places)}&interests=${encodeURIComponent(profileTerms)}`, {cache:"no-store"})).json();
