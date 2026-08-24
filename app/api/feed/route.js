@@ -338,12 +338,16 @@ const MIX_LABELS = {
 // Classify the subject, never the presentation format. A photograph of Kyoto
 // is travel; a photographed recipe is food; only art-about-art belongs in arts.
 function contentLane(item) {
-  if (item?.visualSubjectLane) return ({animals:"outdoors",international:"surprise",kindness:"surprise",ingenuity:"crafts",science:"thinking",money:"business",technology:"tech",grabBag:"trivia"}[item.visualSubjectLane] || item.visualSubjectLane);
   const title = `${item?.title || ""} ${item?.summary || ""}`.toLowerCase();
   const section = String(item?.section || "").toLowerCase();
   const pack = String(item?.sourcePack || "").toLowerCase();
   const text = `${title} ${item?.source || ""} ${item?.sourcePackLabel || ""}`.toLowerCase();
   const matches = (pattern) => pattern.test(text);
+  // Runway photographs sometimes arrive with generic "arts" or "visual shelf"
+  // metadata. Classify their actual subject before trusting that metadata so
+  // they cannot evade the fashion quota merely because they are photographs.
+  if (/\b(fashion week|fashion show|fashion model|runway|catwalk|couture|haute couture|street style|menswear|womenswear)\b/.test(`${title} ${section}`)) return "fashion";
+  if (item?.visualSubjectLane) return ({animals:"outdoors",international:"surprise",kindness:"surprise",ingenuity:"crafts",science:"thinking",money:"business",technology:"tech",grabBag:"trivia"}[item.visualSubjectLane] || item.visualSubjectLane);
   if (/fashion-style/.test(pack) && /fashion|designer|style|sneaker|clothing|wear|runway|couture|garment/.test(title)) return "fashion";
   if (/women-culture/.test(pack) && /fashion|style|runway|couture|costume|garment/.test(title)) return "fashion";
   if (/fashion/.test(section)) return "fashion";
@@ -393,6 +397,10 @@ function personalizedCounts(interests = []) {
   const signals = interests.map(value => contentLane({title:value})).filter(lane => lane !== "grabBag");
   const boosts = [...new Set(signals)].slice(0, 3);
   boosts.forEach(lane => {
+    // Fashion remains a five-percent editorial lane even when it is one of a
+    // reader's interests. Personalization can change which fashion story wins,
+    // but it cannot turn the wider-world edition into a runway feed.
+    if (lane === "fashion") return;
     const desired = Math.min(5, counts[lane] + (boosts.length === 1 ? 3 : 2));
     let needed = desired - counts[lane];
     for (const donor of Object.keys(counts).reverse()) {
@@ -424,14 +432,26 @@ function balancedMagazine(candidates, count, interests = [], random = Math.rando
       .sort((a,b) => (targets[b] - blockCounts[b]) - (targets[a] - blockCounts[a]))[0]
       || Object.keys(targets).find(candidate => remaining.some(item => item.mixLane === candidate))
       || "grabBag";
-    const obeysFormatAndSourceCaps = item => {
+    const hardLaneLimit = item => item.mixLane === "fashion" ? 1 : 2;
+    const obeysSourceAndFormatCaps = item => {
       const source = normalizeSource(item.source), pageCount = sourceCounts.get(source) || 0;
       const pageLimit = /^(?:nyt arts|nyt books)$/.test(source) ? 2 : 5;
-      return blockCounts[item.mixLane] < targets[item.mixLane] && pageCount < pageLimit && !((item.visualShelf && blockVisualShelfCount >= 2) || blockSourceCount(source) >= 2);
+      return pageCount < pageLimit && !((item.visualShelf && blockVisualShelfCount >= 2) || blockSourceCount(source) >= 2);
     };
-    const exact = remaining.filter((item) => item.mixLane === lane && obeysFormatAndSourceCaps(item));
-    const cappedPool = remaining.filter(obeysFormatAndSourceCaps);
-    const eligible = exact.length ? exact : cappedPool.length ? cappedPool : remaining;
+    const belowHardLaneCap = item => blockCounts[item.mixLane] < hardLaneLimit(item);
+    const belowTarget = item => blockCounts[item.mixLane] < targets[item.mixLane];
+    const exact = remaining.filter(item => item.mixLane === lane && belowTarget(item) && belowHardLaneCap(item) && obeysSourceAndFormatCaps(item));
+    const cappedPool = remaining.filter(item => belowTarget(item) && belowHardLaneCap(item) && obeysSourceAndFormatCaps(item));
+    // If a requested desk has no usable story, redistribute its space among
+    // under-represented subjects. Never fall back to an unrestricted pool:
+    // that old escape hatch was how runway inventory flooded sparse editions.
+    const redistributed = remaining
+      .filter(item => belowHardLaneCap(item) && obeysSourceAndFormatCaps(item))
+      .sort((a, b) => blockCounts[a.mixLane] - blockCounts[b.mixLane]);
+    const emergency = remaining
+      .filter(belowHardLaneCap)
+      .sort((a, b) => blockCounts[a.mixLane] - blockCounts[b.mixLane]);
+    const eligible = exact.length ? exact : cappedPool.length ? cappedPool : redistributed.length ? redistributed : emergency;
     const recentSources = new Set(selected.slice(-4).map((item) => normalizeSource(item.source)));
 
     const ranked = eligible

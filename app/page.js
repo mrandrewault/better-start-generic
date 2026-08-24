@@ -221,6 +221,9 @@ const blendPool = (previous = [], next = []) => {
     .filter(item => Date.now() - (item._firstShownAt || 0) < DAY_MS)
     .filter(item => !item._carriedOnce)
     .filter(item => !/^nyt (?:arts|books)$/i.test(item.source || ""))
+    // The incoming edition already contains its single current fashion slot.
+    // Do not carry yesterday's runway card into the same twenty-card window.
+    .filter(item => item.mixLane !== "fashion")
     .slice(0, Math.ceil(Math.min(previous.length, next.length) * .20))
     .map(item => ({...item, _carriedOnce:true}));
   const used = new Set(keep.map(itemKey));
