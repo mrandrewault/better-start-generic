@@ -116,7 +116,7 @@ function isIdentityStory(item, identity) {
   return identity.packs.includes(item.sourcePack) || identity.signals.some(signal => policyText(`${item.title} ${item.summary} ${item.section} ${item.source}`).includes(policyText(signal)));
 }
 async function enrichStoryImage(item) {
-  if (item.image || !item.url || item.url === "#") return item;
+  if (item.image || item.noImageEnrichment || !item.url || item.url === "#") return item;
   try {
     const response = await fetch(item.url, {redirect:"follow", headers:{"User-Agent":"Mozilla/5.0 BetterStart/5.0"}, signal:AbortSignal.timeout(2800)});
     if (!response.ok) return item;
@@ -413,6 +413,10 @@ function personalizedCounts(interests = []) {
   return counts;
 }
 
+function isDogStory(item) {
+  return /\b(dog|dogs|doggie|doggies|puppy|puppies|canine|greyhound|labrador|retriever|terrier|beagle|collie|shepherd|schnauzer|spaniel|corgi|dachshund)\b/i.test(`${item?.title || ""} ${item?.summary || ""} ${item?.section || ""} ${item?.source || ""}`);
+}
+
 function balancedMagazine(candidates, count, interests = [], random = Math.random) {
   const remaining = unique(candidates).map((item) => ({ ...item, mixLane: contentLane(item) }));
   const selected = [];
@@ -451,7 +455,12 @@ function balancedMagazine(candidates, count, interests = [], random = Math.rando
     const emergency = remaining
       .filter(belowHardLaneCap)
       .sort((a, b) => blockCounts[a.mixLane] - blockCounts[b.mixLane]);
-    const eligible = exact.length ? exact : cappedPool.length ? cappedPool : redistributed.length ? redistributed : emergency;
+    // One excellent dog is a standing part of every edition. It fills the
+    // normal outdoors/animals position, rather than increasing that category.
+    const dogPool = position === 0
+      ? remaining.filter(item => isDogStory(item) && belowHardLaneCap(item) && obeysSourceAndFormatCaps(item))
+      : [];
+    const eligible = dogPool.length ? dogPool : exact.length ? exact : cappedPool.length ? cappedPool : redistributed.length ? redistributed : emergency;
     const recentSources = new Set(selected.slice(-4).map((item) => normalizeSource(item.source)));
 
     const ranked = eligible
@@ -559,7 +568,7 @@ export async function GET(request) {
     const feed = await parser.parseURL(source.url);
     return (feed.items || []).slice(0, 40).map((item, index) => {
       const scored = score(item, source, taste);
-      const story = {title: plain(item.title) || "Untitled", url: item.link || "#", summary: plain(item.contentSnippet || item.content || ""), date: item.isoDate || item.pubDate || null, source: source.name, section: source.section, image: imageFor(item), sourcePack:source.pack || null, sourcePackLabel:source.packLabel || null, sourcePackHits:source.packHits || 0, ...scored, score:scored.score + (source.pack ? 18 + Math.min(24, (source.packHits || 0) * 4) : 0)};
+      const story = {title: plain(item.title) || "Untitled", url: item.link || "#", summary: plain(item.contentSnippet || item.content || ""), date: item.isoDate || item.pubDate || null, source: source.name, section: source.section, image: source.noImages ? null : imageFor(item), sourcePack:source.pack || null, sourcePackLabel:source.packLabel || null, sourcePackHits:source.packHits || 0, noImageEnrichment:Boolean(source.noImages), ...scored, score:scored.score + (source.pack ? 18 + Math.min(24, (source.packHits || 0) * 4) : 0)};
       return {...story, geoClass: classifyGeography(story, localPlaces), format: formatFor(story, index)};
     });
   }));
