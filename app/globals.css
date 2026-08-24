@@ -359,6 +359,21 @@
 /* V23: desktop uses large natural-ratio images in a magazine masonry wall. */
 .personalizeButton,.welcomeActions a{background:#d83a2e!important;color:#fff!important;border:1px solid #171512!important;box-shadow:4px 4px 0 #171512!important;text-decoration:none!important}
 .personalizeButton:hover,.welcomeActions a:hover{background:#b92c23!important}
+
+/* V31: quiet account controls and Supabase sign-in panel. */
+.accountButton{border:1px solid var(--ink);background:transparent;padding:9px 11px;font:700 9px "DM Sans",sans-serif;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+.accountVeil{position:fixed;inset:0;z-index:1100;display:grid;place-items:center;padding:22px;background:rgba(20,18,14,.58);backdrop-filter:blur(4px)}
+.accountPanel{position:relative;width:min(520px,100%);padding:38px;background:var(--paper);border:1px solid var(--ink);box-shadow:9px 9px 0 #171512;color:var(--ink)}
+.accountClose{position:absolute;top:11px;right:13px;border:0;background:none;font:28px/1 Arial,sans-serif;cursor:pointer}
+.accountEyebrow{display:block;margin-bottom:14px;color:#174da8;font:800 10px "DM Sans",sans-serif;letter-spacing:.17em;text-transform:uppercase}
+.accountPanel h2{margin:0 0 16px;font:54px/.9 "DM Serif Display",serif;letter-spacing:-.035em}
+.accountPanel p{max-width:430px;margin:0 0 22px;font:18px/1.4 Georgia,serif;color:var(--muted)}
+.accountPanel form{display:grid;gap:9px}.accountPanel label{font:800 9px "DM Sans",sans-serif;letter-spacing:.12em;text-transform:uppercase}
+.accountPanel input{width:100%;border:1px solid var(--ink);background:#fff;padding:13px 14px;font:16px Arial,sans-serif}
+.accountPanel form button,.accountActions button{border:1px solid var(--ink);background:#d83a2e;color:#fff;padding:13px 16px;font:800 10px "DM Sans",sans-serif;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;box-shadow:4px 4px 0 #171512}
+.accountAddress{display:block;margin:8px 0 25px;font:700 15px Arial,sans-serif}.accountActions{display:flex;gap:14px;align-items:center}.accountActions .accountSecondary{background:#fff;color:var(--ink);box-shadow:none}
+.accountStatus{display:block;margin-top:18px;font:700 12px/1.35 Arial,sans-serif;color:#174da8}
+@media(max-width:650px){.accountButton{padding:7px;font-size:7px}.accountVeil{padding:12px}.accountPanel{padding:31px 21px}.accountPanel h2{font-size:42px}.accountActions{align-items:stretch;flex-direction:column}.accountActions button{width:100%}}
 .loadBtn,.surpriseBtn{background:#d83a2e!important;color:#fff!important;border-color:#171512!important;box-shadow:4px 4px 0 #171512!important}
 .loadBtn:hover,.surpriseBtn:hover{background:#b92c23!important}
 .importantIntro p{color:rgba(255,255,255,.82)}

@@ -1,5 +1,6 @@
 "use client";
 import {useEffect,useMemo,useState} from "react";
+import {supabase} from "../../lib/supabase";
 
 const STORAGE_KEY="betterStartQuickPicksV1";
 const PROFILE_KEY="betterStartPersonalProfileV1";
@@ -146,7 +147,7 @@ export default function MakeItYours(){
   const profile=useMemo(()=>({version:2,name:name.trim(),title:name.trim()?`${name.trim()}’s Edition`:"My Edition",openingChoices:doorways.filter(item=>doorwayPicks.includes(item.id)).map(item=>item.label),broadInterests:chosenTopics.map(topic=>topic.label),specificInterests:neighborhoods,details,anythingElse:extra.split(/,|\n/).map(value=>value.trim()).filter(Boolean),readerDefaults}),[name,doorwayPicks,chosenTopics,neighborhoods,details,extra]);
   const progress=["What sounds like you","A little more you","Choose some subjects","Names + specifics","Ready"];
   const reset=()=>{if(confirm("Clear these choices and begin again?")){localStorage.removeItem(STORAGE_KEY);setStep(0);setDoorwayPicks([]);setNeighborhoods([]);setDetails([]);setExtra("");setName("");setReady(false)}};
-  const buildEdition=()=>{localStorage.setItem(PROFILE_KEY,JSON.stringify({...profile,updatedAt:new Date().toISOString()}));window.location.href="/?personalized=true"};
+  const buildEdition=async()=>{const finished={...profile,updatedAt:new Date().toISOString()};localStorage.setItem(PROFILE_KEY,JSON.stringify(finished));if(supabase){const {data:{user}}=await supabase.auth.getUser();if(user)await supabase.from("profiles").upsert({user_id:user.id,display_name:finished.name||null,edition_name:finished.title,preferences:finished});}window.location.href="/?personalized=true"};
   const next=()=>setStep(value=>Math.min(4,value+1));
   const toggleDoorway=item=>{const nextPicks=toggle(doorwayPicks,item.id),nextSignals=new Set(doorways.filter(option=>nextPicks.includes(option.id)).flatMap(option=>option.signals)),allowedTopics=topics.filter(topic=>nextSignals.has(topic.id)),allowedNeighborhoods=new Set(allowedTopics.flatMap(topic=>topic.children)),keptNeighborhoods=neighborhoods.filter(value=>allowedNeighborhoods.has(value)),allowedDetails=new Set(keptNeighborhoods.flatMap(label=>specifics[label]||defaultSpecifics(label)));setDoorwayPicks(nextPicks);setNeighborhoods(keptNeighborhoods);setDetails(details.filter(value=>allowedDetails.has(value)))};
   const toggleNeighborhood=label=>{if(neighborhoods.includes(label)){const removed=new Set(specifics[label]||defaultSpecifics(label));setNeighborhoods(neighborhoods.filter(value=>value!==label));setDetails(details.filter(value=>!removed.has(value)))}else setNeighborhoods([...neighborhoods,label])};
