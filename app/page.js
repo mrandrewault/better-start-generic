@@ -8,6 +8,8 @@ const SERENDIPITY_BATCH_SIZE = 9;
 const EDITION_MS = 2 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const SERVER_REPEAT_WINDOW_MS = 30 * DAY_MS;
+const READER_REPEAT_WINDOW_MS = 90 * DAY_MS;
 const STORY_HISTORY_KEY = "betterStartReaderStoryHistory";
 const STORY_HISTORY_LIMIT = 5000;
 const DAYPART_MESSAGES = {
@@ -186,15 +188,16 @@ const itemKey = item => item.canonicalUrl || item.url || item.normalizedTitle ||
 const savedPlaces = () => { try { const value = JSON.parse(localStorage.getItem("betterStartReaderPlaces") || "[]"); return Array.isArray(value) ? value.slice(0, 20).join("|") : ""; } catch { return ""; } };
 const storyHistory = () => { try { const value = JSON.parse(localStorage.getItem(STORY_HISTORY_KEY) || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } };
 const storyHistoryKeys = () => new Set(storyHistory().flatMap(entry => [entry.id, ...(entry.keys || [])]).filter(Boolean));
-const dailyStoryAvoidance = () => {
-  const cutoff = Date.now() - DAY_MS;
+const recentStoryAvoidance = () => {
+  const cutoff = Date.now() - SERVER_REPEAT_WINDOW_MS;
   return [...new Set(storyHistory().filter(entry => (entry.ts || 0) >= cutoff).flatMap(entry => [entry.id, ...(entry.keys || [])]).filter(Boolean).map(stableHash))].slice(-900).join(",");
 };
 const filterEditionGlobally = next => {
-  // The API has already applied the recent cross-visit history. Here we only
-  // deduplicate regions inside this response; applying the entire lifetime
-  // archive again can empty shelves for loyal returning readers.
-  const seen = new Set(), take = items => claimUnique(items || [], seen);
+  // The server gets a compact 30-day blacklist. The browser is the final,
+  // stricter gate: no exact URL, title, image, asset or close topic identity
+  // seen in the last 90 days is allowed back onto the wall.
+  const cutoff = Date.now() - READER_REPEAT_WINDOW_MS;
+  const seen = new Set(storyHistory().filter(entry => (entry.ts || 0) >= cutoff).flatMap(entry => [entry.id, ...(entry.keys || [])]).filter(Boolean)), take = items => claimUnique(items || [], seen);
   const tickerStories = take(next?.tickerStories || (next?.ribbonFavorite ? [next.ribbonFavorite] : []));
   const goodNews = take(next?.goodNews ? [next.goodNews] : [])[0] || null;
   return {...next,
@@ -407,7 +410,7 @@ export default function Home() {
     setProfile(activeProfile);
     let lastLoad = Date.now();
     const loadEdition = async preserve => {
-      const visit = `${Math.floor(Date.now() / EDITION_MS)}-${Date.now()}-${Math.random()}`, mediaHistory = recentHistory("betterStartReaderMediaHistory"), avoid = [...new Set(mediaHistory.map(entry => entry.id))].slice(-120).join(","), avoidStories = dailyStoryAvoidance(), places = savedPlaces(), profileTerms = activeProfile ? [...(activeProfile.broadInterests || []), ...(activeProfile.specificInterests || []), ...(activeProfile.details || []), ...(activeProfile.anythingElse || [])].slice(0, 48).join("|") : "";
+      const visit = `${Math.floor(Date.now() / EDITION_MS)}-${Date.now()}-${Math.random()}`, mediaHistory = recentHistory("betterStartReaderMediaHistory"), avoid = [...new Set(mediaHistory.map(entry => entry.id))].slice(-120).join(","), avoidStories = recentStoryAvoidance(), places = savedPlaces(), profileTerms = activeProfile ? [...(activeProfile.broadInterests || []), ...(activeProfile.specificInterests || []), ...(activeProfile.details || []), ...(activeProfile.anythingElse || [])].slice(0, 48).join("|") : "";
       try { const today = new Date().toISOString().slice(0, 10), priorDay = localStorage.getItem("betterStartReaderDay"), hardRefresh = priorDay !== today; const next = await (await fetch(`/api/feed?visit=${encodeURIComponent(visit)}&avoid=${encodeURIComponent(avoid)}&avoidStories=${encodeURIComponent(avoidStories)}&places=${encodeURIComponent(places)}&interests=${encodeURIComponent(profileTerms)}`, {cache: "no-store"})).json(); localStorage.setItem("betterStartReaderDay", today); setJoyHistory(recentHistory("betterStartReaderJoyHistory")); setData(previous => prepareEdition(next, previous, preserve && !hardRefresh)); setEditionNote(`${preserve && !hardRefresh ? "Freshened" : "New"} ${new Date().toLocaleTimeString([], {hour: "numeric", minute: "2-digit"})} edition`); lastLoad = Date.now(); } catch {}
     };
     loadEdition(false);
@@ -443,7 +446,7 @@ export default function Home() {
       const currentItems = [...(data?.tickerStories || []), data?.goodNews, ...(data?.favorites || []), ...(data?.important || []), ...(data?.gallery || []), ...(data?.media || []), ...(data?.serendipity || [])].filter(Boolean);
       const avoid = [...new Set(mediaHistory.map(entry => entry.id))].slice(-120).join(",");
       const currentStoryKeys = currentItems.flatMap(item => [itemKey(item), ...identityKeys(item)]);
-      const avoidStories = [...new Set([...dailyStoryAvoidance().split(",").filter(Boolean), ...currentStoryKeys.map(stableHash)])].slice(-900).join(",");
+      const avoidStories = [...new Set([...recentStoryAvoidance().split(",").filter(Boolean), ...currentStoryKeys.map(stableHash)])].slice(-900).join(",");
       const places = savedPlaces(), profileTerms = profile ? [...(profile.broadInterests || []), ...(profile.specificInterests || []), ...(profile.details || []), ...(profile.anythingElse || [])].slice(0, 48).join("|") : "";
       const visit = `surprise-${Date.now()}-${Math.random()}`;
       const next = await (await fetch(`/api/feed?visit=${encodeURIComponent(visit)}&avoid=${encodeURIComponent(avoid)}&avoidStories=${encodeURIComponent(avoidStories)}&places=${encodeURIComponent(places)}&interests=${encodeURIComponent(profileTerms)}`, {cache:"no-store"})).json();
