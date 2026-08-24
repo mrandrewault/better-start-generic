@@ -10,6 +10,47 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const STORY_HISTORY_KEY = "betterStartReaderStoryHistory";
 const STORY_HISTORY_LIMIT = 5000;
+const DAYPART_MESSAGES = {
+  morning:[
+    "Let’s start the day off rage-free, shall we?",
+    "Mornings are for nice things, not rage.",
+    "This is a rage-free zone.",
+    "Oh, what a beautiful rage-bait-free morning.",
+    "Let’s ease into the day with good things.",
+    "Ease into the day with more ease.",
+    "No rage in the morning, please.",
+    "Not everything is crazy and terrible.",
+    "There are lots of good things happening. Here are some of them.",
+    "Good days are built on good mornings.",
+    "The world is already yelling. We don’t have to.",
+    "Coffee first. Outrage never.",
+    "Good morning. The algorithm can wait."
+  ],
+  afternoon:[
+    "Enjoy a little mental recess.",
+    "Take a break from the crazy.",
+    "World got you down? Play around here for a while.",
+    "Take a break for a while.",
+    "Now’s as good a time as any to take a break.",
+    "Enjoy more joy.",
+    "Enjoy some joy.",
+    "A small, sanctioned escape from the discourse.",
+    "Consider this your browser’s quiet room.",
+    "Nothing urgent here. That’s the point."
+  ],
+  evening:[
+    "Sweet dreams are made of this. Literally.",
+    "A softer landing for your day.",
+    "Take it easier.",
+    "Wind down with some good news.",
+    "Leave the bad news behind.",
+    "This is a rage-bait-free safe space.",
+    "Nighttime’s the right time for feeling good. Or at least reading about good.",
+    "The doomscroll has closed for the evening.",
+    "Put the outrage to bed before you.",
+    "Some news can wait until never."
+  ]
+};
 const SMALL_DELIGHTS = [
   "Octopuses have three hearts.",
   "A group of flamingos is called a flamboyance.",
@@ -376,8 +417,8 @@ export default function Home() {
     return () => { clearInterval(clock); clearInterval(editionTimer); document.removeEventListener("visibilitychange", onVisible); };
   }, []);
   const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
-  const daypart = now.getHours() < 10 ? "sunrise" : now.getHours() < 12 ? "lateMorning" : now.getHours() < 17 ? "afternoon" : "evening";
-  const helloThought = daypart === "sunrise" ? "Fresh coffee. Open curtains. The world still contains wonders." : daypart === "lateMorning" ? "A bright little detour before the day gets away." : daypart === "afternoon" ? "A second wind, made of curiosity instead of caffeine." : "A softer landing for the end of the day.";
+  const daypart = now.getHours() < 12 ? "morning" : now.getHours() < 17 ? "afternoon" : "evening";
+  const daypartMessages = DAYPART_MESSAGES[daypart], helloThought = daypartMessages[Math.abs(Math.floor(now.getTime() / EDITION_MS)) % daypartMessages.length];
   const date = now.toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"});
   const smallDelight = SMALL_DELIGHTS[Math.abs(data?.edition || Math.floor(Date.now() / EDITION_MS)) % SMALL_DELIGHTS.length];
   const uniqueFavorites = useMemo(() => { const seen = new Set(); (data?.tickerStories || [data?.ribbonFavorite]).filter(Boolean).forEach(item => identityKeys(item).forEach(key => seen.add(key))); return spreadAdjacentSources(claimUnique(data?.favorites || [], seen)); }, [data]);
