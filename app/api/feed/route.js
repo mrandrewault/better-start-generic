@@ -14,6 +14,9 @@ const policyText = value => ` ${String(value || "").toLowerCase().replace(/[^a-z
 const stableHash = value => { let hash = 2166136261; for (const char of String(value || "")) { hash ^= char.charCodeAt(0); hash = Math.imul(hash, 16777619); } return (hash >>> 0).toString(36); };
 const publicSpaceUnsafe = /\b(porn(?:ography|ographic)?|nsfw|nud(?:e|ity)|naked|topless|full[- ]?frontal|genitals?|penis|vulva|vagina|erotic(?:a)?|sexually explicit|adult content|figure stud(?:y|ies)|boudoir)\b/i;
 const suggestiveFashionUnsafe = /\b(miami (?:fashion|swim) week|miami nightlife|swim week|bikini(?:s)?|micro[- ]?bikini|thong(?:s)?|lingerie|underwear runway|swimwear runway|see[- ]?through (?:dress|fashion|outfit)|sheer (?:dress|fashion|outfit))\b/i;
+// Absolute editorial exclusions: these never enter the candidate pool.
+const bannedSource = item => /(?:\b(?:nyt|new york times)\b|(?:^|\.)nytimes\.com\b)/i.test(`${item?.source || ""} ${item?.url || ""} ${item?.canonicalUrl || ""}`);
+const religionUnsafe = /\b(?:religion|religious|faith(?:ful)?|christian(?:ity)?|catholic(?:ism)?|protestant(?:ism)?|evangelical(?:ism)?|jewish|judaism|muslim|islam(?:ic)?|hindu(?:ism)?|buddhis(?:m|t)|sikh(?:ism)?|mormon(?:ism)?|latter[- ]day saints?|church|cathedral|chapel|synagogue|mosque|bible|biblical|torah|talmud|quran|koran|scripture|gospel|theology|theological|clergy|cleric|priest|pastor|pope|papal|vatican|rabbi|imam|monk|nun|worship|sermon|congregation|parish|diocese|god|jesus|christ|messiah|allah|yahweh|religious nationalism|christian nationalism|zionis(?:m|t)|antisemiti(?:c|sm)|islamophobi(?:a|c))\b/i;
 const editoriallyExcluded = /\b(pickleball|tesla|cybertruck|elon musk|mark zuckerberg|meta platforms?|marvel cinematic|gordon ramsay|guy fieri|wall street|stock market|james patterson|young adult fiction|horror film|horror novel|hunting)\b/i;
 // Confirmed archive repeats stay retired even for readers whose older browser
 // history predates the permanent story ledger.
@@ -21,7 +24,7 @@ const retiredRepeat = /\b(?:james hetfield.*metallica|cis football (?:field|loca
 // Meanwhile is a politics-free publication. This deliberately excludes the
 // office and institution, not merely partisan vocabulary: a culture, travel,
 // style or arts story about a political figure is still a political story.
-const politicsUnsafe = /\b(?:trump|maga|maha|mar[- ]a[- ]lago|white house|oval office|first lady|first gentleman|president(?:ial)?|vice president|administration|cabinet|secretary of (?:state|defense|transportation|commerce|education|energy|labor|homeland security|health and human services|the interior|agriculture|the treasury|veterans affairs)|transportation secretary|state department|department of (?:state|defense|justice|transportation|commerce|education|energy|labor|homeland security)|pentagon|congress|congressional|senate|senator|house of representatives|representative|congressman|congresswoman|speaker of the house|supreme court|governor|lieutenant governor|mayor|prime minister|parliament|member of parliament|politician|political|republican|democrat|gop|campaign|election|ballot|rally|executive order|sean duffy)\b/i;
+const politicsUnsafe = /\b(?:trump|maga|maha|mar[- ]a[- ]lago|white house|oval office|first lady|first gentleman|president(?:ial)?|vice president|administration|cabinet|secretary of (?:state|defense|transportation|commerce|education|energy|labor|homeland security|health and human services|the interior|agriculture|the treasury|veterans affairs)|transportation secretary|state department|department of (?:state|defense|justice|transportation|commerce|education|energy|labor|homeland security)|pentagon|congress|congressional|senate|senator|house of representatives|representative|congressman|congresswoman|speaker of the house|supreme court|governor|lieutenant governor|mayor|prime minister|parliament|member of parliament|politician|political|republican|democrat|gop|campaign|election|ballot|rally|executive order|sean duffy|christian nationalism|white nationalism|nationalis(?:m|t)|religious right|religious left|culture war|culture[- ]war|conservative|liberal|left[- ]wing|right[- ]wing|partisan|ideology|ideological|activis(?:m|t)|advocacy|protest|legislation|legislature|policy debate|government|federal agency|immigration|abortion|gun rights?|gun control|book ban|school board|voting rights?|civil rights legislation|geopolitic|diploma(?:cy|tic)|sanctions?)\b/i;
 // Topics that become culture-war coverage when paired with schools, children,
 // libraries or curriculum are excluded regardless of the position taken.
 const educationCultureWarUnsafe = /(?:\b(?:lgbtq?|transgender|gender identity|drag queen|pride)\b.{0,90}\b(?:child(?:ren)?|kids?|school|classroom|curriculum|education|library|books?|reading hour)\b|\b(?:child(?:ren)?|kids?|school|classroom|curriculum|education|library|books?|reading hour)\b.{0,90}\b(?:lgbtq?|transgender|gender identity|drag queen|pride)\b)/i;
@@ -75,7 +78,7 @@ function isDisallowed(item) {
   const value = policyText(`${item.title || ""} ${item.summary || ""} ${item.contentSnippet || ""} ${item.source || ""} ${item.section || ""}`);
   const raw = `${item.title || ""} ${item.summary || ""} ${item.contentSnippet || ""} ${item.source || ""} ${item.section || ""}`;
   const corporateAmazon = /\bamazon(?:'s)?\b/i.test(raw) && !/\bamazon (?:rainforest|river|basin|forest|region|wildlife)\b/i.test(raw);
-  return corporateAmazon || /\bjeff bezos\b/i.test(raw) || retiredRepeat.test(raw) || politicsUnsafe.test(raw) || educationCultureWarUnsafe.test(raw) || editoriallyExcluded.test(raw) || bodyAnxiety.test(raw) || publicSpaceUnsafe.test(raw) || suggestiveFashionUnsafe.test(raw) || blockedTerms.some(term => value.includes(policyText(term)));
+  return bannedSource(item) || corporateAmazon || /\bjeff bezos\b/i.test(raw) || retiredRepeat.test(raw) || politicsUnsafe.test(raw) || religionUnsafe.test(raw) || educationCultureWarUnsafe.test(raw) || editoriallyExcluded.test(raw) || bodyAnxiety.test(raw) || publicSpaceUnsafe.test(raw) || suggestiveFashionUnsafe.test(raw) || blockedTerms.some(term => value.includes(policyText(term)));
 }
 function wasRecentlyShown(item, avoidStories) {
   if (!avoidStories?.size) return false;
@@ -586,7 +589,9 @@ async function feedResponse(params) {
   // The broad magazine desk remains active for personalized editions too.
   // Specialist sources supplement it; they never replace the wider world.
   const genericSources = packCatalog.filter(pack => genericPackIds.has(pack.id)).flatMap(pack => pack.sources.slice(0, pack.id === "food-travel" ? 4 : 2).map(source => ({...source, pack:pack.id, packLabel:pack.label, packHits:0})));
-  const sources = unique([...baseSources, ...genericSources, ...specialistSources].map(source => ({...source,title:source.name,summary:""}))).map(({canonicalUrl,normalizedTitle,title,summary,...source}) => source);
+  const sources = unique([...baseSources, ...genericSources, ...specialistSources].map(source => ({...source,title:source.name,summary:""})))
+    .filter(source => !bannedSource({source:source.name,url:source.url}))
+    .map(({canonicalUrl,normalizedTitle,title,summary,...source}) => source);
   const results = await Promise.allSettled(sources.map(async source => {
     const feed = await parser.parseURL(source.url);
     return (feed.items || []).slice(0, 40).map((item, index) => {

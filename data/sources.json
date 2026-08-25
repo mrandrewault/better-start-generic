@@ -2,8 +2,6 @@
   {"name":"Positive News","url":"https://www.positive.news/feed/","section":"SOLUTIONS + PROGRESS","quality":10,"noImages":true},
   {"name":"NPR Music","url":"https://feeds.npr.org/1039/rss.xml","section":"MUSIC","quality":9},
   {"name":"Criterion","url":"https://www.criterion.com/current/rss","section":"FILM + CULTURE","quality":9},
-  {"name":"NYT Arts","url":"https://rss.nytimes.com/services/xml/rss/nyt/Arts.xml","section":"ART + DESIGN","quality":9},
-  {"name":"NYT Books","url":"https://rss.nytimes.com/services/xml/rss/nyt/Books.xml","section":"BOOKS + IDEAS","quality":9},
   {"name":"Guardian Science","url":"https://www.theguardian.com/science/rss","section":"SCIENCE + NATURE","quality":8},
   {"name":"Guardian Culture","url":"https://www.theguardian.com/culture/rss","section":"FILM + CULTURE","quality":8},
   {"name":"Dezeen","url":"https://www.dezeen.com/feed/","section":"ARCHITECTURE + DESIGN","quality":9},
