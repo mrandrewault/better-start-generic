@@ -427,6 +427,7 @@ function balancedMagazine(candidates, count, interests = [], random = Math.rando
   for (let position = 0; position < count && remaining.length; position += 1) {
     const blockPosition = position % 20;
     const block = selected.slice(position - blockPosition);
+    const blockPersonalizedCount = block.filter(item => item.personalFit !== "editorial").length;
     const blockCounts = Object.fromEntries(Object.keys(targets).map(lane => [lane, block.filter(item => item.mixLane === lane).length]));
     const blockVisualShelfCount = block.filter(item => item.visualShelf).length;
     const blockSourceCount = source => block.filter(item => normalizeSource(item.source) === source).length;
@@ -444,21 +445,25 @@ function balancedMagazine(candidates, count, interests = [], random = Math.rando
     };
     const belowHardLaneCap = item => blockCounts[item.mixLane] < hardLaneLimit(item);
     const belowTarget = item => blockCounts[item.mixLane] < targets[item.mixLane];
-    const exact = remaining.filter(item => item.mixLane === lane && belowTarget(item) && belowHardLaneCap(item) && obeysSourceAndFormatCaps(item));
-    const cappedPool = remaining.filter(item => belowTarget(item) && belowHardLaneCap(item) && obeysSourceAndFormatCaps(item));
+    // Personalization may influence no more than half of any 20-story window.
+    // The other ten positions remain broad editorial choices, guaranteeing a
+    // steady supply of subjects the reader did not explicitly request.
+    const belowPersonalizationCap = item => blockPersonalizedCount < 10 || item.personalFit === "editorial";
+    const exact = remaining.filter(item => item.mixLane === lane && belowTarget(item) && belowHardLaneCap(item) && obeysSourceAndFormatCaps(item) && belowPersonalizationCap(item));
+    const cappedPool = remaining.filter(item => belowTarget(item) && belowHardLaneCap(item) && obeysSourceAndFormatCaps(item) && belowPersonalizationCap(item));
     // If a requested desk has no usable story, redistribute its space among
     // under-represented subjects. Never fall back to an unrestricted pool:
     // that old escape hatch was how runway inventory flooded sparse editions.
     const redistributed = remaining
-      .filter(item => belowHardLaneCap(item) && obeysSourceAndFormatCaps(item))
+      .filter(item => belowHardLaneCap(item) && obeysSourceAndFormatCaps(item) && belowPersonalizationCap(item))
       .sort((a, b) => blockCounts[a.mixLane] - blockCounts[b.mixLane]);
     const emergency = remaining
-      .filter(belowHardLaneCap)
+      .filter(item => belowHardLaneCap(item) && belowPersonalizationCap(item))
       .sort((a, b) => blockCounts[a.mixLane] - blockCounts[b.mixLane]);
     // One excellent dog is a standing part of every edition. It fills the
     // normal outdoors/animals position, rather than increasing that category.
     const dogPool = position === 0
-      ? remaining.filter(item => isDogStory(item) && belowHardLaneCap(item) && obeysSourceAndFormatCaps(item))
+      ? remaining.filter(item => isDogStory(item) && belowHardLaneCap(item) && obeysSourceAndFormatCaps(item) && belowPersonalizationCap(item))
       : [];
     const eligible = dogPool.length ? dogPool : exact.length ? exact : cappedPool.length ? cappedPool : redistributed.length ? redistributed : emergency;
     const recentSources = new Set(selected.slice(-4).map((item) => normalizeSource(item.source)));
@@ -562,7 +567,9 @@ export async function GET(request) {
   // carefully chosen feeds from each under-supplied source pack provide that
   // breadth without activating a personalized editorial identity.
   const genericPackIds = new Set(["sports","business-culture","fashion-style","books-history","making-garden","cars-boats","outdoors","food-travel","arts-culture","science-tech","philanthropy-community"]);
-  const genericSources = interests.length ? [] : packCatalog.filter(pack => genericPackIds.has(pack.id)).flatMap(pack => pack.sources.slice(0, pack.id === "food-travel" ? 4 : 2).map(source => ({...source, pack:pack.id, packLabel:pack.label, packHits:0})));
+  // The broad magazine desk remains active for personalized editions too.
+  // Specialist sources supplement it; they never replace the wider world.
+  const genericSources = packCatalog.filter(pack => genericPackIds.has(pack.id)).flatMap(pack => pack.sources.slice(0, pack.id === "food-travel" ? 4 : 2).map(source => ({...source, pack:pack.id, packLabel:pack.label, packHits:0})));
   const sources = unique([...baseSources, ...genericSources, ...specialistSources].map(source => ({...source,title:source.name,summary:""}))).map(({canonicalUrl,normalizedTitle,title,summary,...source}) => source);
   const results = await Promise.allSettled(sources.map(async source => {
     const feed = await parser.parseURL(source.url);
@@ -636,6 +643,8 @@ export async function GET(request) {
   reserveSerendipity(unusedStories().filter(item => item.personalFit === "adjacent"));
   reserveSerendipity(unusedStories());
   const targetCounts = interests.length ? personalizedCounts(interests) : BALANCED_MAGAZINE_COUNTS;
-  const actualCounts = Object.fromEntries(Object.keys(BALANCED_MAGAZINE_COUNTS).map(lane => [lane, gallery.slice(0, 20).filter(item => item.mixLane === lane).length]));
-  return Response.json({generatedAt: new Date().toISOString(), edition: Math.floor(Date.now() / 72e5), personalized:!!interests.length, editorialIdentity:{id:editorialIdentity.id,label:editorialIdentity.label,accent:editorialIdentity.accent,references:editorialIdentity.references,imageTarget:editorialIdentity.imageTarget}, composition:{window:20,targetCounts,actualCounts,labels:MIX_LABELS}, activeSourcePacks:activePacks.map(pack => ({id:pack.id,label:pack.label,hits:pack.hits})), tickerStories, ribbonFavorite, goodNews, favorites: favoriteSelection, media, gallery, visualReserve, important, serendipity, sourceStatus: {total: sources.length, specialist:specialistSources.length, successful: results.filter(result => result.status === "fulfilled").length}}, {headers: {"Cache-Control": "no-store"}});
+  const openingWindow = gallery.slice(0, 20);
+  const actualCounts = Object.fromEntries(Object.keys(BALANCED_MAGAZINE_COUNTS).map(lane => [lane, openingWindow.filter(item => item.mixLane === lane).length]));
+  const personalizedCount = openingWindow.filter(item => item.personalFit !== "editorial").length;
+  return Response.json({generatedAt: new Date().toISOString(), edition: Math.floor(Date.now() / 72e5), personalized:!!interests.length, editorialIdentity:{id:editorialIdentity.id,label:editorialIdentity.label,accent:editorialIdentity.accent,references:editorialIdentity.references,imageTarget:editorialIdentity.imageTarget}, composition:{window:20,targetCounts,actualCounts,personalization:{maximum:10,actual:personalizedCount,generic:openingWindow.length-personalizedCount},labels:MIX_LABELS}, activeSourcePacks:activePacks.map(pack => ({id:pack.id,label:pack.label,hits:pack.hits})), tickerStories, ribbonFavorite, goodNews, favorites: favoriteSelection, media, gallery, visualReserve, important, serendipity, sourceStatus: {total: sources.length, specialist:specialistSources.length, successful: results.filter(result => result.status === "fulfilled").length}}, {headers: {"Cache-Control": "no-store"}});
 }
