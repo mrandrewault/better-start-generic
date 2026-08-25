@@ -408,7 +408,9 @@ function Story({item, index, paletteIndex = index, palette, onRate, onSave, onSh
 }
 
 export default function Home() {
-  const [data, setData] = useState(null), [batches, setBatches] = useState(1), [moreGoodLoading, setMoreGoodLoading] = useState(false), [radio, setRadio] = useState(false), [now, setNow] = useState(new Date()), [saved, setSaved] = useState([]), [showSaved, setShowSaved] = useState(false), [showWelcome, setShowWelcome] = useState(false), [showSaveNudge, setShowSaveNudge] = useState(false), [showGenericNudge, setShowGenericNudge] = useState(false), [theme, setTheme] = useState("light"), [editionNote, setEditionNote] = useState("Composing edition"), [joyHistory, setJoyHistory] = useState([]), [profile, setProfile] = useState(null), [paletteIndex, setPaletteIndex] = useState(0), [user, setUser] = useState(null), [accountOpen, setAccountOpen] = useState(false), [accountEmail, setAccountEmail] = useState(""), [accountStatus, setAccountStatus] = useState("");
+  const [data, setData] = useState(null), [batches, setBatches] = useState(1), [queueLoading, setQueueLoading] = useState(false), [queueExhausted, setQueueExhausted] = useState(false), [radio, setRadio] = useState(false), [now, setNow] = useState(new Date()), [saved, setSaved] = useState([]), [showSaved, setShowSaved] = useState(false), [showWelcome, setShowWelcome] = useState(false), [showSaveNudge, setShowSaveNudge] = useState(false), [showGenericNudge, setShowGenericNudge] = useState(false), [theme, setTheme] = useState("light"), [editionNote, setEditionNote] = useState("Composing edition"), [joyHistory, setJoyHistory] = useState([]), [profile, setProfile] = useState(null), [paletteIndex, setPaletteIndex] = useState(0), [user, setUser] = useState(null), [accountOpen, setAccountOpen] = useState(false), [accountEmail, setAccountEmail] = useState(""), [accountStatus, setAccountStatus] = useState("");
+  const dataRef = useRef(null), queueRequestRef = useRef(false), loadMoreRef = useRef(null);
+  useEffect(() => { dataRef.current = data; }, [data]);
   useEffect(() => {
     if (!supabase) return;
     supabase.auth.getSession().then(({data:{session}}) => setUser(session?.user || null));
@@ -512,13 +514,13 @@ export default function Home() {
   const sendSignInLink = async event => { event.preventDefault(); if (!supabase) { setAccountStatus("Supabase is not connected to this deployment yet."); return; } setAccountStatus("Sending your secure link…"); const {error} = await supabase.auth.signInWithOtp({email:accountEmail, options:{emailRedirectTo:location.origin}}); setAccountStatus(error ? error.message : "Check your email. Your sign-in link is on the way."); };
   const signOut = async () => { if (supabase) await supabase.auth.signOut(); setUser(null); setAccountStatus("Signed out on this device."); };
   const share = async item => { const text = `I found this on Meanwhile — rage-free news, information and good times.\n\n${item.title}`, params = new URLSearchParams({u: item.url, t: item.title, s: item.source || "", c: item.section || ""}); if (item.image) params.set("i", item.image); const shareUrl = `${location.origin}/share?${params}`; try { if (navigator.share) await navigator.share({title: `${item.title} — Meanwhile`, text, url: shareUrl}); else { await navigator.clipboard.writeText(`${text}\n${shareUrl}`); setEditionNote("Branded share link copied"); } } catch {} };
-  const loadMoreGoodThings = async () => {
-    if (moreGoodLoading) return;
-    if (batches * BATCH_SIZE < wall.length) { setBatches(count => count + 1); return; }
-    setMoreGoodLoading(true); setEditionNote("Finding more good things");
+  const prefetchMoreGoodThings = async () => {
+    if (queueRequestRef.current || queueExhausted) return;
+    queueRequestRef.current = true; setQueueLoading(true);
     try {
       const mediaHistory = recentHistory("betterStartReaderMediaHistory");
-      const currentItems = [...(data?.tickerStories || []), data?.goodNews, ...(data?.favorites || []), ...(data?.important || []), ...(data?.gallery || []), ...(data?.media || []), ...(data?.serendipity || [])].filter(Boolean);
+      const current = dataRef.current;
+      const currentItems = [...(current?.tickerStories || []), current?.goodNews, ...(current?.favorites || []), ...(current?.important || []), ...(current?.gallery || []), ...(current?.media || []), ...(current?.serendipity || [])].filter(Boolean);
       const avoid = [...new Set(mediaHistory.map(entry => entry.id))].slice(-120).join(",");
       const currentStoryKeys = currentItems.flatMap(item => [itemKey(item), ...identityKeys(item)]);
       const avoidStories = [...new Set([...recentStoryAvoidance().split(",").filter(Boolean), ...currentStoryKeys.map(stableHash)])].slice(-SEEN_STORY_LEDGER_LIMIT).join(",");
@@ -526,16 +528,32 @@ export default function Home() {
       const visit = `more-good-${Date.now()}-${Math.random()}`;
       const next = await requestFeed({visit,avoid,avoidStories,places,interests:profileTerms});
       const fresh = filterEditionGlobally(next);
-      const existing = data?.gallery || [], seen = new Set(existing.flatMap(identityKeys));
+      const existing = dataRef.current?.gallery || [], seen = new Set(existing.flatMap(identityKeys));
       const additions = claimUnique(fresh?.gallery || [], seen);
       if (additions.length) {
-        setData(previous => ({...previous, gallery:stampNew([...(previous?.gallery || []), ...additions])}));
-        setBatches(count => count + 1); setEditionNote("More good things arrived");
+        setData(previous => ({...previous, gallery:stampNew([...(previous?.gallery || []), ...additions])})); setQueueExhausted(false);
       }
-      else setEditionNote("You’re caught up — no repeats to show");
-    } catch { setEditionNote("Couldn’t fetch more just yet"); }
-    finally { setMoreGoodLoading(false); }
+      else setQueueExhausted(true);
+    } catch { /* Keep the current queue; a later scroll can retry quietly. */ }
+    finally { queueRequestRef.current = false; setQueueLoading(false); }
   };
+  useEffect(() => {
+    const queued = wall.length - batches * BATCH_SIZE;
+    if (data && queued < 80 && !queueLoading && !queueExhausted) prefetchMoreGoodThings();
+  }, [data, wall.length, batches, queueLoading, queueExhausted]);
+  const loadMoreGoodThings = () => {
+    if (batches * BATCH_SIZE >= wall.length) return;
+    setBatches(count => count + 1);
+  };
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(entries => {
+      if (entries[0]?.isIntersecting && batches * BATCH_SIZE < wall.length) setBatches(count => count + 1);
+    }, {rootMargin:"700px 0px"});
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [batches, wall.length]);
   const savedKeys = useMemo(() => new Set(saved.map(itemKey)), [saved]);
   const clearProfile = () => { localStorage.removeItem(PROFILE_KEY); location.href = "/"; };
   const closeWelcome = () => { localStorage.setItem("meanwhileWelcomeSeenV1", "yes"); setShowWelcome(false); };
@@ -560,7 +578,7 @@ export default function Home() {
     <section className="favoritesSection"><div className="sectionHead"><div><span>A few especially nice things</span><h2>Bright Spots</h2></div><p>Kindness, ingenuity & excellent dogs</p></div><div className="favorites">{uniqueFavorites.map(item => <a className="favorite" href={item.url} target="_blank" rel="noreferrer" key={item.canonicalUrl}><span>{age(item.date)}</span><h3>{item.title}</h3><b>{item.source}</b></a>)}</div></section>
 
     <section className="gallerySection"><div className="sectionHead wallHead"><div><span>Every good magazine on the table</span><h2>Good Stuff</h2></div><p>{profile ? "Your interests, with the wider world left in" : "A deliberately broad, lively mix"}</p></div>{visibleBatches.length ? <div className="galleryWall">{visibleBatches.map((batch, batchIndex) => <div className="galleryBatch" key={batchIndex}>{arrangeFrameClusters(batch).map((cluster, clusterIndex) => { const variant = (batchIndex * 3 + clusterIndex) % 3; return <div className={`tetrisCluster clusterVariant-${variant} clusterCount-${cluster.length} ${cluster.length <= 5 ? "partialCluster" : ""}`} key={clusterIndex}>{cluster.map((item, index) => { const absoluteIndex = batchIndex * BATCH_SIZE + clusterIndex * 10 + index; return item.format === "joy" ? <JoyTile item={item} index={absoluteIndex} key={item.canonicalUrl} /> : <Story item={item} index={absoluteIndex} paletteIndex={absoluteIndex} palette={palette} onRate={rate} onSave={toggleSave} onShare={share} saved={savedKeys.has(itemKey(item))} key={item.canonicalUrl} />; })}</div>; })}</div>)}</div> : <div className="loading" role="status" aria-live="polite"><span>Getting everything ready…</span><div className="loadingTrack" aria-hidden="true"><i /></div><small>Finding good things from around the world</small></div>}
-      {data && <div className="loadWrap"><button className="loadBtn" onClick={loadMoreGoodThings} disabled={moreGoodLoading}>{moreGoodLoading ? "Finding More Good Things…" : "Load 20 More Good Things"}<span>↓</span></button></div>}
+      {data && <div className="loadWrap" ref={loadMoreRef}>{batches * BATCH_SIZE < wall.length ? <button className="loadBtn" onClick={loadMoreGoodThings}>Load More<span>↓</span></button> : queueExhausted ? <small>You’re caught up for now.</small> : <small>More good things will appear as they’re prepared.</small>}</div>}
     </section>
 
     <footer><b>MEANWHILE</b><span>Good things worth knowing · No outrage required</span></footer>

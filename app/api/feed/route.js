@@ -122,7 +122,7 @@ function detectEditorialIdentity(interests, activePacks) {
     const packHits = activePacks.reduce((total, pack) => total + (identity.packs.includes(pack.id) ? pack.hits : 0), 0);
     return {id, ...identity, score:signalHits * 3 + packHits * 2};
   }).filter(identity => identity.score > 0).sort((a, b) => b.score - a.score);
-  return ranked[0] || {id:"general", label:"Meanwhile", references:[], accent:"classic", imageTarget:.52, score:0};
+  return ranked[0] || {id:"general", label:"Meanwhile", references:[], accent:"classic", imageTarget:.70, score:0};
 }
 function contextAllowed(item, identity) {
   const value = `${item.title || ""} ${item.summary || ""}`;
@@ -134,7 +134,7 @@ function contextAllowed(item, identity) {
 function visualFirst(items, identity, count = 20, requestedTarget) {
   // A color field is useful art direction, but it is not editorial imagery.
   // Identity image targets therefore count only honest story images/video stills.
-  const target = requestedTarget ?? Math.ceil(count * Math.max(.6, identity.imageTarget || 0));
+  const target = requestedTarget ?? Math.ceil(count * Math.max(.7, identity.imageTarget || 0));
   const opening = items.slice(0, count), rest = items.slice(count);
   let visualCount = opening.filter(item => item.image).length;
   while (visualCount < target) {
@@ -171,13 +171,13 @@ async function enrichIdentityImages(items, identity) {
   const candidates = items.filter(item => !item.image).sort((a, b) => {
     const relevance = item => (isIdentityStory(item, identity) ? 3 : 0) + (item.personalFit === "direct" ? 2 : item.personalFit === "adjacent" ? 1 : 0);
     return relevance(b) - relevance(a) || b.score - a.score;
-  }).slice(0, 72);
+  }).slice(0, 120);
   if (!candidates.length) return items;
   const enriched = [];
   // Small batches avoid hammering publishers while still checking enough
   // source pages to build a genuinely visual edition.
-  for (let index = 0; index < candidates.length; index += 12) {
-    enriched.push(...await Promise.all(candidates.slice(index, index + 12).map(enrichStoryImage)));
+  for (let index = 0; index < candidates.length; index += 24) {
+    enriched.push(...await Promise.all(candidates.slice(index, index + 24).map(enrichStoryImage)));
   }
   const byUrl = new Map(enriched.map(item => [item.url, item]));
   return items.map(item => byUrl.get(item.url) || item);
@@ -187,7 +187,7 @@ function distributeVisuals(items, identity, blockSize = 10) {
   const arranged = [...items];
   const targetFor = start => Math.min(
     blockSize,
-    Math.ceil(Math.min(blockSize, arranged.length - start) * Math.max(.5, identity.imageTarget || 0))
+    Math.ceil(Math.min(blockSize, arranged.length - start) * Math.max(.7, identity.imageTarget || 0))
   );
   for (let start = 0; start < arranged.length; start += blockSize) {
     const end = Math.min(arranged.length, start + blockSize), target = targetFor(start);
@@ -466,6 +466,7 @@ function balancedMagazine(candidates, count, interests = [], random = Math.rando
     const blockPersonalizedCount = block.filter(item => item.personalFit !== "editorial").length;
     const blockIndependentCount = block.filter(item => item.independentPublisher).length;
     const blockHumanInterestCount = block.filter(item => item.humanInterest).length;
+    const blockVisualCount = block.filter(item => item.image || item.videoId).length;
     const blockCounts = Object.fromEntries(Object.keys(targets).map(lane => [lane, block.filter(item => item.mixLane === lane).length]));
     const blockVisualShelfCount = block.filter(item => item.visualShelf).length;
     const blockSourceCount = source => block.filter(item => normalizeSource(item.source) === source).length;
@@ -496,7 +497,12 @@ function balancedMagazine(candidates, count, interests = [], random = Math.rando
       const stillNeeded = Math.max(0, 12 - blockHumanInterestCount);
       return stillNeeded < remainingSlots || item.humanInterest;
     };
-    const editorialContract = item => preservesIndependentFloor(item) && preservesHumanInterestMajority(item);
+    const preservesVisualFloor = item => {
+      const remainingSlots = 20 - block.length;
+      const stillNeeded = Math.max(0, 14 - blockVisualCount);
+      return stillNeeded < remainingSlots || item.image || item.videoId;
+    };
+    const editorialContract = item => preservesIndependentFloor(item) && preservesHumanInterestMajority(item) && preservesVisualFloor(item);
     const exact = remaining.filter(item => item.mixLane === lane && belowTarget(item) && belowHardLaneCap(item) && obeysSourceAndFormatCaps(item) && belowPersonalizationCap(item) && editorialContract(item));
     const cappedPool = remaining.filter(item => belowTarget(item) && belowHardLaneCap(item) && obeysSourceAndFormatCaps(item) && belowPersonalizationCap(item) && editorialContract(item));
     // If a requested desk has no usable story, redistribute its space among
@@ -684,7 +690,7 @@ async function feedResponse(params) {
   // Source images attached to current reporting remain eligible.
   const allVisualShelf = [];
   const magazinePool = galleryPool;
-  const selectedMagazine = balancedMagazine(magazinePool, 140, interests, random);
+  const selectedMagazine = distributeVisuals(balancedMagazine(magazinePool, 140, interests, random), editorialIdentity, 20);
   // Preserve the editor's 20-story windows. The client may arrange cards
   // inside each ten-card layout cluster, but no visual pass can import a later
   // story and silently alter the opening subject mix.
