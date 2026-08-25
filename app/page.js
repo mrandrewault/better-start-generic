@@ -8,7 +8,9 @@ const EDITION_MS = 2 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const STORY_HISTORY_KEY = "betterStartReaderStoryHistory";
-const STORY_HISTORY_LIMIT = 12000;
+const SEEN_STORY_LEDGER_KEY = "meanwhileSeenStoryHashesV2";
+const STORY_HISTORY_LIMIT = 1500;
+const SEEN_STORY_LEDGER_LIMIT = 50000;
 const DAYPART_MESSAGES = {
   morning:[
     "Let’s start the day off rage-free, shall we?",
@@ -107,7 +109,8 @@ const emergencyBlocked = /\b(trump|maga|maha|nazi|neo[- ]?nazi|white supremac|sh
 const corporateAmazonBlocked = value => /\bamazon(?:'s)?\b/i.test(value) && !/\bamazon (?:rainforest|river|basin|forest|region|wildlife)\b/i.test(value);
 const titleFingerprint = value => normalizedIdentityTitle(value).split(/\s+/).filter(word => word.length > 2).slice(0, 9).join(" ");
 const titleFamily = value => [...new Set(normalizedIdentityTitle(value).split(/\s+/).filter(word => word.length > 3))].sort().slice(0, 14).join(" ");
-const retiredRepeat = /\b(?:james hetfield.*metallica|cis football (?:field|locations?)|runway magazine covers? celebrating 25th anniversary|rocky horror.*mad scientist)\b/i;
+const retiredRepeat = /\b(?:james hetfield.*metallica|cis football (?:field|locations?)|runway magazine covers? celebrating 25th anniversary|rocky horror.*mad scientist|chanel iman.*runway.*2009|not all boredom is the same)\b/i;
+const educationCultureWarBlocked = /(?:\b(?:lgbtq?|transgender|gender identity|drag queen|pride)\b.{0,90}\b(?:child(?:ren)?|kids?|school|classroom|curriculum|education|library|books?|reading hour)\b|\b(?:child(?:ren)?|kids?|school|classroom|curriculum|education|library|books?|reading hour)\b.{0,90}\b(?:lgbtq?|transgender|gender identity|drag queen|pride)\b)/i;
 const titleWords = value => new Set(normalizedIdentityTitle(value).split(/\s+/).filter(word => word.length > 3));
 const nearSameTitle = (left, right) => {
   const a = titleWords(left), b = titleWords(right);
@@ -120,11 +123,22 @@ const commonsAssetKey = item => {
   if (!match) return "";
   try { return `commons:${decodeURIComponent(match[1]).toLowerCase().replace(/[_\s]+/g, "-")}`; } catch { return `commons:${match[1].toLowerCase()}`; }
 };
-const identityKeys = item => [`url:${item?.canonicalUrl || item?.url || ""}`, `title:${item?.normalizedTitle || normalizedIdentityTitle(item?.title)}`, `topic:${titleFingerprint(item?.title)}`, `family:${titleFamily(item?.title)}`, commonsAssetKey(item), `image:${item?.image || ""}`, `video:${item?.videoId || ""}`].filter(key => key && !key.endsWith(":"));
+const contentFingerprint = item => normalizedIdentityTitle(`${item?.title || ""} ${item?.summary || ""}`).split(/\s+/).filter(word => word.length > 2).slice(0, 24).join(" ");
+const identityKeys = item => [`url:${item?.canonicalUrl || item?.url || ""}`, `title:${item?.normalizedTitle || normalizedIdentityTitle(item?.title)}`, `topic:${titleFingerprint(item?.title)}`, `family:${titleFamily(item?.title)}`, `content:${contentFingerprint(item)}`, commonsAssetKey(item), `image:${item?.image || ""}`, `video:${item?.videoId || ""}`].filter(key => key && !key.endsWith(":"));
 const stableHash = value => { let hash = 2166136261; for (const char of String(value || "")) { hash ^= char.charCodeAt(0); hash = Math.imul(hash, 16777619); } return (hash >>> 0).toString(36); };
+const readSeenLedger = () => { try { const value = JSON.parse(localStorage.getItem(SEEN_STORY_LEDGER_KEY) || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } };
+const identityHashes = item => [...new Set([itemKey(item), ...identityKeys(item)].filter(Boolean).map(stableHash))];
+const permanentSeenHashes = () => new Set([
+  ...readSeenLedger(),
+  ...storyHistory().flatMap(entry => [entry.id, ...(entry.keys || [])]).filter(Boolean).map(stableHash)
+]);
+const writeSeenLedger = hashes => {
+  try { localStorage.setItem(SEEN_STORY_LEDGER_KEY, JSON.stringify([...hashes].slice(-SEEN_STORY_LEDGER_LIMIT))); return true; }
+  catch { return false; }
+};
 const claimUnique = (items = [], seen = new Set()) => items.filter(item => {
   const safetyText = `${item?.title || ""} ${item?.summary || ""} ${item?.source || ""} ${item?.section || ""}`;
-  if (emergencyBlocked.test(safetyText) || corporateAmazonBlocked(safetyText) || retiredRepeat.test(safetyText)) return false;
+  if (emergencyBlocked.test(safetyText) || educationCultureWarBlocked.test(safetyText) || corporateAmazonBlocked(safetyText) || retiredRepeat.test(safetyText)) return false;
   const keys = identityKeys(item);
   if (!keys.length || keys.some(key => seen.has(key))) return false;
   keys.forEach(key => seen.add(key));
@@ -195,10 +209,9 @@ const savedPlaces = () => { try { const value = JSON.parse(localStorage.getItem(
 const storyHistory = () => { try { const value = JSON.parse(localStorage.getItem(STORY_HISTORY_KEY) || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } };
 const storyHistoryKeys = () => new Set(storyHistory().flatMap(entry => [entry.id, ...(entry.keys || [])]).filter(Boolean));
 const recentStoryAvoidance = () => {
-  // This is intentionally an all-time ledger, not a rolling window. Once a
-  // reader has seen a story or Commons asset, the server never receives
-  // permission to serve it again.
-  return [...new Set(storyHistory().flatMap(entry => [entry.id, ...(entry.keys || [])]).filter(Boolean).map(stableHash))].slice(-12000).join(",");
+  // Compact hashes let the complete permanent ledger travel in the POST body
+  // without repeatedly serializing full titles, URLs and image records.
+  return [...permanentSeenHashes()].slice(-SEEN_STORY_LEDGER_LIMIT).join(",");
 };
 const localDayKey = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 const requestFeed = async payload => {
@@ -211,9 +224,15 @@ const filterEditionGlobally = next => {
   // Commons asset and title-family keys, compare titles fuzzily so archive
   // captions cannot return with a punctuation, date or wording variation.
   const history = storyHistory();
-  const seen = new Set(history.flatMap(entry => [entry.id, ...(entry.keys || [])]).filter(Boolean));
+  const seen = new Set();
+  const seenHashes = permanentSeenHashes();
   const priorTitles = history.flatMap(entry => entry.keys || []).filter(key => key.startsWith("title:")).map(key => key.slice(6));
-  const take = items => claimUnique((items || []).filter(item => !priorTitles.some(title => nearSameTitle(item?.title, title))), seen);
+  const take = items => claimUnique((items || []).filter(item => {
+    if (identityHashes(item).some(hash => seenHashes.has(hash))) return false;
+    if (priorTitles.some(title => nearSameTitle(item?.title, title))) return false;
+    identityHashes(item).forEach(hash => seenHashes.add(hash));
+    return true;
+  }), seen);
   const tickerStories = take(next?.tickerStories || (next?.ribbonFavorite ? [next.ribbonFavorite] : []));
   const goodNews = take(next?.goodNews ? [next.goodNews] : [])[0] || null;
   return {...next,
@@ -418,10 +437,20 @@ export default function Home() {
       const localProfile = (() => { try { return JSON.parse(localStorage.getItem(PROFILE_KEY) || "null"); } catch { return null; } })();
       const localSaved = (() => { try { return JSON.parse(localStorage.getItem("betterStartReaderSaved") || "[]"); } catch { return []; } })();
       const localHistory = storyHistory();
+      const fetchCloudHistory = async () => {
+        const rows = [], pageSize = 1000;
+        for (let start = 0; start < SEEN_STORY_LEDGER_LIMIT; start += pageSize) {
+          const {data:page, error} = await supabase.from("story_history").select("story_key,identity_keys,last_seen_at").eq("user_id", user.id).order("last_seen_at", {ascending:false}).range(start, start + pageSize - 1);
+          if (error || !page?.length) break;
+          rows.push(...page);
+          if (page.length < pageSize) break;
+        }
+        return {data:rows};
+      };
       const [{data:cloudProfile}, {data:cloudSaved}, {data:cloudHistory}] = await Promise.all([
         supabase.from("profiles").select("preferences").eq("user_id", user.id).maybeSingle(),
         supabase.from("saved_stories").select("story_key,story,saved_at").eq("user_id", user.id).order("saved_at", {ascending:false}).limit(200),
-        supabase.from("story_history").select("story_key,identity_keys,last_seen_at").eq("user_id", user.id).order("last_seen_at", {ascending:false}).limit(5000)
+        fetchCloudHistory()
       ]);
       if (!active) return;
       const chosenProfile = cloudProfile?.preferences && Object.keys(cloudProfile.preferences).length ? cloudProfile.preferences : localProfile;
@@ -430,8 +459,12 @@ export default function Home() {
       const mergedSaved = [...(cloudSaved || []).map(row => ({...row.story, savedAt:new Date(row.saved_at).getTime()})), ...localSaved].filter((item,index,array) => array.findIndex(candidate => itemKey(candidate) === itemKey(item)) === index).slice(0,200);
       localStorage.setItem("betterStartReaderSaved", JSON.stringify(mergedSaved)); setSaved(mergedSaved);
       if (localSaved.length) await supabase.from("saved_stories").upsert(localSaved.map(story => ({user_id:user.id, story_key:itemKey(story), story})), {onConflict:"user_id,story_key"});
-      const mergedHistory = [...localHistory, ...(cloudHistory || []).map(row => ({id:row.story_key, keys:row.identity_keys || [], ts:new Date(row.last_seen_at).getTime()}))].filter((entry,index,array) => array.findIndex(candidate => candidate.id === entry.id) === index).slice(-STORY_HISTORY_LIMIT);
-      localStorage.setItem(STORY_HISTORY_KEY, JSON.stringify(mergedHistory));
+      const completeHistory = [...localHistory, ...(cloudHistory || []).map(row => ({id:row.story_key, keys:row.identity_keys || [], ts:new Date(row.last_seen_at).getTime()}))].filter((entry,index,array) => array.findIndex(candidate => candidate.id === entry.id) === index);
+      const mergedHistory = completeHistory.slice(-STORY_HISTORY_LIMIT);
+      try { localStorage.setItem(STORY_HISTORY_KEY, JSON.stringify(mergedHistory)); } catch {}
+      const syncedLedger = permanentSeenHashes();
+      completeHistory.forEach(entry => [entry.id, ...(entry.keys || [])].filter(Boolean).forEach(value => syncedLedger.add(stableHash(value))));
+      writeSeenLedger(syncedLedger);
       setAccountStatus("Your Meanwhile is synced.");
     };
     hydrateAccount();
@@ -467,7 +500,7 @@ export default function Home() {
     const visibleWall = spreadAdjacentSources(wall.slice(0, batches * BATCH_SIZE));
     return Array.from({length: Math.ceil(visibleWall.length / BATCH_SIZE)}, (_, index) => visibleWall.slice(index * BATCH_SIZE, (index + 1) * BATCH_SIZE)).filter(batch => batch.length);
   }, [wall, batches]);
-  useEffect(() => { if (!wall.length) return; const visible = [...(data?.tickerStories || []), data?.goodNews, ...(data?.favorites || []), ...wall.slice(0, batches * BATCH_SIZE)].filter(Boolean), nowSeen = Date.now(), stories = storyHistory(), storyKeys = new Set(stories.flatMap(entry => [entry.id, ...(entry.keys || [])]).filter(Boolean)), newHistory = []; visible.filter(item => item.format !== "joy").forEach(item => { const keys = identityKeys(item), id = itemKey(item); if (!id || keys.some(key => storyKeys.has(key)) || storyKeys.has(id)) return; stories.push({id,keys,ts:nowSeen}); newHistory.push({user_id:user?.id, story_key:id, identity_keys:keys, story:item, last_seen_at:new Date(nowSeen).toISOString()}); storyKeys.add(id); keys.forEach(key => storyKeys.add(key)); }); localStorage.setItem(STORY_HISTORY_KEY, JSON.stringify(stories.slice(-STORY_HISTORY_LIMIT))); if (supabase && user && newHistory.length) supabase.from("story_history").upsert(newHistory, {onConflict:"user_id,story_key"}); const media = recentHistory("betterStartReaderMediaHistory"), mediaIds = new Set(media.map(entry => entry.id)); visible.filter(item => item.videoId && !mediaIds.has(item.videoId)).forEach(item => media.push({id: item.videoId, ts: nowSeen})); localStorage.setItem("betterStartReaderMediaHistory", JSON.stringify(media.slice(-300))); const joy = recentHistory("betterStartReaderJoyHistory"), joyIds = new Set(joy.map(entry => entry.signature)); visible.filter(item => item.signature && !joyIds.has(item.signature)).forEach(item => joy.push({signature: item.signature, ts:nowSeen})); localStorage.setItem("betterStartReaderJoyHistory", JSON.stringify(joy.slice(-300))); }, [data, wall, batches, user]);
+  useEffect(() => { if (!wall.length) return; const visible = [...(data?.tickerStories || []), data?.goodNews, ...(data?.favorites || []), ...wall.slice(0, batches * BATCH_SIZE)].filter(Boolean), nowSeen = Date.now(), stories = storyHistory(), storyKeys = new Set(stories.flatMap(entry => [entry.id, ...(entry.keys || [])]).filter(Boolean)), seenLedger = permanentSeenHashes(), newHistory = []; visible.filter(item => item.format !== "joy").forEach(item => { const keys = identityKeys(item), id = itemKey(item); if (!id) return; identityHashes(item).forEach(hash => seenLedger.add(hash)); if (keys.some(key => storyKeys.has(key)) || storyKeys.has(id)) return; stories.push({id,keys,ts:nowSeen}); newHistory.push({user_id:user?.id, story_key:id, identity_keys:keys, story:item, last_seen_at:new Date(nowSeen).toISOString()}); storyKeys.add(id); keys.forEach(key => storyKeys.add(key)); }); writeSeenLedger(seenLedger); try { localStorage.setItem(STORY_HISTORY_KEY, JSON.stringify(stories.slice(-STORY_HISTORY_LIMIT))); } catch {} if (supabase && user && newHistory.length) supabase.from("story_history").upsert(newHistory, {onConflict:"user_id,story_key"}); const media = recentHistory("betterStartReaderMediaHistory"), mediaIds = new Set(media.map(entry => entry.id)); visible.filter(item => item.videoId && !mediaIds.has(item.videoId)).forEach(item => media.push({id: item.videoId, ts: nowSeen})); localStorage.setItem("betterStartReaderMediaHistory", JSON.stringify(media.slice(-300))); const joy = recentHistory("betterStartReaderJoyHistory"), joyIds = new Set(joy.map(entry => entry.signature)); visible.filter(item => item.signature && !joyIds.has(item.signature)).forEach(item => joy.push({signature: item.signature, ts:nowSeen})); localStorage.setItem("betterStartReaderJoyHistory", JSON.stringify(joy.slice(-300))); }, [data, wall, batches, user]);
   const rate = (item, action) => { const ratings = JSON.parse(localStorage.getItem("betterStartReaderFeedback") || "[]"); ratings.push({url: item.url, title: item.title, source: item.source, action, ts: Date.now()}); localStorage.setItem("betterStartReaderFeedback", JSON.stringify(ratings.slice(-250))); if (supabase && user) supabase.from("story_feedback").insert({user_id:user.id, story_key:itemKey(item), action, story:item}); };
   const toggleSave = item => setSaved(current => { const exists = current.some(savedItem => itemKey(savedItem) === itemKey(item)), next = exists ? current.filter(savedItem => itemKey(savedItem) !== itemKey(item)) : [{...item, savedAt: Date.now()}, ...current]; localStorage.setItem("betterStartReaderSaved", JSON.stringify(next.slice(0, 200))); if (supabase && user) { if (exists) supabase.from("saved_stories").delete().eq("user_id", user.id).eq("story_key", itemKey(item)); else supabase.from("saved_stories").upsert({user_id:user.id, story_key:itemKey(item), story:item}); } return next.slice(0, 200); });
   const sendSignInLink = async event => { event.preventDefault(); if (!supabase) { setAccountStatus("Supabase is not connected to this deployment yet."); return; } setAccountStatus("Sending your secure link…"); const {error} = await supabase.auth.signInWithOtp({email:accountEmail, options:{emailRedirectTo:location.origin}}); setAccountStatus(error ? error.message : "Check your email. Your sign-in link is on the way."); };
@@ -482,7 +515,7 @@ export default function Home() {
       const currentItems = [...(data?.tickerStories || []), data?.goodNews, ...(data?.favorites || []), ...(data?.important || []), ...(data?.gallery || []), ...(data?.media || []), ...(data?.serendipity || [])].filter(Boolean);
       const avoid = [...new Set(mediaHistory.map(entry => entry.id))].slice(-120).join(",");
       const currentStoryKeys = currentItems.flatMap(item => [itemKey(item), ...identityKeys(item)]);
-      const avoidStories = [...new Set([...recentStoryAvoidance().split(",").filter(Boolean), ...currentStoryKeys.map(stableHash)])].slice(-900).join(",");
+      const avoidStories = [...new Set([...recentStoryAvoidance().split(",").filter(Boolean), ...currentStoryKeys.map(stableHash)])].slice(-SEEN_STORY_LEDGER_LIMIT).join(",");
       const places = savedPlaces(), profileTerms = profile ? [...(profile.broadInterests || []), ...(profile.specificInterests || []), ...(profile.details || []), ...(profile.granularInterests || []), ...(profile.anythingElse || [])].slice(0, 72).join("|") : "";
       const visit = `more-good-${Date.now()}-${Math.random()}`;
       const next = await requestFeed({visit,avoid,avoidStories,places,interests:profileTerms});

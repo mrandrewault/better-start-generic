@@ -17,11 +17,14 @@ const suggestiveFashionUnsafe = /\b(miami (?:fashion|swim) week|miami nightlife|
 const editoriallyExcluded = /\b(pickleball|tesla|cybertruck|elon musk|mark zuckerberg|meta platforms?|marvel cinematic|gordon ramsay|guy fieri|wall street|stock market|james patterson|young adult fiction|horror film|horror novel|hunting)\b/i;
 // Confirmed archive repeats stay retired even for readers whose older browser
 // history predates the permanent story ledger.
-const retiredRepeat = /\b(?:james hetfield.*metallica|cis football (?:field|locations?)|runway magazine covers? celebrating 25th anniversary|rocky horror.*mad scientist)\b/i;
+const retiredRepeat = /\b(?:james hetfield.*metallica|cis football (?:field|locations?)|runway magazine covers? celebrating 25th anniversary|rocky horror.*mad scientist|chanel iman.*runway.*2009|not all boredom is the same)\b/i;
 // Meanwhile is a politics-free publication. This deliberately excludes the
 // office and institution, not merely partisan vocabulary: a culture, travel,
 // style or arts story about a political figure is still a political story.
 const politicsUnsafe = /\b(?:trump|maga|maha|mar[- ]a[- ]lago|white house|oval office|first lady|first gentleman|president(?:ial)?|vice president|administration|cabinet|secretary of (?:state|defense|transportation|commerce|education|energy|labor|homeland security|health and human services|the interior|agriculture|the treasury|veterans affairs)|transportation secretary|state department|department of (?:state|defense|justice|transportation|commerce|education|energy|labor|homeland security)|pentagon|congress|congressional|senate|senator|house of representatives|representative|congressman|congresswoman|speaker of the house|supreme court|governor|lieutenant governor|mayor|prime minister|parliament|member of parliament|politician|political|republican|democrat|gop|campaign|election|ballot|rally|executive order|sean duffy)\b/i;
+// Topics that become culture-war coverage when paired with schools, children,
+// libraries or curriculum are excluded regardless of the position taken.
+const educationCultureWarUnsafe = /(?:\b(?:lgbtq?|transgender|gender identity|drag queen|pride)\b.{0,90}\b(?:child(?:ren)?|kids?|school|classroom|curriculum|education|library|books?|reading hour)\b|\b(?:child(?:ren)?|kids?|school|classroom|curriculum|education|library|books?|reading hour)\b.{0,90}\b(?:lgbtq?|transgender|gender identity|drag queen|pride)\b)/i;
 
 function plain(value = "") {
   return value.replace(/<[^>]+>/g, " ").replace(/&\w+;/g, " ").replace(/\s+/g, " ").trim();
@@ -44,6 +47,9 @@ function titleFingerprint(value = "") {
 }
 function titleFamily(value = "") {
   return [...new Set(normalizeTitle(value).split(/\s+/).filter(word => word.length > 3))].sort().slice(0, 14).join(" ");
+}
+function contentFingerprint(item = {}) {
+  return normalizeTitle(`${item.title || ""} ${item.summary || item.contentSnippet || ""}`).split(/\s+/).filter(word => word.length > 2).slice(0, 24).join(" ");
 }
 function commonsAssetKey(item = {}) {
   const value = `${item.url || ""} ${item.image || ""}`;
@@ -69,12 +75,12 @@ function isDisallowed(item) {
   const value = policyText(`${item.title || ""} ${item.summary || ""} ${item.contentSnippet || ""} ${item.source || ""} ${item.section || ""}`);
   const raw = `${item.title || ""} ${item.summary || ""} ${item.contentSnippet || ""} ${item.source || ""} ${item.section || ""}`;
   const corporateAmazon = /\bamazon(?:'s)?\b/i.test(raw) && !/\bamazon (?:rainforest|river|basin|forest|region|wildlife)\b/i.test(raw);
-  return corporateAmazon || /\bjeff bezos\b/i.test(raw) || retiredRepeat.test(raw) || politicsUnsafe.test(raw) || editoriallyExcluded.test(raw) || bodyAnxiety.test(raw) || publicSpaceUnsafe.test(raw) || suggestiveFashionUnsafe.test(raw) || blockedTerms.some(term => value.includes(policyText(term)));
+  return corporateAmazon || /\bjeff bezos\b/i.test(raw) || retiredRepeat.test(raw) || politicsUnsafe.test(raw) || educationCultureWarUnsafe.test(raw) || editoriallyExcluded.test(raw) || bodyAnxiety.test(raw) || publicSpaceUnsafe.test(raw) || suggestiveFashionUnsafe.test(raw) || blockedTerms.some(term => value.includes(policyText(term)));
 }
 function wasRecentlyShown(item, avoidStories) {
   if (!avoidStories?.size) return false;
-  const topic = titleFingerprint(item.title), family = titleFamily(item.title), asset = commonsAssetKey(item);
-  return [canonicalUrl(item.url), `url:${canonicalUrl(item.url)}`, normalizeTitle(item.title), `title:${normalizeTitle(item.title)}`, topic && `topic:${topic}`, family && `family:${family}`, asset, item.image, `image:${item.image || ""}`, item.videoId, `video:${item.videoId || ""}`].filter(Boolean).some(value => avoidStories.has(stableHash(value)));
+  const topic = titleFingerprint(item.title), family = titleFamily(item.title), content = contentFingerprint(item), asset = commonsAssetKey(item);
+  return [canonicalUrl(item.url), `url:${canonicalUrl(item.url)}`, normalizeTitle(item.title), `title:${normalizeTitle(item.title)}`, topic && `topic:${topic}`, family && `family:${family}`, content && `content:${content}`, asset, item.image, `image:${item.image || ""}`, item.videoId, `video:${item.videoId || ""}`].filter(Boolean).some(value => avoidStories.has(stableHash(value)));
 }
 function hasBadMood(value) {
   return /killed|deadly|fatal|crash|unsafe|controvers|war|attack|crisis|disaster|outrage|scandal|cancer|dies?\b|death|threat|fear|horrific|tariffs?|banned|terrible|abuse|neglect|euthan|injur|defeat|worsen|\bworst\b/i.test(value);
@@ -638,8 +644,11 @@ async function feedResponse(params) {
   const galleryPool = [...all.filter(item => !usedUrls.has(canonicalUrl(item.url)) && !usedTitles.has(normalizeTitle(item.title))), ...mediaCandidates];
   // Standalone photography enters the same subject-aware selection pool. Its
   // topic is inferred from its subject; only genuinely art-led work counts as arts.
-  const allVisualShelf = (await loadVisualShelf(editorialIdentity)).filter(item => !wasRecentlyShown(item, avoidStories));
-  const magazinePool = [...galleryPool, ...allVisualShelf.slice(0, 56)];
+  // Wikimedia Commons is intentionally quarantined. Its search results are a
+  // shallow, slowly changing archive and repeatedly resurfaced the same assets.
+  // Source images attached to current reporting remain eligible.
+  const allVisualShelf = [];
+  const magazinePool = galleryPool;
   const selectedMagazine = balancedMagazine(magazinePool, 140, interests, random);
   // Preserve the editor's 20-story windows. The client may arrange cards
   // inside each ten-card layout cluster, but no visual pass can import a later
