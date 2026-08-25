@@ -114,12 +114,12 @@ const titleFingerprint = value => normalizedIdentityTitle(value).split(/\s+/).fi
 const titleFamily = value => [...new Set(normalizedIdentityTitle(value).split(/\s+/).filter(word => word.length > 3))].sort().slice(0, 14).join(" ");
 const retiredRepeat = /\b(?:james hetfield.*metallica|cis football (?:field|locations?)|runway magazine covers? celebrating 25th anniversary|rocky horror.*mad scientist|chanel iman.*runway.*2009|not all boredom is the same)\b/i;
 const educationCultureWarBlocked = /(?:\b(?:lgbtq?|transgender|gender identity|drag queen|pride)\b.{0,90}\b(?:child(?:ren)?|kids?|school|classroom|curriculum|education|library|books?|reading hour)\b|\b(?:child(?:ren)?|kids?|school|classroom|curriculum|education|library|books?|reading hour)\b.{0,90}\b(?:lgbtq?|transgender|gender identity|drag queen|pride)\b)/i;
-const titleWords = value => new Set(normalizedIdentityTitle(value).split(/\s+/).filter(word => word.length > 3));
+const titleWords = value => new Set(normalizedIdentityTitle(value).split(/\s+/).filter(word => word.length > 2).map(word => word.length > 4 && word.endsWith("s") ? word.slice(0, -1) : word));
 const nearSameTitle = (left, right) => {
   const a = titleWords(left), b = titleWords(right);
   if (a.size < 3 || b.size < 3) return false;
   let shared = 0; a.forEach(word => { if (b.has(word)) shared++; });
-  return shared >= 4 && shared / Math.min(a.size, b.size) >= .72;
+  return shared >= 4 && shared / Math.min(a.size, b.size) >= .62;
 };
 const commonsAssetKey = item => {
   const value = `${item?.url || ""} ${item?.image || ""}`, match = value.match(/(?:File:|File%3A|\/)([^/?#]+?\.(?:jpe?g|png|webp|gif|tiff?))(?:[/?#]|$)/i);
@@ -424,7 +424,7 @@ function Story({item, index, paletteIndex = index, palette, onRate, onSave, onSh
 
 export default function Home() {
   const [data, setData] = useState(null), [batches, setBatches] = useState(1), [queueLoading, setQueueLoading] = useState(false), [queueExhausted, setQueueExhausted] = useState(false), [radio, setRadio] = useState(false), [now, setNow] = useState(new Date()), [saved, setSaved] = useState([]), [showSaved, setShowSaved] = useState(false), [showWelcome, setShowWelcome] = useState(false), [showSaveNudge, setShowSaveNudge] = useState(false), [showGenericNudge, setShowGenericNudge] = useState(false), [theme, setTheme] = useState("light"), [editionNote, setEditionNote] = useState("Composing edition"), [joyHistory, setJoyHistory] = useState([]), [profile, setProfile] = useState(null), [paletteIndex, setPaletteIndex] = useState(0), [user, setUser] = useState(null), [accountOpen, setAccountOpen] = useState(false), [accountEmail, setAccountEmail] = useState(""), [accountStatus, setAccountStatus] = useState("");
-  const dataRef = useRef(null), queueRequestRef = useRef(false), loadMoreRef = useRef(null);
+  const dataRef = useRef(null), queueRequestRef = useRef(false), loadMoreRef = useRef(null), revealWhenReadyRef = useRef(false), retryTimerRef = useRef(null);
   useEffect(() => { dataRef.current = data; }, [data]);
   useEffect(() => {
     if (!supabase) return;
@@ -503,20 +503,15 @@ export default function Home() {
       const visit = `${Math.floor(Date.now() / EDITION_MS)}-${Date.now()}-${Math.random()}`, mediaHistory = recentHistory("betterStartReaderMediaHistory"), avoid = [...new Set(mediaHistory.map(entry => entry.id))].slice(-120).join(","), avoidStories = recentStoryAvoidance(), places = savedPlaces(), profileTerms = activeProfile ? [...(activeProfile.broadInterests || []), ...(activeProfile.specificInterests || []), ...(activeProfile.details || []), ...(activeProfile.granularInterests || []), ...(activeProfile.anythingElse || [])].slice(0, 72).join("|") : "";
       try {
         const today = localDayKey(new Date()), priorDay = localStorage.getItem("betterStartReaderDay"), hardRefresh = priorDay !== today;
-        // Build five independently shuffled, balanced editions at first load.
-        // Their deduplicated galleries form the initial 100-story bench.
-        const requestCount = preserve ? 1 : 5;
-        const editions = await Promise.all(Array.from({length:requestCount}, (_, index) => requestFeed({visit:`${visit}-${index}`,avoid,avoidStories,places,interests:profileTerms})));
+        // First paint waits for one balanced edition only. The background
+        // queue then grows invisibly to 100, without blocking the front door.
+        const editions = [await requestFeed({visit,avoid,avoidStories,places,interests:profileTerms})];
         localStorage.setItem("betterStartReaderDay", today); setJoyHistory(recentHistory("betterStartReaderJoyHistory"));
         if (preserve) setData(previous => prepareEdition(editions[0], previous, !hardRefresh));
         else {
           const clean = editions.map(filterEditionGlobally), primary = clean[0];
           const reserved = [...(primary?.tickerStories || []), primary?.goodNews, ...(primary?.favorites || [])].filter(Boolean);
-          let gallery = claimSessionUnique(clean.flatMap(edition => edition?.gallery || []), reserved).slice(0, 140);
-          for (let attempt = requestCount; gallery.length < 100 && attempt < 12; attempt++) {
-            const extra = filterEditionGlobally(await requestFeed({visit:`${visit}-bench-${attempt}`,avoid,avoidStories,places,interests:profileTerms}));
-            gallery = claimSessionUnique([...gallery, ...(extra?.gallery || [])], reserved).slice(0, 140);
-          }
+          const gallery = claimSessionUnique(clean.flatMap(edition => edition?.gallery || []), reserved).slice(0, 140);
           setData({...primary, gallery:stampNew(gallery)});
         }
         setEditionNote(`${preserve && !hardRefresh ? "Freshened" : "New"} ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})} edition`); lastLoad = Date.now();
@@ -549,7 +544,7 @@ export default function Home() {
   const signOut = async () => { if (supabase) await supabase.auth.signOut(); setUser(null); setAccountStatus("Signed out on this device."); };
   const share = async item => { const text = `I found this on Meanwhile — rage-free news, information and good times.\n\n${item.title}`, params = new URLSearchParams({u: item.url, t: item.title, s: item.source || "", c: item.section || ""}); if (item.image) params.set("i", item.image); const shareUrl = `${location.origin}/share?${params}`; try { if (navigator.share) await navigator.share({title: `${item.title} — Meanwhile`, text, url: shareUrl}); else { await navigator.clipboard.writeText(`${text}\n${shareUrl}`); setEditionNote("Branded share link copied"); } } catch {} };
   const prefetchMoreGoodThings = async () => {
-    if (queueRequestRef.current || queueExhausted) return;
+    if (queueRequestRef.current) return;
     queueRequestRef.current = true; setQueueLoading(true);
     try {
       const mediaHistory = recentHistory("betterStartReaderMediaHistory");
@@ -566,18 +561,28 @@ export default function Home() {
       const additions = claimSessionUnique(fresh?.gallery || [], currentItems);
       if (additions.length) {
         setData(previous => ({...previous, gallery:stampNew([...(previous?.gallery || []), ...additions])})); setQueueExhausted(false);
+        if (revealWhenReadyRef.current) { revealWhenReadyRef.current = false; setBatches(count => count + 1); }
       }
-      else setQueueExhausted(true);
-    } catch { /* Keep the current queue; a later scroll can retry quietly. */ }
+      else {
+        setQueueExhausted(true);
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = setTimeout(() => setQueueExhausted(false), 10000);
+      }
+    } catch {
+      setQueueExhausted(true);
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = setTimeout(() => setQueueExhausted(false), 10000);
+    }
     finally { queueRequestRef.current = false; setQueueLoading(false); }
   };
   useEffect(() => {
     const queued = wall.length - batches * BATCH_SIZE;
     if (data && queued < 100 && !queueLoading && !queueExhausted) prefetchMoreGoodThings();
   }, [data, wall.length, batches, queueLoading, queueExhausted]);
+  useEffect(() => () => clearTimeout(retryTimerRef.current), []);
   const loadMoreGoodThings = () => {
-    if (batches * BATCH_SIZE >= wall.length) return;
-    setBatches(count => count + 1);
+    if (batches * BATCH_SIZE < wall.length) { setBatches(count => count + 1); return; }
+    revealWhenReadyRef.current = true; setQueueExhausted(false); prefetchMoreGoodThings();
   };
   useEffect(() => {
     const target = loadMoreRef.current;
@@ -612,7 +617,7 @@ export default function Home() {
     <section className="favoritesSection"><div className="sectionHead"><div><span>A few especially nice things</span><h2>Bright Spots</h2></div><p>Kindness, ingenuity & excellent dogs</p></div><div className="favorites">{uniqueFavorites.map(item => <a className="favorite" href={item.url} target="_blank" rel="noreferrer" key={item.canonicalUrl}><span>{age(item.date)}</span><h3>{item.title}</h3><b>{item.source}</b></a>)}</div></section>
 
     <section className="gallerySection"><div className="sectionHead wallHead"><div><span>Every good magazine on the table</span><h2>Good Stuff</h2></div><p>{profile ? "Your interests, with the wider world left in" : "A deliberately broad, lively mix"}</p></div>{visibleBatches.length ? <div className="galleryWall">{visibleBatches.map((batch, batchIndex) => <div className="galleryBatch" key={batchIndex}>{arrangeFrameClusters(batch).map((cluster, clusterIndex) => { const variant = (batchIndex * 3 + clusterIndex) % 3; return <div className={`tetrisCluster clusterVariant-${variant} clusterCount-${cluster.length} ${cluster.length <= 5 ? "partialCluster" : ""}`} key={clusterIndex}>{cluster.map((item, index) => { const absoluteIndex = batchIndex * BATCH_SIZE + clusterIndex * 10 + index; return item.format === "joy" ? <JoyTile item={item} index={absoluteIndex} key={item.canonicalUrl} /> : <Story item={item} index={absoluteIndex} paletteIndex={absoluteIndex} palette={palette} onRate={rate} onSave={toggleSave} onShare={share} saved={savedKeys.has(itemKey(item))} key={item.canonicalUrl} />; })}</div>; })}</div>)}</div> : <div className="loading" role="status" aria-live="polite"><span>Getting everything ready…</span><div className="loadingTrack" aria-hidden="true"><i /></div><small>Finding good things from around the world</small></div>}
-      {data && <div className="loadWrap" ref={loadMoreRef}>{wall.length - batches * BATCH_SIZE >= BATCH_SIZE && <button className="loadBtn" onClick={loadMoreGoodThings}>Load 25 More Good Things<span>↓</span></button>}</div>}
+      {data && <div className="loadWrap" ref={loadMoreRef}><button className="loadBtn" onClick={loadMoreGoodThings}>Load 25 More Good Things<span>↓</span></button></div>}
     </section>
 
     <footer><b>MEANWHILE</b><span>Good things worth knowing · No outrage required</span></footer>

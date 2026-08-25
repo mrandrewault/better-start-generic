@@ -154,7 +154,7 @@ function isIdentityStory(item, identity) {
 async function enrichStoryImage(item) {
   if (item.image || item.noImageEnrichment || !item.url || item.url === "#") return item;
   try {
-    const response = await fetch(item.url, {redirect:"follow", headers:{"User-Agent":"Mozilla/5.0 BetterStart/5.0"}, signal:AbortSignal.timeout(2800)});
+    const response = await fetch(item.url, {redirect:"follow", headers:{"User-Agent":"Mozilla/5.0 BetterStart/5.0"}, signal:AbortSignal.timeout(1800)});
     if (!response.ok) return item;
     const html = await response.text();
     const image = html.match(/<meta[^>]+property=["']og:image(?::url)?["'][^>]+content=["']([^"']+)/i)?.[1]
@@ -176,8 +176,8 @@ async function enrichIdentityImages(items, identity) {
   const enriched = [];
   // Small batches avoid hammering publishers while still checking enough
   // source pages to build a genuinely visual edition.
-  for (let index = 0; index < candidates.length; index += 24) {
-    enriched.push(...await Promise.all(candidates.slice(index, index + 24).map(enrichStoryImage)));
+  for (let index = 0; index < candidates.length; index += 40) {
+    enriched.push(...await Promise.all(candidates.slice(index, index + 40).map(enrichStoryImage)));
   }
   const byUrl = new Map(enriched.map(item => [item.url, item]));
   return items.map(item => byUrl.get(item.url) || item);
