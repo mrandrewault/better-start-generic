@@ -39,6 +39,9 @@ function canonicalUrl(value = "") {
 function titleFingerprint(value = "") {
   return normalizeTitle(value).split(/\s+/).filter(word => word.length > 2).slice(0, 9).join(" ");
 }
+function titleFamily(value = "") {
+  return [...new Set(normalizeTitle(value).split(/\s+/).filter(word => word.length > 3))].sort().slice(0, 14).join(" ");
+}
 function commonsAssetKey(item = {}) {
   const value = `${item.url || ""} ${item.image || ""}`;
   const match = value.match(/(?:File:|File%3A|\/)([^/?#]+?\.(?:jpe?g|png|webp|gif|tiff?))(?:[/?#]|$)/i);
@@ -67,8 +70,8 @@ function isDisallowed(item) {
 }
 function wasRecentlyShown(item, avoidStories) {
   if (!avoidStories?.size) return false;
-  const topic = titleFingerprint(item.title), asset = commonsAssetKey(item);
-  return [canonicalUrl(item.url), `url:${canonicalUrl(item.url)}`, normalizeTitle(item.title), `title:${normalizeTitle(item.title)}`, topic && `topic:${topic}`, asset, item.image, `image:${item.image || ""}`, item.videoId, `video:${item.videoId || ""}`].filter(Boolean).some(value => avoidStories.has(stableHash(value)));
+  const topic = titleFingerprint(item.title), family = titleFamily(item.title), asset = commonsAssetKey(item);
+  return [canonicalUrl(item.url), `url:${canonicalUrl(item.url)}`, normalizeTitle(item.title), `title:${normalizeTitle(item.title)}`, topic && `topic:${topic}`, family && `family:${family}`, asset, item.image, `image:${item.image || ""}`, item.videoId, `video:${item.videoId || ""}`].filter(Boolean).some(value => avoidStories.has(stableHash(value)));
 }
 function hasBadMood(value) {
   return /killed|deadly|fatal|crash|unsafe|controvers|war|attack|crisis|disaster|outrage|scandal|cancer|dies?\b|death|threat|fear|horrific|tariffs?|banned|terrible|abuse|neglect|euthan|injur|defeat|worsen|\bworst\b/i.test(value);
@@ -564,8 +567,8 @@ async function loadReaderVideos(avoid = new Set()) {
   return unique(items.filter(item=>item.videoId&&!avoid.has(item.videoId)&&!isDisallowed(item)));
 }
 
-export async function GET(request) {
-  const params = new URL(request.url).searchParams, random = seededRandom(params.get("visit") || String(Math.floor(Date.now() / 72e5))), avoidVideos = new Set((params.get("avoid") || "").split(",").filter(Boolean)), avoidStories = new Set((params.get("avoidStories") || "").split(",").filter(Boolean)), localPlaces = (params.get("places") || "").split("|").map(value => value.trim().toLowerCase()).filter(Boolean).slice(0, 20), interests = (params.get("interests") || "").split("|").map(value => value.trim().toLowerCase()).filter(Boolean).slice(0, 48);
+async function feedResponse(params) {
+  const random = seededRandom(params.get("visit") || String(Math.floor(Date.now() / 72e5))), avoidVideos = new Set((params.get("avoid") || "").split(",").filter(Boolean)), avoidStories = new Set((params.get("avoidStories") || "").split(",").filter(Boolean)), localPlaces = (params.get("places") || "").split("|").map(value => value.trim().toLowerCase()).filter(Boolean).slice(0, 20), interests = (params.get("interests") || "").split("|").map(value => value.trim().toLowerCase()).filter(Boolean).slice(0, 48);
   const taste = load("taste.json"), baseSources = load("sources.json"), packCatalog = load("source-packs.json"), activePacks = activateSourcePacks(interests, packCatalog), editorialIdentity = detectEditorialIdentity(interests, activePacks), specialistSources = activePacks.flatMap(pack => pack.sources.map(source => ({...source, pack:pack.id, packLabel:pack.label, packHits:pack.hits})));
   // The generic magazine needs real reporting inventory for every desk. Two
   // carefully chosen feeds from each under-supplied source pack provide that
@@ -651,4 +654,16 @@ export async function GET(request) {
   const actualCounts = Object.fromEntries(Object.keys(BALANCED_MAGAZINE_COUNTS).map(lane => [lane, openingWindow.filter(item => item.mixLane === lane).length]));
   const personalizedCount = openingWindow.filter(item => item.personalFit !== "editorial").length;
   return Response.json({generatedAt: new Date().toISOString(), edition: Math.floor(Date.now() / 72e5), personalized:!!interests.length, editorialIdentity:{id:editorialIdentity.id,label:editorialIdentity.label,accent:editorialIdentity.accent,references:editorialIdentity.references,imageTarget:editorialIdentity.imageTarget}, composition:{window:20,targetCounts,actualCounts,personalization:{maximum:10,actual:personalizedCount,generic:openingWindow.length-personalizedCount},labels:MIX_LABELS}, activeSourcePacks:activePacks.map(pack => ({id:pack.id,label:pack.label,hits:pack.hits})), tickerStories, ribbonFavorite, goodNews, favorites: favoriteSelection, media, gallery, visualReserve, important, serendipity, sourceStatus: {total: sources.length, specialist:specialistSources.length, successful: results.filter(result => result.status === "fulfilled").length}}, {headers: {"Cache-Control": "no-store"}});
+}
+
+export async function GET(request) {
+  return feedResponse(new URL(request.url).searchParams);
+}
+
+export async function POST(request) {
+  let body = {};
+  try { body = await request.json(); } catch {}
+  const params = new URLSearchParams();
+  Object.entries(body || {}).forEach(([key, value]) => params.set(key, Array.isArray(value) ? value.join(",") : String(value ?? "")));
+  return feedResponse(params);
 }

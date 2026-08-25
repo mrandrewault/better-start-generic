@@ -8,8 +8,8 @@ const SERENDIPITY_BATCH_SIZE = 9;
 const EDITION_MS = 2 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-const SERVER_REPEAT_WINDOW_MS = 30 * DAY_MS;
-const READER_REPEAT_WINDOW_MS = 90 * DAY_MS;
+const SERVER_REPEAT_WINDOW_MS = 180 * DAY_MS;
+const READER_REPEAT_WINDOW_MS = 365 * DAY_MS;
 const STORY_HISTORY_KEY = "betterStartReaderStoryHistory";
 const STORY_HISTORY_LIMIT = 5000;
 const DAYPART_MESSAGES = {
@@ -109,12 +109,13 @@ const normalizedIdentityTitle = value => (value || "").toLowerCase().replace(/\b
 const emergencyBlocked = /\b(trump|maga|maha|nazi|neo[- ]?nazi|white supremac|shooting|gunman|murder|war|terroris|rape|sexual abuse|suicide|overdose|deadly|killed|outrage|religious|anti[- ]?vax|ufc|mma|gambling|google pixel|samsung galaxy|android phone|jeff bezos|bmi|body fat|weight[- ]loss|being thin|obesity|overweight|porn(?:ography|ographic)?|nsfw|nud(?:e|ity)|naked|topless|full[- ]?frontal|genitals?|penis|vulva|vagina|erotic(?:a)?|sexually explicit|miami (?:fashion|swim) week|miami nightlife|swim week|bikini(?:s)?|micro[- ]?bikini|thong(?:s)?|lingerie|underwear runway|swimwear runway|see[- ]?through (?:dress|fashion|outfit)|sheer (?:dress|fashion|outfit))\b/i;
 const corporateAmazonBlocked = value => /\bamazon(?:'s)?\b/i.test(value) && !/\bamazon (?:rainforest|river|basin|forest|region|wildlife)\b/i.test(value);
 const titleFingerprint = value => normalizedIdentityTitle(value).split(/\s+/).filter(word => word.length > 2).slice(0, 9).join(" ");
+const titleFamily = value => [...new Set(normalizedIdentityTitle(value).split(/\s+/).filter(word => word.length > 3))].sort().slice(0, 14).join(" ");
 const commonsAssetKey = item => {
   const value = `${item?.url || ""} ${item?.image || ""}`, match = value.match(/(?:File:|File%3A|\/)([^/?#]+?\.(?:jpe?g|png|webp|gif|tiff?))(?:[/?#]|$)/i);
   if (!match) return "";
   try { return `commons:${decodeURIComponent(match[1]).toLowerCase().replace(/[_\s]+/g, "-")}`; } catch { return `commons:${match[1].toLowerCase()}`; }
 };
-const identityKeys = item => [`url:${item?.canonicalUrl || item?.url || ""}`, `title:${item?.normalizedTitle || normalizedIdentityTitle(item?.title)}`, `topic:${titleFingerprint(item?.title)}`, commonsAssetKey(item), `image:${item?.image || ""}`, `video:${item?.videoId || ""}`].filter(key => key && !key.endsWith(":"));
+const identityKeys = item => [`url:${item?.canonicalUrl || item?.url || ""}`, `title:${item?.normalizedTitle || normalizedIdentityTitle(item?.title)}`, `topic:${titleFingerprint(item?.title)}`, `family:${titleFamily(item?.title)}`, commonsAssetKey(item), `image:${item?.image || ""}`, `video:${item?.videoId || ""}`].filter(key => key && !key.endsWith(":"));
 const stableHash = value => { let hash = 2166136261; for (const char of String(value || "")) { hash ^= char.charCodeAt(0); hash = Math.imul(hash, 16777619); } return (hash >>> 0).toString(36); };
 const claimUnique = (items = [], seen = new Set()) => items.filter(item => {
   const safetyText = `${item?.title || ""} ${item?.summary || ""} ${item?.source || ""} ${item?.section || ""}`;
@@ -190,7 +191,13 @@ const storyHistory = () => { try { const value = JSON.parse(localStorage.getItem
 const storyHistoryKeys = () => new Set(storyHistory().flatMap(entry => [entry.id, ...(entry.keys || [])]).filter(Boolean));
 const recentStoryAvoidance = () => {
   const cutoff = Date.now() - SERVER_REPEAT_WINDOW_MS;
-  return [...new Set(storyHistory().filter(entry => (entry.ts || 0) >= cutoff).flatMap(entry => [entry.id, ...(entry.keys || [])]).filter(Boolean).map(stableHash))].slice(-900).join(",");
+  return [...new Set(storyHistory().filter(entry => (entry.ts || 0) >= cutoff).flatMap(entry => [entry.id, ...(entry.keys || [])]).filter(Boolean).map(stableHash))].slice(-5000).join(",");
+};
+const localDayKey = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+const requestFeed = async payload => {
+  const response = await fetch("/api/feed", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(payload), cache:"no-store"});
+  if (!response.ok) throw new Error(`Feed request failed: ${response.status}`);
+  return response.json();
 };
 const filterEditionGlobally = next => {
   // The server gets a compact 30-day blacklist. The browser is the final,
@@ -419,7 +426,7 @@ export default function Home() {
     let lastLoad = Date.now();
     const loadEdition = async preserve => {
       const visit = `${Math.floor(Date.now() / EDITION_MS)}-${Date.now()}-${Math.random()}`, mediaHistory = recentHistory("betterStartReaderMediaHistory"), avoid = [...new Set(mediaHistory.map(entry => entry.id))].slice(-120).join(","), avoidStories = recentStoryAvoidance(), places = savedPlaces(), profileTerms = activeProfile ? [...(activeProfile.broadInterests || []), ...(activeProfile.specificInterests || []), ...(activeProfile.details || []), ...(activeProfile.granularInterests || []), ...(activeProfile.anythingElse || [])].slice(0, 72).join("|") : "";
-      try { const today = new Date().toISOString().slice(0, 10), priorDay = localStorage.getItem("betterStartReaderDay"), hardRefresh = priorDay !== today; const next = await (await fetch(`/api/feed?visit=${encodeURIComponent(visit)}&avoid=${encodeURIComponent(avoid)}&avoidStories=${encodeURIComponent(avoidStories)}&places=${encodeURIComponent(places)}&interests=${encodeURIComponent(profileTerms)}`, {cache: "no-store"})).json(); localStorage.setItem("betterStartReaderDay", today); setJoyHistory(recentHistory("betterStartReaderJoyHistory")); setData(previous => prepareEdition(next, previous, preserve && !hardRefresh)); setEditionNote(`${preserve && !hardRefresh ? "Freshened" : "New"} ${new Date().toLocaleTimeString([], {hour: "numeric", minute: "2-digit"})} edition`); lastLoad = Date.now(); } catch {}
+      try { const today = localDayKey(new Date()), priorDay = localStorage.getItem("betterStartReaderDay"), hardRefresh = priorDay !== today; const next = await requestFeed({visit,avoid,avoidStories,places,interests:profileTerms}); localStorage.setItem("betterStartReaderDay", today); setJoyHistory(recentHistory("betterStartReaderJoyHistory")); setData(previous => prepareEdition(next, previous, preserve && !hardRefresh)); setEditionNote(`${preserve && !hardRefresh ? "Freshened" : "New"} ${new Date().toLocaleTimeString([], {hour: "numeric", minute: "2-digit"})} edition`); lastLoad = Date.now(); } catch {}
     };
     loadEdition(false);
     const clock = setInterval(() => setNow(new Date()), 60000), editionTimer = setInterval(() => loadEdition(true), EDITION_MS);
@@ -457,7 +464,7 @@ export default function Home() {
       const avoidStories = [...new Set([...recentStoryAvoidance().split(",").filter(Boolean), ...currentStoryKeys.map(stableHash)])].slice(-900).join(",");
       const places = savedPlaces(), profileTerms = profile ? [...(profile.broadInterests || []), ...(profile.specificInterests || []), ...(profile.details || []), ...(profile.granularInterests || []), ...(profile.anythingElse || [])].slice(0, 72).join("|") : "";
       const visit = `more-good-${Date.now()}-${Math.random()}`;
-      const next = await (await fetch(`/api/feed?visit=${encodeURIComponent(visit)}&avoid=${encodeURIComponent(avoid)}&avoidStories=${encodeURIComponent(avoidStories)}&places=${encodeURIComponent(places)}&interests=${encodeURIComponent(profileTerms)}`, {cache:"no-store"})).json();
+      const next = await requestFeed({visit,avoid,avoidStories,places,interests:profileTerms});
       const fresh = filterEditionGlobally(next);
       setData(previous => ({...previous, gallery: stampNew([...(previous?.gallery || []), ...(fresh?.gallery || [])]), media: stampNew([...(previous?.media || []), ...(fresh?.media || [])])}));
       setBatches(count => count + 1); setEditionNote("More good things arrived");
@@ -476,7 +483,7 @@ export default function Home() {
       const avoidStories = [...new Set([...recentStoryAvoidance().split(",").filter(Boolean), ...currentStoryKeys.map(stableHash)])].slice(-900).join(",");
       const places = savedPlaces(), profileTerms = profile ? [...(profile.broadInterests || []), ...(profile.specificInterests || []), ...(profile.details || []), ...(profile.granularInterests || []), ...(profile.anythingElse || [])].slice(0, 72).join("|") : "";
       const visit = `surprise-${Date.now()}-${Math.random()}`;
-      const next = await (await fetch(`/api/feed?visit=${encodeURIComponent(visit)}&avoid=${encodeURIComponent(avoid)}&avoidStories=${encodeURIComponent(avoidStories)}&places=${encodeURIComponent(places)}&interests=${encodeURIComponent(profileTerms)}`, {cache:"no-store"})).json();
+      const next = await requestFeed({visit,avoid,avoidStories,places,interests:profileTerms});
       const fresh = filterEditionGlobally(next);
       const arrivals = fresh?.serendipity?.length ? fresh.serendipity : (fresh?.gallery || []).slice(0, 60);
       setData(previous => ({...previous, serendipity: stampNew([...(previous?.serendipity || []), ...arrivals])}));
