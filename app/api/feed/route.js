@@ -7,6 +7,17 @@ const parser = new Parser({
   headers: {"User-Agent": "BetterStart/2.0"},
   customFields: {item: [["media:content", "mediaContent"], ["media:thumbnail", "mediaThumbnail"]]}
 });
+const sourceFeedCache = new Map();
+const storyImageCache = new Map();
+const SOURCE_CACHE_MS = 10 * 60 * 1000;
+const IMAGE_CACHE_MS = 30 * 60 * 1000;
+async function parseSourceCached(source) {
+  const prior = sourceFeedCache.get(source.url);
+  if (prior && prior.expires > Date.now()) return prior.promise;
+  const promise = parser.parseURL(source.url).catch(error => { sourceFeedCache.delete(source.url); throw error; });
+  sourceFeedCache.set(source.url, {expires:Date.now() + SOURCE_CACHE_MS,promise});
+  return promise;
+}
 const dataPath = name => path.join(process.cwd(), "data", name);
 const load = name => JSON.parse(fs.readFileSync(dataPath(name), "utf8"));
 const blockedTerms = Object.values(load("content-policy.json")).flat();
@@ -153,6 +164,8 @@ function isIdentityStory(item, identity) {
 }
 async function enrichStoryImage(item) {
   if (item.image || item.noImageEnrichment || !item.url || item.url === "#") return item;
+  const prior = storyImageCache.get(item.url);
+  if (prior && prior.expires > Date.now()) return prior.image ? {...item,image:prior.image,format:"visual",imageEnriched:true} : item;
   try {
     const response = await fetch(item.url, {redirect:"follow", headers:{"User-Agent":"Mozilla/5.0 BetterStart/5.0"}, signal:AbortSignal.timeout(1800)});
     if (!response.ok) return item;
@@ -160,8 +173,10 @@ async function enrichStoryImage(item) {
     const image = html.match(/<meta[^>]+property=["']og:image(?::url)?["'][^>]+content=["']([^"']+)/i)?.[1]
       || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image(?::url)?["']/i)?.[1]
       || html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)/i)?.[1];
-    return image && /^https?:/i.test(image) && !/lh3\.googleusercontent\.com\/J6_coFbogx|news\.google\.com|favicon|avatar|default[-_ ]?image|site[-_ ]?logo|brandmark/i.test(image) ? {...item, image, format:"visual", imageEnriched:true} : item;
-  } catch { return item; }
+    const usable = image && /^https?:/i.test(image) && !/lh3\.googleusercontent\.com\/J6_coFbogx|news\.google\.com|favicon|avatar|default[-_ ]?image|site[-_ ]?logo|brandmark/i.test(image) ? image : null;
+    storyImageCache.set(item.url, {expires:Date.now() + IMAGE_CACHE_MS,image:usable});
+    return usable ? {...item,image:usable,format:"visual",imageEnriched:true} : item;
+  } catch { storyImageCache.set(item.url, {expires:Date.now() + 5 * 60 * 1000,image:null}); return item; }
 }
 async function enrichIdentityImages(items, identity) {
   // Image availability is a composition requirement, not a nice-to-have.
@@ -171,7 +186,7 @@ async function enrichIdentityImages(items, identity) {
   const candidates = items.filter(item => !item.image).sort((a, b) => {
     const relevance = item => (isIdentityStory(item, identity) ? 3 : 0) + (item.personalFit === "direct" ? 2 : item.personalFit === "adjacent" ? 1 : 0);
     return relevance(b) - relevance(a) || b.score - a.score;
-  }).slice(0, 120);
+  }).slice(0, 40);
   if (!candidates.length) return items;
   const enriched = [];
   // Small batches avoid hammering publishers while still checking enough
@@ -678,7 +693,7 @@ async function feedResponse(params) {
     .filter(source => !bannedSource({source:source.name,url:source.url}))
     .map(({canonicalUrl,normalizedTitle,title,summary,...source}) => source);
   const results = await Promise.allSettled(sources.map(async source => {
-    const feed = await parser.parseURL(source.url);
+    const feed = await parseSourceCached(source);
     return (feed.items || []).slice(0, 40).map((item, index) => {
       const scored = score(item, source, taste);
       const publisher = publisherName(item, source), independentPublisher = isIndependentPublisher(publisher, source);

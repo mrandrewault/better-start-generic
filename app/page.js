@@ -7,8 +7,11 @@ const BATCH_SIZE = 25;
 const EDITION_MS = 2 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-const STORY_HISTORY_KEY = "betterStartReaderStoryHistory";
-const SEEN_STORY_LEDGER_KEY = "meanwhileSeenStoryHashesV2";
+// V3 intentionally leaves behind the poisoned ledger written by builds that
+// marked automatically prepared (but never viewed) cards as permanently seen.
+const STORY_HISTORY_KEY = "betterStartReaderStoryHistoryV3";
+const SEEN_STORY_LEDGER_KEY = "meanwhileSeenStoryHashesV3";
+const FEED_SNAPSHOT_KEY = "meanwhileFeedSnapshotV1";
 const STORY_HISTORY_LIMIT = 1500;
 const SEEN_STORY_LEDGER_LIMIT = 50000;
 const DAYPART_MESSAGES = {
@@ -492,6 +495,10 @@ export default function Home() {
   }, [user]);
   useEffect(() => {
     setSaved(JSON.parse(localStorage.getItem("betterStartReaderSaved") || "[]")); setJoyHistory(recentHistory("betterStartReaderJoyHistory"));
+    try {
+      const snapshot = JSON.parse(localStorage.getItem(FEED_SNAPSHOT_KEY) || "null");
+      if (snapshot?.gallery?.length >= BATCH_SIZE) { setData(snapshot); setEditionNote("Refreshing quietly"); }
+    } catch {}
     setShowWelcome(localStorage.getItem("meanwhileWelcomeSeenV1") !== "yes");
     const priorPalette = Number(localStorage.getItem("betterStartPaletteIndex") || "-1"), nextPalette = (priorPalette + 1) % EDITION_PALETTES.length;
     localStorage.setItem("betterStartPaletteIndex", String(nextPalette)); setPaletteIndex(nextPalette);
@@ -507,12 +514,18 @@ export default function Home() {
         // queue then grows invisibly to 100, without blocking the front door.
         const editions = [await requestFeed({visit,avoid,avoidStories,places,interests:profileTerms})];
         localStorage.setItem("betterStartReaderDay", today); setJoyHistory(recentHistory("betterStartReaderJoyHistory"));
-        if (preserve) setData(previous => prepareEdition(editions[0], previous, !hardRefresh));
+        if (preserve) setData(previous => {
+          const prepared = prepareEdition(editions[0], previous, !hardRefresh);
+          try { localStorage.setItem(FEED_SNAPSHOT_KEY, JSON.stringify(prepared)); } catch {}
+          return prepared;
+        });
         else {
           const clean = editions.map(filterEditionGlobally), primary = clean[0];
           const reserved = [...(primary?.tickerStories || []), primary?.goodNews, ...(primary?.favorites || [])].filter(Boolean);
           const gallery = claimSessionUnique(clean.flatMap(edition => edition?.gallery || []), reserved).slice(0, 140);
-          setData({...primary, gallery:stampNew(gallery)});
+          const prepared = {...primary, gallery:stampNew(gallery)};
+          try { localStorage.setItem(FEED_SNAPSHOT_KEY, JSON.stringify(prepared)); } catch {}
+          setData(prepared);
         }
         setEditionNote(`${preserve && !hardRefresh ? "Freshened" : "New"} ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})} edition`); lastLoad = Date.now();
       } catch {}
