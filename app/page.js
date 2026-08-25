@@ -3,7 +3,7 @@ import {useEffect, useLayoutEffect, useMemo, useRef, useState} from "react";
 import {EDITION_PALETTES, mastheadPalette} from "./palettes";
 import {supabase, supabaseConfigured} from "../lib/supabase";
 
-const BATCH_SIZE = 20;
+const BATCH_SIZE = 25;
 const EDITION_MS = 2 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -147,6 +147,21 @@ const claimUnique = (items = [], seen = new Set()) => items.filter(item => {
   keys.forEach(key => seen.add(key));
   return true;
 });
+const claimSessionUnique = (items = [], reserved = []) => {
+  const seen = new Set(), titles = [];
+  reserved.filter(Boolean).forEach(item => {
+    identityKeys(item).forEach(key => seen.add(key));
+    if (item?.title) titles.push(item.title);
+  });
+  return (items || []).filter(item => {
+    const safetyText = `${item?.title || ""} ${item?.summary || ""} ${item?.source || ""} ${item?.section || ""}`;
+    const keys = identityKeys(item);
+    if (!keys.length || bannedSource(item) || routineSportsBlocked.test(safetyText) || emergencyBlocked.test(safetyText) || religionBlocked.test(safetyText) || educationCultureWarBlocked.test(safetyText) || corporateAmazonBlocked(safetyText) || retiredRepeat.test(safetyText)) return false;
+    if (keys.some(key => seen.has(key)) || titles.some(title => nearSameTitle(item?.title, title))) return false;
+    keys.forEach(key => seen.add(key)); titles.push(item.title || "");
+    return true;
+  });
+};
 const sourceKey = item => (item?.source || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
 const spreadAdjacentSources = (items = [], initialPrevious = "") => {
   const pool = [...items], result = [];
@@ -486,7 +501,26 @@ export default function Home() {
     let lastLoad = Date.now();
     const loadEdition = async preserve => {
       const visit = `${Math.floor(Date.now() / EDITION_MS)}-${Date.now()}-${Math.random()}`, mediaHistory = recentHistory("betterStartReaderMediaHistory"), avoid = [...new Set(mediaHistory.map(entry => entry.id))].slice(-120).join(","), avoidStories = recentStoryAvoidance(), places = savedPlaces(), profileTerms = activeProfile ? [...(activeProfile.broadInterests || []), ...(activeProfile.specificInterests || []), ...(activeProfile.details || []), ...(activeProfile.granularInterests || []), ...(activeProfile.anythingElse || [])].slice(0, 72).join("|") : "";
-      try { const today = localDayKey(new Date()), priorDay = localStorage.getItem("betterStartReaderDay"), hardRefresh = priorDay !== today; const next = await requestFeed({visit,avoid,avoidStories,places,interests:profileTerms}); localStorage.setItem("betterStartReaderDay", today); setJoyHistory(recentHistory("betterStartReaderJoyHistory")); setData(previous => prepareEdition(next, previous, preserve && !hardRefresh)); setEditionNote(`${preserve && !hardRefresh ? "Freshened" : "New"} ${new Date().toLocaleTimeString([], {hour: "numeric", minute: "2-digit"})} edition`); lastLoad = Date.now(); } catch {}
+      try {
+        const today = localDayKey(new Date()), priorDay = localStorage.getItem("betterStartReaderDay"), hardRefresh = priorDay !== today;
+        // Build five independently shuffled, balanced editions at first load.
+        // Their deduplicated galleries form the initial 100-story bench.
+        const requestCount = preserve ? 1 : 5;
+        const editions = await Promise.all(Array.from({length:requestCount}, (_, index) => requestFeed({visit:`${visit}-${index}`,avoid,avoidStories,places,interests:profileTerms})));
+        localStorage.setItem("betterStartReaderDay", today); setJoyHistory(recentHistory("betterStartReaderJoyHistory"));
+        if (preserve) setData(previous => prepareEdition(editions[0], previous, !hardRefresh));
+        else {
+          const clean = editions.map(filterEditionGlobally), primary = clean[0];
+          const reserved = [...(primary?.tickerStories || []), primary?.goodNews, ...(primary?.favorites || [])].filter(Boolean);
+          let gallery = claimSessionUnique(clean.flatMap(edition => edition?.gallery || []), reserved).slice(0, 140);
+          for (let attempt = requestCount; gallery.length < 100 && attempt < 12; attempt++) {
+            const extra = filterEditionGlobally(await requestFeed({visit:`${visit}-bench-${attempt}`,avoid,avoidStories,places,interests:profileTerms}));
+            gallery = claimSessionUnique([...gallery, ...(extra?.gallery || [])], reserved).slice(0, 140);
+          }
+          setData({...primary, gallery:stampNew(gallery)});
+        }
+        setEditionNote(`${preserve && !hardRefresh ? "Freshened" : "New"} ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})} edition`); lastLoad = Date.now();
+      } catch {}
     };
     loadEdition(false);
     const clock = setInterval(() => setNow(new Date()), 60000), editionTimer = setInterval(() => loadEdition(true), EDITION_MS);
@@ -503,7 +537,7 @@ export default function Home() {
   // The API has already composed gallery in balanced 20-story windows. Keep
   // that canonical order: merging the auxiliary shelves here used to destroy
   // the topic quotas and was the source of sports-heavy and repeated pages.
-  const wall = useMemo(() => claimUnique(data?.gallery || []), [data]);
+  const wall = useMemo(() => claimSessionUnique(data?.gallery || [], [...(data?.tickerStories || [data?.ribbonFavorite]), data?.goodNews, ...(data?.favorites || [])]), [data]);
   const visibleBatches = useMemo(() => {
     const visibleWall = spreadAdjacentSources(wall.slice(0, batches * BATCH_SIZE));
     return Array.from({length: Math.ceil(visibleWall.length / BATCH_SIZE)}, (_, index) => visibleWall.slice(index * BATCH_SIZE, (index + 1) * BATCH_SIZE)).filter(batch => batch.length);
@@ -528,8 +562,8 @@ export default function Home() {
       const visit = `more-good-${Date.now()}-${Math.random()}`;
       const next = await requestFeed({visit,avoid,avoidStories,places,interests:profileTerms});
       const fresh = filterEditionGlobally(next);
-      const existing = dataRef.current?.gallery || [], seen = new Set(existing.flatMap(identityKeys));
-      const additions = claimUnique(fresh?.gallery || [], seen);
+      const existing = dataRef.current?.gallery || [];
+      const additions = claimSessionUnique(fresh?.gallery || [], currentItems);
       if (additions.length) {
         setData(previous => ({...previous, gallery:stampNew([...(previous?.gallery || []), ...additions])})); setQueueExhausted(false);
       }
@@ -539,7 +573,7 @@ export default function Home() {
   };
   useEffect(() => {
     const queued = wall.length - batches * BATCH_SIZE;
-    if (data && queued < 80 && !queueLoading && !queueExhausted) prefetchMoreGoodThings();
+    if (data && queued < 100 && !queueLoading && !queueExhausted) prefetchMoreGoodThings();
   }, [data, wall.length, batches, queueLoading, queueExhausted]);
   const loadMoreGoodThings = () => {
     if (batches * BATCH_SIZE >= wall.length) return;
@@ -578,7 +612,7 @@ export default function Home() {
     <section className="favoritesSection"><div className="sectionHead"><div><span>A few especially nice things</span><h2>Bright Spots</h2></div><p>Kindness, ingenuity & excellent dogs</p></div><div className="favorites">{uniqueFavorites.map(item => <a className="favorite" href={item.url} target="_blank" rel="noreferrer" key={item.canonicalUrl}><span>{age(item.date)}</span><h3>{item.title}</h3><b>{item.source}</b></a>)}</div></section>
 
     <section className="gallerySection"><div className="sectionHead wallHead"><div><span>Every good magazine on the table</span><h2>Good Stuff</h2></div><p>{profile ? "Your interests, with the wider world left in" : "A deliberately broad, lively mix"}</p></div>{visibleBatches.length ? <div className="galleryWall">{visibleBatches.map((batch, batchIndex) => <div className="galleryBatch" key={batchIndex}>{arrangeFrameClusters(batch).map((cluster, clusterIndex) => { const variant = (batchIndex * 3 + clusterIndex) % 3; return <div className={`tetrisCluster clusterVariant-${variant} clusterCount-${cluster.length} ${cluster.length <= 5 ? "partialCluster" : ""}`} key={clusterIndex}>{cluster.map((item, index) => { const absoluteIndex = batchIndex * BATCH_SIZE + clusterIndex * 10 + index; return item.format === "joy" ? <JoyTile item={item} index={absoluteIndex} key={item.canonicalUrl} /> : <Story item={item} index={absoluteIndex} paletteIndex={absoluteIndex} palette={palette} onRate={rate} onSave={toggleSave} onShare={share} saved={savedKeys.has(itemKey(item))} key={item.canonicalUrl} />; })}</div>; })}</div>)}</div> : <div className="loading" role="status" aria-live="polite"><span>Getting everything ready…</span><div className="loadingTrack" aria-hidden="true"><i /></div><small>Finding good things from around the world</small></div>}
-      {data && <div className="loadWrap" ref={loadMoreRef}>{batches * BATCH_SIZE < wall.length ? <button className="loadBtn" onClick={loadMoreGoodThings}>Load More<span>↓</span></button> : queueExhausted ? <small>You’re caught up for now.</small> : <small>More good things will appear as they’re prepared.</small>}</div>}
+      {data && <div className="loadWrap" ref={loadMoreRef}>{wall.length - batches * BATCH_SIZE >= BATCH_SIZE && <button className="loadBtn" onClick={loadMoreGoodThings}>Load 25 More Good Things<span>↓</span></button>}</div>}
     </section>
 
     <footer><b>MEANWHILE</b><span>Good things worth knowing · No outrage required</span></footer>
