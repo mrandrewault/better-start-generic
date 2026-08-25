@@ -3,7 +3,7 @@ import {useEffect, useLayoutEffect, useMemo, useRef, useState} from "react";
 import {EDITION_PALETTES, mastheadPalette} from "./palettes";
 import {supabase, supabaseConfigured} from "../lib/supabase";
 
-const BATCH_SIZE = 25;
+const BATCH_SIZE = 20;
 const EDITION_MS = 2 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -497,7 +497,10 @@ export default function Home() {
   const date = now.toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"});
   const smallDelight = SMALL_DELIGHTS[Math.abs(data?.edition || Math.floor(Date.now() / EDITION_MS)) % SMALL_DELIGHTS.length];
   const uniqueFavorites = useMemo(() => { const seen = new Set(); (data?.tickerStories || [data?.ribbonFavorite]).filter(Boolean).forEach(item => identityKeys(item).forEach(key => seen.add(key))); return spreadAdjacentSources(claimUnique(data?.favorites || [], seen)); }, [data]);
-  const wall = useMemo(() => { const pageSeen = new Set(); [...(data?.tickerStories || [data?.ribbonFavorite]), data?.goodNews, ...(data?.favorites || [])].filter(Boolean).forEach(item => identityKeys(item).forEach(key => pageSeen.add(key))); const stories = claimUnique([...(data?.gallery || []), ...(data?.important || []), ...(data?.serendipity || [])], pageSeen), media = claimUnique(data?.media || [], pageSeen), mixed = []; while (stories.length || media.length) { mixed.push(...stories.splice(0, 2)); if (media.length) mixed.push(media.shift()); } const result = [], pool = [...mixed], lastSeen = new Map(); while (pool.length) { const recent = result.slice(-20).map(item => item.source); let index = pool.findIndex(item => !recent.includes(item.source)); if (index < 0) { let oldest = Infinity; pool.forEach((item, candidate) => { const seen = lastSeen.get(item.source) ?? -Infinity; if (seen < oldest) { oldest = seen; index = candidate; } }); } const item = pool.splice(Math.max(0, index), 1)[0]; lastSeen.set(item.source, result.length); result.push(item); } const balanced = rebalanceVisualBlocks(result), edition = data?.edition || 0, joyful = [], reserved = [...joyHistory]; for (let start = 0, bench = 0; start < balanced.length; start += 24, bench++) { const group = balanced.slice(start, start + 24), position = Math.min(group.length, 6 + bench % 5), joyType = JOY_TYPES[(edition + bench) % JOY_TYPES.length], choice = chooseJoy(joyType, edition, bench, reserved); reserved.push({signature: choice.signature, ts: Date.now()}); group.splice(position, 0, {format: "joy", joyType, variant: choice.variant, signature: choice.signature, edition, title: "A small Meanwhile joy break", source: "Meanwhile Joy Bench", section: "JOY", canonicalUrl: `joy-${edition}-${bench}-${choice.signature}`, url: `#joy-${edition}-${bench}`}); joyful.push(...group); } return joyful; }, [data, joyHistory]);
+  // The API has already composed gallery in balanced 20-story windows. Keep
+  // that canonical order: merging the auxiliary shelves here used to destroy
+  // the topic quotas and was the source of sports-heavy and repeated pages.
+  const wall = useMemo(() => claimUnique(data?.gallery || []), [data]);
   const visibleBatches = useMemo(() => {
     const visibleWall = spreadAdjacentSources(wall.slice(0, batches * BATCH_SIZE));
     return Array.from({length: Math.ceil(visibleWall.length / BATCH_SIZE)}, (_, index) => visibleWall.slice(index * BATCH_SIZE, (index + 1) * BATCH_SIZE)).filter(batch => batch.length);
@@ -522,8 +525,13 @@ export default function Home() {
       const visit = `more-good-${Date.now()}-${Math.random()}`;
       const next = await requestFeed({visit,avoid,avoidStories,places,interests:profileTerms});
       const fresh = filterEditionGlobally(next);
-      setData(previous => ({...previous, gallery: stampNew([...(previous?.gallery || []), ...(fresh?.gallery || [])]), media: stampNew([...(previous?.media || []), ...(fresh?.media || [])])}));
-      setBatches(count => count + 1); setEditionNote("More good things arrived");
+      const existing = data?.gallery || [], seen = new Set(existing.flatMap(identityKeys));
+      const additions = claimUnique(fresh?.gallery || [], seen);
+      if (additions.length) {
+        setData(previous => ({...previous, gallery:stampNew([...(previous?.gallery || []), ...additions])}));
+        setBatches(count => count + 1); setEditionNote("More good things arrived");
+      }
+      else setEditionNote("You’re caught up — no repeats to show");
     } catch { setEditionNote("Couldn’t fetch more just yet"); }
     finally { setMoreGoodLoading(false); }
   };
@@ -551,7 +559,7 @@ export default function Home() {
     <section className="favoritesSection"><div className="sectionHead"><div><span>A few especially nice things</span><h2>Bright Spots</h2></div><p>Kindness, ingenuity & excellent dogs</p></div><div className="favorites">{uniqueFavorites.map(item => <a className="favorite" href={item.url} target="_blank" rel="noreferrer" key={item.canonicalUrl}><span>{age(item.date)}</span><h3>{item.title}</h3><b>{item.source}</b></a>)}</div></section>
 
     <section className="gallerySection"><div className="sectionHead wallHead"><div><span>Every good magazine on the table</span><h2>Good Stuff</h2></div><p>{profile ? "Your interests, with the wider world left in" : "A deliberately broad, lively mix"}</p></div>{visibleBatches.length ? <div className="galleryWall">{visibleBatches.map((batch, batchIndex) => <div className="galleryBatch" key={batchIndex}>{arrangeFrameClusters(batch).map((cluster, clusterIndex) => { const variant = (batchIndex * 3 + clusterIndex) % 3; return <div className={`tetrisCluster clusterVariant-${variant} clusterCount-${cluster.length} ${cluster.length <= 5 ? "partialCluster" : ""}`} key={clusterIndex}>{cluster.map((item, index) => { const absoluteIndex = batchIndex * BATCH_SIZE + clusterIndex * 10 + index; return item.format === "joy" ? <JoyTile item={item} index={absoluteIndex} key={item.canonicalUrl} /> : <Story item={item} index={absoluteIndex} paletteIndex={absoluteIndex} palette={palette} onRate={rate} onSave={toggleSave} onShare={share} saved={savedKeys.has(itemKey(item))} key={item.canonicalUrl} />; })}</div>; })}</div>)}</div> : <div className="loading" role="status" aria-live="polite"><span>Getting everything ready…</span><div className="loadingTrack" aria-hidden="true"><i /></div><small>Finding good things from around the world</small></div>}
-      {data && <div className="loadWrap"><button className="loadBtn" onClick={loadMoreGoodThings} disabled={moreGoodLoading}>{moreGoodLoading ? "Finding More Good Things…" : "Load 25 More Good Things"}<span>↓</span></button></div>}
+      {data && <div className="loadWrap"><button className="loadBtn" onClick={loadMoreGoodThings} disabled={moreGoodLoading}>{moreGoodLoading ? "Finding More Good Things…" : "Load 20 More Good Things"}<span>↓</span></button></div>}
     </section>
 
     <footer><b>MEANWHILE</b><span>Good things worth knowing · No outrage required</span></footer>
