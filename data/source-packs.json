@@ -4,7 +4,6 @@
     "label":"The Sporting Life",
     "signals":["sports","team","football","baseball","basketball","soccer","tennis","fantasy","fitness","running","cycling"],
     "sources":[
-      {"name":"ESPN Features","url":"https://www.espn.com/espn/rss/news","section":"SPORTS + PLAY","quality":8},
       {"name":"Baseball Culture","url":"https://news.google.com/rss/search?q=baseball+MLB+ballpark+history+community+inspiring+-politics+-betting&hl=en-US&gl=US&ceid=US:en","section":"BASEBALL","quality":9},
       {"name":"Tennis Life","url":"https://news.google.com/rss/search?q=tennis+US+Open+player+comeback+community+inspiring+-politics+-betting&hl=en-US&gl=US&ceid=US:en","section":"TENNIS","quality":9},
       {"name":"Beautiful Game","url":"https://news.google.com/rss/search?q=soccer+football+club+community+academy+inspiring+-politics+-betting&hl=en-US&gl=US&ceid=US:en","section":"SPORTS + PLAY","quality":8},

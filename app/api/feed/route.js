@@ -15,7 +15,23 @@ const stableHash = value => { let hash = 2166136261; for (const char of String(v
 const publicSpaceUnsafe = /\b(porn(?:ography|ographic)?|nsfw|nud(?:e|ity)|naked|topless|full[- ]?frontal|genitals?|penis|vulva|vagina|erotic(?:a)?|sexually explicit|adult content|figure stud(?:y|ies)|boudoir)\b/i;
 const suggestiveFashionUnsafe = /\b(miami (?:fashion|swim) week|miami nightlife|swim week|bikini(?:s)?|micro[- ]?bikini|thong(?:s)?|lingerie|underwear runway|swimwear runway|see[- ]?through (?:dress|fashion|outfit)|sheer (?:dress|fashion|outfit))\b/i;
 // Absolute editorial exclusions: these never enter the candidate pool.
-const bannedSource = item => /(?:\b(?:nyt|new york times)\b|(?:^|\.)nytimes\.com\b)/i.test(`${item?.source || ""} ${item?.url || ""} ${item?.canonicalUrl || ""}`);
+const bannedSource = item => /(?:\b(?:nyt|new york times|espn)\b|(?:^|\.)(?:nytimes|espn)\.com\b)/i.test(`${item?.source || ""} ${item?.publisher || ""} ${item?.url || ""} ${item?.canonicalUrl || ""}`);
+const routineSportsUnsafe = /\b(?:final score|box score|standings|power rankings?|depth chart|starting lineup|roster move|trade(?:d|s)?|free agen(?:t|cy)|draft pick|mock draft|signs? (?:a |with )|contract extension|waiver|injury report|quarterback|wide receiver|running back|head coach|playoffs? odds|game recap|match recap|season opener|transfer portal)\b/i;
+const sportsSignal = /\b(?:sports?|athlete|team|baseball|football|basketball|soccer|tennis|golf|running|cycling|wnba|mlb|nfl|nba|nhl)\b/i;
+const humanInterestSignal = /\b(?:community|neighbor|volunteer|mentor|teacher|student|youth|amateur|local|family|friendship|kindness|helps?|giving|donat|rescue|adopt|animal|dog|music|culture|artist|maker|craft|profile|human interest|inspir|uplift|persever|comeback|overcame|accessible|inclusion|scholarship|nonprofit|grassroots|tradition|legacy|celebrat|reunited|dream)\b/i;
+const humanInterestSports = item => {
+  const value = `${item?.title || ""} ${item?.summary || ""} ${item?.contentSnippet || ""}`;
+  return sportsSignal.test(value) && humanInterestSignal.test(value) && !routineSportsUnsafe.test(value);
+};
+const mainstreamPublisher = /\b(?:associated press|ap news|reuters|cnn|fox news|msnbc|nbc news|cbs news|abc news|usa today|washington post|wall street journal|bloomberg|time magazine|newsweek|forbes|business insider|guardian|bbc|npr|vox|new york post|daily mail|huffpost|yahoo|people magazine|sports illustrated|the athletic|hearst|conde nast|gannett)\b/i;
+const publisherName = (item, source = {}) => {
+  const embedded = typeof item?.source === "string" ? item.source : item?.source?._ || item?.source?.value || item?.source?.title;
+  return plain(embedded || source.name || "Unknown publisher");
+};
+const isIndependentPublisher = (publisher, source = {}) => {
+  const value = `${publisher || ""} ${source.name || ""} ${source.url || ""}`;
+  return !mainstreamPublisher.test(value) && !bannedSource({source:value});
+};
 const religionUnsafe = /\b(?:religion|religious|faith(?:ful)?|christian(?:ity)?|catholic(?:ism)?|protestant(?:ism)?|evangelical(?:ism)?|jewish|judaism|muslim|islam(?:ic)?|hindu(?:ism)?|buddhis(?:m|t)|sikh(?:ism)?|mormon(?:ism)?|latter[- ]day saints?|church|cathedral|chapel|synagogue|mosque|bible|biblical|torah|talmud|quran|koran|scripture|gospel|theology|theological|clergy|cleric|priest|pastor|pope|papal|vatican|rabbi|imam|monk|nun|worship|sermon|congregation|parish|diocese|god|jesus|christ|messiah|allah|yahweh|religious nationalism|christian nationalism|zionis(?:m|t)|antisemiti(?:c|sm)|islamophobi(?:a|c))\b/i;
 const editoriallyExcluded = /\b(pickleball|tesla|cybertruck|elon musk|mark zuckerberg|meta platforms?|marvel cinematic|gordon ramsay|guy fieri|wall street|stock market|james patterson|young adult fiction|horror film|horror novel|hunting)\b/i;
 // Confirmed archive repeats stay retired even for readers whose older browser
@@ -78,7 +94,8 @@ function isDisallowed(item) {
   const value = policyText(`${item.title || ""} ${item.summary || ""} ${item.contentSnippet || ""} ${item.source || ""} ${item.section || ""}`);
   const raw = `${item.title || ""} ${item.summary || ""} ${item.contentSnippet || ""} ${item.source || ""} ${item.section || ""}`;
   const corporateAmazon = /\bamazon(?:'s)?\b/i.test(raw) && !/\bamazon (?:rainforest|river|basin|forest|region|wildlife)\b/i.test(raw);
-  return bannedSource(item) || corporateAmazon || /\bjeff bezos\b/i.test(raw) || retiredRepeat.test(raw) || politicsUnsafe.test(raw) || religionUnsafe.test(raw) || educationCultureWarUnsafe.test(raw) || editoriallyExcluded.test(raw) || bodyAnxiety.test(raw) || publicSpaceUnsafe.test(raw) || suggestiveFashionUnsafe.test(raw) || blockedTerms.some(term => value.includes(policyText(term)));
+  const routineSports = sportsSignal.test(raw) && (!humanInterestSports(item) || routineSportsUnsafe.test(raw));
+  return bannedSource(item) || routineSports || corporateAmazon || /\bjeff bezos\b/i.test(raw) || retiredRepeat.test(raw) || politicsUnsafe.test(raw) || religionUnsafe.test(raw) || educationCultureWarUnsafe.test(raw) || editoriallyExcluded.test(raw) || bodyAnxiety.test(raw) || publicSpaceUnsafe.test(raw) || suggestiveFashionUnsafe.test(raw) || blockedTerms.some(term => value.includes(policyText(term)));
 }
 function wasRecentlyShown(item, avoidStories) {
   if (!avoidStories?.size) return false;
@@ -447,6 +464,8 @@ function balancedMagazine(candidates, count, interests = [], random = Math.rando
     const blockPosition = position % 20;
     const block = selected.slice(position - blockPosition);
     const blockPersonalizedCount = block.filter(item => item.personalFit !== "editorial").length;
+    const blockIndependentCount = block.filter(item => item.independentPublisher).length;
+    const blockHumanInterestCount = block.filter(item => item.humanInterest).length;
     const blockCounts = Object.fromEntries(Object.keys(targets).map(lane => [lane, block.filter(item => item.mixLane === lane).length]));
     const blockVisualShelfCount = block.filter(item => item.visualShelf).length;
     const blockSourceCount = source => block.filter(item => normalizeSource(item.source) === source).length;
@@ -456,7 +475,10 @@ function balancedMagazine(candidates, count, interests = [], random = Math.rando
       .sort((a,b) => (targets[b] - blockCounts[b]) - (targets[a] - blockCounts[a]))[0]
       || Object.keys(targets).find(candidate => remaining.some(item => item.mixLane === candidate))
       || "grabBag";
-    const hardLaneLimit = item => item.mixLane === "fashion" ? 1 : 2;
+    // Sports is seasoning: at most one human-interest sports story in every
+    // other 20-card window, never routine team or transaction news.
+    const sportsAllowedThisWindow = Math.floor(position / 20) % 2 === 1;
+    const hardLaneLimit = item => item.mixLane === "sports" ? (sportsAllowedThisWindow ? 1 : 0) : item.mixLane === "fashion" ? 1 : 2;
     const obeysSourceAndFormatCaps = item => {
       const source = normalizeSource(item.source), pageCount = sourceCounts.get(source) || 0;
       const pageLimit = /^(?:nyt arts|nyt books)$/.test(source) ? 2 : 5;
@@ -468,16 +490,23 @@ function balancedMagazine(candidates, count, interests = [], random = Math.rando
     // The other ten positions remain broad editorial choices, guaranteeing a
     // steady supply of subjects the reader did not explicitly request.
     const belowPersonalizationCap = item => blockPersonalizedCount < 10 || item.personalFit === "editorial";
-    const exact = remaining.filter(item => item.mixLane === lane && belowTarget(item) && belowHardLaneCap(item) && obeysSourceAndFormatCaps(item) && belowPersonalizationCap(item));
-    const cappedPool = remaining.filter(item => belowTarget(item) && belowHardLaneCap(item) && obeysSourceAndFormatCaps(item) && belowPersonalizationCap(item));
+    const preservesIndependentFloor = item => blockIndependentCount >= 18 || item.independentPublisher;
+    const preservesHumanInterestMajority = item => {
+      const remainingSlots = 20 - block.length;
+      const stillNeeded = Math.max(0, 12 - blockHumanInterestCount);
+      return stillNeeded < remainingSlots || item.humanInterest;
+    };
+    const editorialContract = item => preservesIndependentFloor(item) && preservesHumanInterestMajority(item);
+    const exact = remaining.filter(item => item.mixLane === lane && belowTarget(item) && belowHardLaneCap(item) && obeysSourceAndFormatCaps(item) && belowPersonalizationCap(item) && editorialContract(item));
+    const cappedPool = remaining.filter(item => belowTarget(item) && belowHardLaneCap(item) && obeysSourceAndFormatCaps(item) && belowPersonalizationCap(item) && editorialContract(item));
     // If a requested desk has no usable story, redistribute its space among
     // under-represented subjects. Never fall back to an unrestricted pool:
     // that old escape hatch was how runway inventory flooded sparse editions.
     const redistributed = remaining
-      .filter(item => belowHardLaneCap(item) && obeysSourceAndFormatCaps(item) && belowPersonalizationCap(item))
+      .filter(item => belowHardLaneCap(item) && obeysSourceAndFormatCaps(item) && belowPersonalizationCap(item) && editorialContract(item))
       .sort((a, b) => blockCounts[a.mixLane] - blockCounts[b.mixLane]);
     const emergency = remaining
-      .filter(item => belowHardLaneCap(item) && belowPersonalizationCap(item))
+      .filter(item => belowHardLaneCap(item) && belowPersonalizationCap(item) && editorialContract(item))
       .sort((a, b) => blockCounts[a.mixLane] - blockCounts[b.mixLane]);
     // One excellent dog is a standing part of every edition. It fills the
     // normal outdoors/animals position, rather than increasing that category.
@@ -596,8 +625,9 @@ async function feedResponse(params) {
     const feed = await parser.parseURL(source.url);
     return (feed.items || []).slice(0, 40).map((item, index) => {
       const scored = score(item, source, taste);
-      const story = {title: plain(item.title) || "Untitled", url: item.link || "#", summary: plain(item.contentSnippet || item.content || ""), date: item.isoDate || item.pubDate || null, source: source.name, section: source.section, image: source.noImages ? null : imageFor(item), sourcePack:source.pack || null, sourcePackLabel:source.packLabel || null, sourcePackHits:source.packHits || 0, noImageEnrichment:Boolean(source.noImages), ...scored, score:scored.score + (source.pack ? 18 + Math.min(24, (source.packHits || 0) * 4) : 0)};
-      return {...story, geoClass: classifyGeography(story, localPlaces), format: formatFor(story, index)};
+      const publisher = publisherName(item, source), independentPublisher = isIndependentPublisher(publisher, source);
+      const story = {title: plain(item.title) || "Untitled", url: item.link || "#", summary: plain(item.contentSnippet || item.content || ""), date: item.isoDate || item.pubDate || null, source: publisher, aggregatorSource:source.name, publisher, independentPublisher, section: source.section, image: source.noImages ? null : imageFor(item), sourcePack:source.pack || null, sourcePackLabel:source.packLabel || null, sourcePackHits:source.packHits || 0, noImageEnrichment:Boolean(source.noImages), ...scored, score:scored.score + (independentPublisher ? 30 : -25) + (source.pack ? 18 + Math.min(24, (source.packHits || 0) * 4) : 0)};
+      return {...story, humanInterest:humanInterestSignal.test(`${story.title} ${story.summary} ${story.section}`), geoClass: classifyGeography(story, localPlaces), format: formatFor(story, index)};
     });
   }));
   let all = [];
