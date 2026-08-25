@@ -17,7 +17,7 @@ const suggestiveFashionUnsafe = /\b(miami (?:fashion|swim) week|miami nightlife|
 const editoriallyExcluded = /\b(pickleball|tesla|cybertruck|elon musk|mark zuckerberg|meta platforms?|marvel cinematic|gordon ramsay|guy fieri|wall street|stock market|james patterson|young adult fiction|horror film|horror novel|hunting)\b/i;
 // Confirmed archive repeats stay retired even for readers whose older browser
 // history predates the permanent story ledger.
-const retiredRepeat = /\b(?:james hetfield.*metallica|cis football (?:field|locations?)|runway magazine covers? celebrating 25th anniversary)\b/i;
+const retiredRepeat = /\b(?:james hetfield.*metallica|cis football (?:field|locations?)|runway magazine covers? celebrating 25th anniversary|rocky horror.*mad scientist)\b/i;
 // Meanwhile is a politics-free publication. This deliberately excludes the
 // office and institution, not merely partisan vocabulary: a culture, travel,
 // style or arts story about a political figure is still a political story.
@@ -238,7 +238,7 @@ function isFreshLocal(item) {
   // another source in the category instead of recycling its archive forever.
   // NYT's desk feeds keep older entries available longer than this product's
   // live-feed promise permits, so they receive a deliberately tighter window.
-  if (/^nyt (?:arts|books)$/i.test(item.source || "")) return age <= 7;
+  if (/^nyt\b/i.test(item.source || "")) return age <= 1.5;
   return age <= (item.sourcePack ? 120 : 45);
 }
 function isGoodNews(item) {
