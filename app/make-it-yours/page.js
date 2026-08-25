@@ -2,7 +2,7 @@
 import {useEffect,useMemo,useState} from "react";
 import {supabase} from "../../lib/supabase";
 
-const STORAGE_KEY="betterStartQuickPicksV1";
+const STORAGE_KEY="betterStartQuickPicksV2";
 const PROFILE_KEY="betterStartPersonalProfileV1";
 const topics=[
   {id:"music",label:"Music",color:"red",children:["Classical","Jazz","Rock","Country","Electronic","Hip-hop","Reggae","Blues","Metal","Folk","Soul + R&B","Global music"]},
@@ -71,6 +71,7 @@ const doorways=[
 ];
 const primaryDoorwayIds=["music-on","team","eat","works","outside","business","fashion-first","movie","read","design","active","animals","giving"];
 const primaryDoorways=doorways.filter(item=>primaryDoorwayIds.includes(item.id));
+const doorwayTopic={"music-on":"music",team:"sports",eat:"food",works:"science",outside:"outdoors",business:"business","fashion-first":"style",movie:"film",read:"books",design:"design",active:"health",animals:"animals",giving:"philanthropy"};
 const specifics={
   "Hip-hop all day":["Old school","Golden age","New school","Beat tapes","Independent rap","Southern hip-hop","Live cyphers","Hip-hop history"],
   "Jam bands":["Long strange trips","Live tapes","Improvisation","Festival sets","Cosmic country","Funk jams"],
@@ -264,7 +265,71 @@ const featuredLanes={
     {label:"Archives + bookish places",children:["Archives + museums","Bookshops are destinations"]}
   ]
 };
-const lanesForTopic=topic=>featuredLanes[topic.id]||(()=>{const count=Math.min(3,Math.ceil(topic.children.length/3)),size=Math.ceil(topic.children.length/count);return Array.from({length:count},(_,index)=>{const children=topic.children.slice(index*size,(index+1)*size);return {label:index===0?`${topic.label}: favorites`:index===1?`${topic.label}: discoveries`:`${topic.label}: deep cuts`,children}}).filter(item=>item.children.length)})();
+Object.assign(featuredLanes,{
+  animals:[
+    {label:"Dogs, cats + home life",children:["Dogs","Cats"]},
+    {label:"Wildlife + birds",children:["Wildlife","Birds","Ocean life","Conservation"]},
+    {label:"Rescue + clever creatures",children:["Animal rescue","Animal intelligence"]}
+  ],
+  science:[
+    {label:"Space + the night sky",children:["Space","Astronomy"]},
+    {label:"Nature, oceans + medicine",children:["Nature","Oceans","Medicine"]},
+    {label:"How the world works",children:["Engineering","Mathematics","How things work"]}
+  ],
+  photography:[
+    {label:"People + life through a lens",children:["Documentary","Street photography","Portraits"]},
+    {label:"Film cameras + darkrooms",children:["Film cameras","Darkrooms"]},
+    {label:"Landscapes, history + new eyes",children:["Landscape","Photo history","New photographers"]}
+  ],
+  outdoors:[
+    {label:"Trails + camping",children:["Hiking","Camping","National parks"]},
+    {label:"Gardens, forests + birds",children:["Gardens","Forests","Birding"]},
+    {label:"Beautiful places worth saving",children:["Beautiful landscapes","Conservation"]}
+  ],
+  travel:[
+    {label:"Easy escapes",children:["Day trips","Road trips","Small towns"]},
+    {label:"Cities, trains + places to stay",children:["Great cities","Train travel","Hotels"]},
+    {label:"Museums + places to eat",children:["Museums","Places to eat"]}
+  ],
+  comedy:[
+    {label:"Stand-up + funny people",children:["Stand-up","Funny interviews","Comic actors"]},
+    {label:"Sketches + classic comedy",children:["Sketches","Classic comedy","Late-night archives"]},
+    {label:"Absurdity + smart silliness",children:["Absurdity","Smart silliness"]}
+  ],
+  making:[
+    {label:"Wood, clay + ink",children:["Woodworking","Ceramics","Printmaking"]},
+    {label:"Studios, tools + process",children:["Home studios","Analog tools","Creative process"]},
+    {label:"Repair + beautiful objects",children:["Repair","Beautiful objects"]}
+  ],
+  technology:[
+    {label:"Useful new machines",children:["Apple","Robotics","Inventors"]},
+    {label:"Cameras, sound + creative tools",children:["Audio gear","Cameras","Creative tools"]},
+    {label:"Cleaner, more thoughtful tech",children:["Clean energy","Thoughtful AI"]}
+  ]
+});
+const friendlyLaneLabels={
+  food:["I know a good place","Let’s make something delicious","Food has stories"],
+  science:["Big ideas + tiny wonders","Earth, sea + sky","How the world works"],
+  animals:["Pets are people too","Wild things","Clever creatures + second chances"],
+  photography:["Life through a lens","Film cameras forever","Pictures with a past"],
+  outdoors:["Take me outside","Gardens, forests + birds","Wild places worth saving"],
+  travel:["Let’s go somewhere","Cities, towns + trains","Worth the detour"],
+  comedy:["Make me laugh","Old-school funny","Smart silliness"],
+  local:["What’s good nearby?","A perfect local day","Neighborhood treasures"],
+  making:["I make things","Tools + studios","Fix it, don’t toss it"],
+  people:["People doing good things","Lives worth knowing","Small wins, big heart"],
+  philanthropy:["Money put to good use","Stronger communities","Giving that actually works"],
+  technology:["Useful new toys","Machines with brains","Technology for making things"],
+  business:["Follow the money","People building things","Companies with a story"],
+  health:["Move a little","Feel better for longer","Everyday wellbeing"],
+  home:["Make home nicer","Plants + gardens","Old houses, new ideas"],
+  family:["Good things to do together","Growing up curious","Let’s take the family somewhere"],
+  style:["Runway dreams","Style in real life","Fashion’s people + pictures"],
+  women:["Women making culture","Women changing the game","Stories worth following"],
+  gaming:["What’s new to play?","Old games, still great","How games get made"],
+  cars:["Things with wheels","Life on the water","Planes, trains + beautiful machines"]
+};
+const lanesForTopic=topic=>featuredLanes[topic.id]||(()=>{const labels=friendlyLaneLabels[topic.id]||["The good stuff","A little curious","Take me deeper"],count=Math.min(labels.length,Math.ceil(topic.children.length/3)),size=Math.ceil(topic.children.length/count);return Array.from({length:count},(_,index)=>({label:labels[index],children:topic.children.slice(index*size,(index+1)*size)})).filter(item=>item.children.length)})();
 const readerDefaults={design:"Established Meanwhile layout on desktop and mobile",safety:"Established rage-free, politics-free and blocked-content policy",radio:"Ambient",feedback:"More like this, Less, Too political and Too depressing",memory:"No duplicate content and no repeats within seven days",connections:"Offer optional service connections only in context, after the person uses the relevant feature"};
 const roundRobin=(groups,limit)=>{const result=[];for(let row=0;result.length<limit;row++){let added=false;groups.forEach(group=>{if(result.length<limit&&group[row]){result.push(group[row]);added=true}});if(!added)break}return result};
 
@@ -273,37 +338,34 @@ function StepHeader({eyebrow,title,copy}){return <div className="stepHeader"><sp
 const toggle=(list,item)=>list.includes(item)?list.filter(value=>value!==item):[...list,item];
 
 export default function MakeItYours(){
-  const [step,setStep]=useState(0),[doorwayPicks,setDoorwayPicks]=useState([]),[neighborhoods,setNeighborhoods]=useState([]),[details,setDetails]=useState([]),[granular,setGranular]=useState([]),[fine,setFine]=useState([]),[extra,setExtra]=useState(""),[name,setName]=useState(""),[loaded,setLoaded]=useState(false);
-  useEffect(()=>{try{const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||"null");if(saved){setStep(Math.min(saved.step||0,5));setDoorwayPicks(saved.doorwayPicks||[]);setNeighborhoods(saved.neighborhoods||[]);setDetails(saved.details||[]);setGranular(saved.granular||[]);setFine(saved.fine||[]);setExtra(saved.extra||"");setName(saved.name||"");}}catch{}setLoaded(true)},[]);
-  useEffect(()=>{if(loaded)localStorage.setItem(STORAGE_KEY,JSON.stringify({step,doorwayPicks,neighborhoods,details,granular,fine,extra,name,updatedAt:new Date().toISOString()}))},[step,doorwayPicks,neighborhoods,details,granular,fine,extra,name,loaded]);
+  const [step,setStep]=useState(0),[doorwayPicks,setDoorwayPicks]=useState([]),[details,setDetails]=useState([]),[granular,setGranular]=useState([]),[fine,setFine]=useState([]),[extra,setExtra]=useState(""),[name,setName]=useState(""),[loaded,setLoaded]=useState(false);
+  useEffect(()=>{try{const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||"null");if(saved){setStep(saved.step||0);setDoorwayPicks(saved.doorwayPicks||[]);setDetails(saved.details||[]);setGranular(saved.granular||[]);setFine(saved.fine||[]);setExtra(saved.extra||"");setName(saved.name||"");}}catch{}setLoaded(true)},[]);
+  useEffect(()=>{if(loaded)localStorage.setItem(STORAGE_KEY,JSON.stringify({step,doorwayPicks,details,granular,fine,extra,name,updatedAt:new Date().toISOString()}))},[step,doorwayPicks,details,granular,fine,extra,name,loaded]);
   useEffect(()=>{window.scrollTo({top:0,behavior:"smooth"})},[step]);
   const broad=useMemo(()=>[...new Set(doorways.filter(item=>doorwayPicks.includes(item.id)).flatMap(item=>item.signals))],[doorwayPicks]);
   const fashionLed=doorwayPicks.some(id=>["fashion-first","fashion","women-stories","costumes","fashion-week","bergdorfs","bon-marche","runway-save","magazine-photo","designer-not-trend","costume-binge"].includes(id));
   const chosenTopics=topics.filter(topic=>broad.includes(topic.id)).sort((a,b)=>fashionLed?(["style","women","photography","film","books","travel","design"].indexOf(a.id)+1||99)-(["style","women","photography","film","books","travel","design"].indexOf(b.id)+1||99):0);
-  const laneCatalog=useMemo(()=>chosenTopics.flatMap(topic=>lanesForTopic(topic).map(lane=>({...lane,parent:topic.label,color:topic.color}))),[broad]);
-  const neighborhoodOptions=useMemo(()=>roundRobin(chosenTopics.map(topic=>lanesForTopic(topic).map((lane,index)=>({...lane,parent:topic.label,color:topic.color,size:index===0?"lg":"md"}))),18),[broad]);
-  const detailOptions=useMemo(()=>{const groups=neighborhoods.map((label,index)=>(laneCatalog.find(item=>item.label===label)?.children||[]).map(value=>({label:value,parent:label,color:laneCatalog.find(item=>item.label===label)?.color||"blue",size:index%4===0?"lg":"md"})));return roundRobin(groups,24).filter((item,index,array)=>array.findIndex(other=>other.label===item.label)===index)},[neighborhoods,laneCatalog]);
+  const journeyTopics=useMemo(()=>doorwayPicks.map(id=>topics.find(topic=>topic.id===doorwayTopic[id])).filter((topic,index,array)=>topic&&array.findIndex(other=>other.id===topic.id)===index),[doorwayPicks]);
+  const topicCount=journeyTopics.length,deepStep=topicCount+1,fineStep=topicCount+2,readyStep=topicCount+3,currentTopic=step>=1&&step<=topicCount?journeyTopics[step-1]:null;
   const granularOptions=useMemo(()=>roundRobin(details.map((label,index)=>optionsFor(label).map(value=>({label:value,parent:label,color:topics[(index*3)%topics.length].color,size:index%5===0?"lg":"md"}))),24).filter((item,index,array)=>array.findIndex(other=>other.label===item.label)===index),[details]);
   const fineOptions=useMemo(()=>roundRobin(granular.map((label,index)=>granularFor(label).map(value=>({label:value,parent:label,color:topics[(index*5+2)%topics.length].color,size:index%4===0?"lg":"md"}))),18).filter((item,index,array)=>array.findIndex(other=>other.label===item.label)===index),[granular]);
-  const profile=useMemo(()=>({version:4,name:name.trim(),title:name.trim()?`${name.trim()}’s Edition`:"My Edition",openingChoices:doorways.filter(item=>doorwayPicks.includes(item.id)).map(item=>item.label),broadInterests:chosenTopics.map(topic=>topic.label),interestDirections:neighborhoods,specificInterests:details,details:granular,granularInterests:fine,anythingElse:extra.split(/,|\n/).map(value=>value.trim()).filter(Boolean),readerDefaults}),[name,doorwayPicks,chosenTopics,neighborhoods,details,granular,fine,extra]);
-  const progress=["Your passions","Pick a direction","Genres + subjects","Go deeper","Fine-tune it","Ready"];
-  const reset=()=>{if(confirm("Clear these choices and begin again?")){localStorage.removeItem(STORAGE_KEY);setStep(0);setDoorwayPicks([]);setNeighborhoods([]);setDetails([]);setGranular([]);setFine([]);setExtra("");setName("")}};
+  const profile=useMemo(()=>({version:5,name:name.trim(),title:name.trim()?`${name.trim()}’s Edition`:"My Edition",openingChoices:doorways.filter(item=>doorwayPicks.includes(item.id)).map(item=>item.label),broadInterests:chosenTopics.map(topic=>topic.label),specificInterests:details,details:granular,granularInterests:fine,anythingElse:extra.split(/,|\n/).map(value=>value.trim()).filter(Boolean),readerDefaults}),[name,doorwayPicks,chosenTopics,details,granular,fine,extra]);
+  const progress=["Start",...journeyTopics.map(topic=>topic.label),"Go deeper","Fine-tune","Ready"];
+  const reset=()=>{if(confirm("Clear these choices and begin again?")){localStorage.removeItem(STORAGE_KEY);setStep(0);setDoorwayPicks([]);setDetails([]);setGranular([]);setFine([]);setExtra("");setName("")}};
   const buildEdition=async()=>{const finished={...profile,updatedAt:new Date().toISOString()};localStorage.setItem(PROFILE_KEY,JSON.stringify(finished));if(supabase){const {data:{user}}=await supabase.auth.getUser();if(user)await supabase.from("profiles").upsert({user_id:user.id,display_name:finished.name||null,edition_name:finished.title,preferences:finished});}window.location.href="/?personalized=true"};
-  const next=()=>setStep(value=>Math.min(5,value+1));
-  const toggleDoorway=item=>{setDoorwayPicks(toggle(doorwayPicks,item.id));setNeighborhoods([]);setDetails([]);setGranular([]);setFine([])};
-  const toggleNeighborhood=label=>{setNeighborhoods(toggle(neighborhoods,label));setDetails([]);setGranular([]);setFine([])};
+  const next=()=>setStep(value=>Math.min(readyStep,value+1));
+  const toggleDoorway=item=>{setDoorwayPicks(toggle(doorwayPicks,item.id));setDetails([]);setGranular([]);setFine([])};
   const toggleDetail=label=>{setDetails(toggle(details,label));setGranular([]);setFine([])};
   const toggleGranular=label=>{setGranular(toggle(granular,label));setFine([])};
   return <main className="app interviewApp">
     <header><a href="/">Meanwhile</a><div><span>Make it yours</span><button onClick={reset}>Start over</button></div></header>
     <div className="progress"><div>{progress.map((label,index)=><span className={index===step?"active":index<step?"done":""} key={label}><i>{index<step?"✓":index+1}</i>{label}</span>)}</div><em>About 90 seconds</em></div>
     {step===0&&<section className="screen"><StepHeader eyebrow="MAKE IT YOURS" title="Which of these sound like you?" copy="Pick what sounds good. We’ll build your edition."/><div className={`constellation broad openingConstellation ${doorwayPicks.length?"hasSelection":""}`}>{primaryDoorways.map((item,index)=><Bubble key={item.id} label={item.label} size={item.size} color={item.color} depth={0} index={index} selected={doorwayPicks.includes(item.id)} onClick={()=>toggleDoorway(item)}/>)}</div><div className="tip">Choose as many as you like.</div></section>}
-    {step===1&&<section className="screen"><StepHeader eyebrow="PICK A DIRECTION" title="Which parts sound good?" copy="A few broad directions from each passion you chose. Nothing exhaustive yet."/><div className={`constellation neighborhoods ${neighborhoods.length?"hasSelection":""}`}>{neighborhoodOptions.map((item,index)=><Bubble key={`${item.parent}-${item.label}`} {...item} depth={1} index={index} selected={neighborhoods.includes(item.label)} onClick={()=>toggleNeighborhood(item.label)}/>)}</div><div className="tip">This screen never shows more than 18 choices.</div></section>}
-    {step===2&&<section className="screen"><StepHeader eyebrow="A LITTLE MORE YOU" title="What kind?" copy="Now choose genres and subjects inside those directions."/><div className={`constellation details ${details.length?"hasSelection":""}`}>{detailOptions.map((item,index)=><Bubble key={`${item.parent}-${item.label}`} {...item} depth={2} index={index} selected={details.includes(item.label)} onClick={()=>toggleDetail(item.label)}/>)}</div><div className="tip">We keep every passion represented and cap the screen at 24.</div></section>}
-    {step===3&&<section className="screen"><StepHeader eyebrow="NOW GO DEEPER" title="Anything feel especially you?" copy="A balanced handful of subgenres from everything you just chose."/><div className={`constellation details ${granular.length?"hasSelection":""}`}>{granularOptions.map((item,index)=><Bubble key={`${item.parent}-${item.label}`} {...item} depth={3} index={index} selected={granular.includes(item.label)} onClick={()=>toggleGranular(item.label)}/>)}</div></section>}
-    {step===4&&<section className="screen"><StepHeader eyebrow="ONE LAST PASS" title="Let’s get wonderfully specific." copy="A short final set of artists, eras, leagues, crafts and deep cuts."/><div className={`constellation details ${fine.length?"hasSelection":""}`}>{fineOptions.map((item,index)=><Bubble key={`${item.parent}-${item.label}`} {...item} depth={4} index={index} selected={fine.includes(item.label)} onClick={()=>setFine(toggle(fine,item.label))}/>)}</div><div className="optional"><label><span>Anything we missed? <i>Optional</i></span><input value={extra} onChange={event=>setExtra(event.target.value)} placeholder="Toss in an artist, director, team, author, style, place—anything."/></label></div></section>}
-    {step===5&&<section className="screen finish"><StepHeader eyebrow="THAT’S PLENTY TO BEGIN" title="Your edition is ready." copy="Meanwhile can learn the rest while you enjoy it."/><div className="profile"><div className="profileName"><span>Name your edition <i>Optional</i></span><input value={name} onChange={event=>setName(event.target.value)} placeholder="Your first name"/><h2>{profile.title}</h2></div><div className="profileCloud">{[...profile.broadInterests,...neighborhoods,...details,...granular,...fine,...profile.anythingElse].slice(0,30).map((item,index)=><span className={`p-${index%5}`} key={`${item}-${index}`}>{item}</span>)}</div><div className="promise"><b>Already taken care of</b><p>The playful Reader design, mobile layout, ambient radio, rage-free editorial rules, source variety, duplicate protection and seven-day memory are all built in. You can teach it more with <em>More like this</em> and <em>Less</em> while you browse.</p></div></div></section>}
-    <nav><button disabled={step===0} onClick={()=>setStep(value=>Math.max(0,value-1))}>← Back</button>{step<4&&<button className="primary" disabled={step===0?!doorwayPicks.length:step===1?!neighborhoods.length:step===2?!details.length:step===3?!granular.length:false} onClick={next}>{["Pick a direction","Choose some genres","Go deeper","Fine-tune it"][step]}<span>→</span></button>}{step===4&&<button className="primary" onClick={next}>This feels like me <span>→</span></button>}{step===5&&<button className="primary" onClick={buildEdition}>Open my edition <span>→</span></button>}</nav>
+    {currentTopic&&<section className="screen"><StepHeader eyebrow={`${currentTopic.label.toUpperCase()} · ${step} OF ${topicCount}`} title={currentTopic.id==="music"?"What do you like to hear?":currentTopic.id==="sports"?"What do you follow?":currentTopic.id==="style"?"What’s your kind of style?":currentTopic.id==="film"?"What do you like to watch?":`What sounds good in ${currentTopic.label.toLowerCase()}?`} copy={`This page is only about ${currentTopic.label.toLowerCase()}. Choose as many as you like—or none and keep moving.`}/><div className={`constellation details ${details.some(value=>currentTopic.children.includes(value))?"hasSelection":""}`}>{currentTopic.children.map((label,index)=><Bubble key={`${currentTopic.id}-${label}`} label={label} parent={currentTopic.label} color={currentTopic.color} size={index%5===0?"lg":"md"} depth={1} index={index} selected={details.includes(label)} onClick={()=>toggleDetail(label)}/>)}</div><div className="tip">One passion at a time. Nothing from the other sections is mixed in here.</div></section>}
+    {step===deepStep&&<section className="screen"><StepHeader eyebrow="GO A LITTLE DEEPER" title="Anything feel especially you?" copy="A balanced handful drawn from all your choices. No category gets to take over."/><div className={`constellation details ${granular.length?"hasSelection":""}`}>{granularOptions.map((item,index)=><Bubble key={`${item.parent}-${item.label}`} {...item} depth={3} index={index} selected={granular.includes(item.label)} onClick={()=>toggleGranular(item.label)}/>)}</div></section>}
+    {step===fineStep&&<section className="screen"><StepHeader eyebrow="ONE LAST PASS" title="Let’s get wonderfully specific." copy="A short final set of artists, eras, leagues, crafts and deep cuts."/><div className={`constellation details ${fine.length?"hasSelection":""}`}>{fineOptions.map((item,index)=><Bubble key={`${item.parent}-${item.label}`} {...item} depth={4} index={index} selected={fine.includes(item.label)} onClick={()=>setFine(toggle(fine,item.label))}/>)}</div><div className="optional"><label><span>Anything we missed? <i>Optional</i></span><input value={extra} onChange={event=>setExtra(event.target.value)} placeholder="Toss in an artist, director, team, author, style, place—anything."/></label></div></section>}
+    {step===readyStep&&<section className="screen finish"><StepHeader eyebrow="THAT’S PLENTY TO BEGIN" title="Your edition is ready." copy="Meanwhile can learn the rest while you enjoy it."/><div className="profile"><div className="profileName"><span>Name your edition <i>Optional</i></span><input value={name} onChange={event=>setName(event.target.value)} placeholder="Your first name"/><h2>{profile.title}</h2></div><div className="profileCloud">{[...profile.broadInterests,...details,...granular,...fine,...profile.anythingElse].slice(0,30).map((item,index)=><span className={`p-${index%5}`} key={`${item}-${index}`}>{item}</span>)}</div><div className="promise"><b>Already taken care of</b><p>The playful Reader design, mobile layout, ambient radio, rage-free editorial rules, source variety, duplicate protection and seven-day memory are all built in. You can teach it more with <em>More like this</em> and <em>Less</em> while you browse.</p></div></div></section>}
+    <nav><button disabled={step===0} onClick={()=>setStep(value=>Math.max(0,value-1))}>← Back</button>{step<readyStep&&<button className="primary" disabled={step===0&&!doorwayPicks.length} onClick={next}>{step===0?"Start my mini-sections":step<topicCount?`Next: ${journeyTopics[step]?.label||"section"}`:step===topicCount?"Go a little deeper":step===deepStep?"Fine-tune it":"This feels like me"}<span>→</span></button>}{step===readyStep&&<button className="primary" onClick={buildEdition}>Open my edition <span>→</span></button>}</nav>
     <footer><span>No account connections. No setup homework.</span><span>Personalized V9 · Saved privately in this browser</span></footer>
   </main>
 }
