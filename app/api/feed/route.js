@@ -552,6 +552,56 @@ function balancedMagazine(candidates, count, interests = [], random = Math.rando
   return selected;
 }
 
+// The strict editor can legitimately run out of candidates that satisfy every
+// quota at the same position. That must never turn into a six-card response.
+// Complete the bench from the same already-safe pool, preserving hard subject,
+// publisher and source caps while treating visual/human-interest ratios as the
+// ranking priority for the remainder rather than a reason to stop entirely.
+function completeMagazineBench(selected, candidates, count = 140, random = Math.random) {
+  const result = unique(selected);
+  const used = new Set(result.flatMap(item => [canonicalUrl(item.url), `title:${normalizeTitle(item.title)}`, `topic:${titleFingerprint(item.title)}`]));
+  const remaining = unique(candidates).filter(item => !used.has(canonicalUrl(item.url)) && !used.has(`title:${normalizeTitle(item.title)}`) && !used.has(`topic:${titleFingerprint(item.title)}`));
+  while (result.length < count && remaining.length) {
+    const position = result.length, block = result.slice(position - position % 20);
+    const sourceCount = source => block.filter(item => normalizeSource(item.source) === source).length;
+    const laneCount = lane => block.filter(item => item.mixLane === lane || contentLane(item) === lane).length;
+    const mainstreamCount = block.filter(item => !item.independentPublisher).length;
+    const sportsAllowed = Math.floor(position / 20) % 2 === 1;
+    const eligible = remaining.filter(item => {
+      const lane = item.mixLane || contentLane(item), source = normalizeSource(item.source);
+      if (lane === "sports" && (!sportsAllowed || laneCount("sports") >= 1 || !humanInterestSports(item))) return false;
+      if (lane === "fashion" && laneCount("fashion") >= 1) return false;
+      if (laneCount(lane) >= 3 || sourceCount(source) >= 2) return false;
+      if (!item.independentPublisher && mainstreamCount >= 2) return false;
+      return true;
+    });
+    const pool = eligible.length ? eligible : remaining.filter(item => {
+      const lane = item.mixLane || contentLane(item);
+      return lane !== "sports" && (item.independentPublisher || mainstreamCount < 2);
+    });
+    if (!pool.length) break;
+    const recentSources = new Set(result.slice(-4).map(item => normalizeSource(item.source)));
+    const ranked = pool.map(item => {
+      const lane = item.mixLane || contentLane(item), source = normalizeSource(item.source);
+      const visualCount = block.filter(entry => entry.image || entry.videoId).length;
+      const humanCount = block.filter(entry => entry.humanInterest).length;
+      let score = Number(item.score || 0) + random() * 7;
+      if (item.image || item.videoId) score += visualCount < 14 ? 150 : 35;
+      if (item.humanInterest) score += humanCount < 12 ? 100 : 25;
+      if (item.independentPublisher) score += 70;
+      score -= laneCount(lane) * 30 + sourceCount(source) * 70;
+      if (recentSources.has(source)) score -= 120;
+      return {item, score};
+    }).sort((a, b) => b.score - a.score);
+    const winner = ranked[0]?.item;
+    if (!winner) break;
+    remaining.splice(remaining.indexOf(winner), 1);
+    result.push({...winner, mixLane:winner.mixLane || contentLane(winner), mixLabel:winner.mixLabel || MIX_LABELS[winner.mixLane || contentLane(winner)]});
+    [canonicalUrl(winner.url), `title:${normalizeTitle(winner.title)}`, `topic:${titleFingerprint(winner.title)}`].forEach(key => used.add(key));
+  }
+  return result.slice(0, count);
+}
+
 // A greedy magazine editor: every choice is judged by how much it improves the
 // current page, with diminishing returns for repeated sources/topics/formats.
 function compose(candidates, count, seed = {}, random = Math.random) {
@@ -690,7 +740,8 @@ async function feedResponse(params) {
   // Source images attached to current reporting remain eligible.
   const allVisualShelf = [];
   const magazinePool = galleryPool;
-  const selectedMagazine = distributeVisuals(balancedMagazine(magazinePool, 140, interests, random), editorialIdentity, 20);
+  const strictMagazine = balancedMagazine(magazinePool, 140, interests, random);
+  const selectedMagazine = distributeVisuals(completeMagazineBench(strictMagazine, magazinePool, 140, random), editorialIdentity, 20);
   // Preserve the editor's 20-story windows. The client may arrange cards
   // inside each ten-card layout cluster, but no visual pass can import a later
   // story and silently alter the opening subject mix.
