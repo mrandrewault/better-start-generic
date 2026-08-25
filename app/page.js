@@ -370,13 +370,18 @@ function Story({item, index, paletteIndex = index, palette, onRate, onSave, onSh
 }
 
 export default function Home() {
-  const [data, setData] = useState(null), [batches, setBatches] = useState(1), [serendipityCount, setSerendipityCount] = useState(3), [serendipityLoading, setSerendipityLoading] = useState(false), [radio, setRadio] = useState(false), [now, setNow] = useState(new Date()), [saved, setSaved] = useState([]), [showSaved, setShowSaved] = useState(false), [showWelcome, setShowWelcome] = useState(false), [editionNote, setEditionNote] = useState("Composing edition"), [joyHistory, setJoyHistory] = useState([]), [profile, setProfile] = useState(null), [paletteIndex, setPaletteIndex] = useState(0), [user, setUser] = useState(null), [accountOpen, setAccountOpen] = useState(false), [accountEmail, setAccountEmail] = useState(""), [accountStatus, setAccountStatus] = useState("");
+  const [data, setData] = useState(null), [batches, setBatches] = useState(1), [moreGoodLoading, setMoreGoodLoading] = useState(false), [serendipityCount, setSerendipityCount] = useState(3), [serendipityLoading, setSerendipityLoading] = useState(false), [radio, setRadio] = useState(false), [now, setNow] = useState(new Date()), [saved, setSaved] = useState([]), [showSaved, setShowSaved] = useState(false), [showWelcome, setShowWelcome] = useState(false), [showSaveNudge, setShowSaveNudge] = useState(false), [editionNote, setEditionNote] = useState("Composing edition"), [joyHistory, setJoyHistory] = useState([]), [profile, setProfile] = useState(null), [paletteIndex, setPaletteIndex] = useState(0), [user, setUser] = useState(null), [accountOpen, setAccountOpen] = useState(false), [accountEmail, setAccountEmail] = useState(""), [accountStatus, setAccountStatus] = useState("");
   useEffect(() => {
     if (!supabase) return;
     supabase.auth.getSession().then(({data:{session}}) => setUser(session?.user || null));
     const {data:{subscription}} = supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user || null));
     return () => subscription.unsubscribe();
   }, []);
+  useEffect(() => {
+    if (!profile || user || showWelcome || sessionStorage.getItem("meanwhileSaveNudgeSeen") === "yes") return;
+    const timer = setTimeout(() => setShowSaveNudge(true), 120000);
+    return () => clearTimeout(timer);
+  }, [profile, user, showWelcome]);
   useEffect(() => {
     if (!supabase || !user) return;
     let active = true;
@@ -440,6 +445,25 @@ export default function Home() {
   const sendSignInLink = async event => { event.preventDefault(); if (!supabase) { setAccountStatus("Supabase is not connected to this deployment yet."); return; } setAccountStatus("Sending your secure link…"); const {error} = await supabase.auth.signInWithOtp({email:accountEmail, options:{emailRedirectTo:location.origin}}); setAccountStatus(error ? error.message : "Check your email. Your sign-in link is on the way."); };
   const signOut = async () => { if (supabase) await supabase.auth.signOut(); setUser(null); setAccountStatus("Signed out on this device."); };
   const share = async item => { const text = `I found this on Meanwhile — rage-free news, information and good times.\n\n${item.title}`, params = new URLSearchParams({u: item.url, t: item.title, s: item.source || "", c: item.section || ""}); if (item.image) params.set("i", item.image); const shareUrl = `${location.origin}/share?${params}`; try { if (navigator.share) await navigator.share({title: `${item.title} — Meanwhile`, text, url: shareUrl}); else { await navigator.clipboard.writeText(`${text}\n${shareUrl}`); setEditionNote("Branded share link copied"); } } catch {} };
+  const loadMoreGoodThings = async () => {
+    if (moreGoodLoading) return;
+    if (batches * BATCH_SIZE < wall.length) { setBatches(count => count + 1); return; }
+    setMoreGoodLoading(true); setEditionNote("Finding more good things");
+    try {
+      const mediaHistory = recentHistory("betterStartReaderMediaHistory");
+      const currentItems = [...(data?.tickerStories || []), data?.goodNews, ...(data?.favorites || []), ...(data?.important || []), ...(data?.gallery || []), ...(data?.media || []), ...(data?.serendipity || [])].filter(Boolean);
+      const avoid = [...new Set(mediaHistory.map(entry => entry.id))].slice(-120).join(",");
+      const currentStoryKeys = currentItems.flatMap(item => [itemKey(item), ...identityKeys(item)]);
+      const avoidStories = [...new Set([...recentStoryAvoidance().split(",").filter(Boolean), ...currentStoryKeys.map(stableHash)])].slice(-900).join(",");
+      const places = savedPlaces(), profileTerms = profile ? [...(profile.broadInterests || []), ...(profile.specificInterests || []), ...(profile.details || []), ...(profile.granularInterests || []), ...(profile.anythingElse || [])].slice(0, 72).join("|") : "";
+      const visit = `more-good-${Date.now()}-${Math.random()}`;
+      const next = await (await fetch(`/api/feed?visit=${encodeURIComponent(visit)}&avoid=${encodeURIComponent(avoid)}&avoidStories=${encodeURIComponent(avoidStories)}&places=${encodeURIComponent(places)}&interests=${encodeURIComponent(profileTerms)}`, {cache:"no-store"})).json();
+      const fresh = filterEditionGlobally(next);
+      setData(previous => ({...previous, gallery: stampNew([...(previous?.gallery || []), ...(fresh?.gallery || [])]), media: stampNew([...(previous?.media || []), ...(fresh?.media || [])])}));
+      setBatches(count => count + 1); setEditionNote("More good things arrived");
+    } catch { setEditionNote("Couldn’t fetch more just yet"); }
+    finally { setMoreGoodLoading(false); }
+  };
   const loadMoreSerendipity = async () => {
     if (serendipityLoading) return;
     if (serendipityCount < uniqueSerendipity.length) { setSerendipityCount(count => count + SERENDIPITY_BATCH_SIZE); return; }
@@ -463,11 +487,14 @@ export default function Home() {
   const savedKeys = useMemo(() => new Set(saved.map(itemKey)), [saved]);
   const clearProfile = () => { localStorage.removeItem(PROFILE_KEY); location.href = "/"; };
   const closeWelcome = () => { localStorage.setItem("meanwhileWelcomeSeenV1", "yes"); setShowWelcome(false); };
+  const closeSaveNudge = () => { sessionStorage.setItem("meanwhileSaveNudgeSeen", "yes"); setShowSaveNudge(false); };
+  const openSaveAccount = () => { closeSaveNudge(); setAccountStatus(""); setAccountOpen(true); };
   const identityClass = `identity-${data?.editorialIdentity?.id || "general"}`;
   const palette = EDITION_PALETTES[paletteIndex], masthead = mastheadPalette(palette), paletteStyle = {"--palette-1":palette[0],"--palette-2":palette[1],"--palette-3":palette[2],"--palette-4":palette[3]};
   const editionTitle = profile?.title?.replace(/^Meanwhile\s*[—-]\s*/i, "") || "";
   return <main style={paletteStyle} className={`shell daypart-${daypart} ${identityClass}`} data-editorial-identity={data?.editorialIdentity?.label || "Meanwhile"}>
     {showWelcome && <div className="welcomeVeil" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) closeWelcome(); }}><section className="welcomeNote" role="dialog" aria-modal="true" aria-labelledby="welcome-title"><button className="welcomeClose" onClick={closeWelcome} aria-label="Close welcome message">×</button><span className="welcomeEyebrow">A small note before you begin</span><h2 id="welcome-title">Welcome to Meanwhile</h2><p className="welcomeSubline">A celebration of everything going on in the world besides the news.</p><ol><li>Explore a mix of science, food, travel, fashion, animals, ingenuity, kindness, culture and other good times.</li><li>Make your own personal edition of your favorite things.</li><li>Come back all the time. Everything is constantly refreshed.</li></ol><div className="welcomeActions"><button onClick={closeWelcome}>Start reading <span>→</span></button><a href="/make-it-yours" onClick={closeWelcome}>Make it mine</a></div></section></div>}
+    {showSaveNudge && <div className="saveNudge" role="dialog" aria-labelledby="save-nudge-title"><button className="saveNudgeClose" onClick={closeSaveNudge} aria-label="Dismiss save edition message">×</button><span>Your edition is looking good</span><h2 id="save-nudge-title">Want to keep it?</h2><p>Sign up with your email and we’ll save your personalized Meanwhile.</p><small>We won’t spam you or sell your information. Promise. We just want to help you keep your edition.</small><div><button onClick={openSaveAccount}>Save my edition</button><button onClick={closeSaveNudge}>Maybe later</button></div></div>}
     {accountOpen && <AccountPanel user={user} email={accountEmail} setEmail={setAccountEmail} status={accountStatus} onSendLink={sendSignInLink} onSignOut={signOut} onClose={() => setAccountOpen(false)} />}
     <header className="mast"><div className="mastIdentity"><div className="brand brandVignelli" aria-label="Meanwhile">{"Meanwhile".split("").map((letter,index) => <span aria-hidden="true" style={{color:masthead[index]}} key={`${letter}-${index}`}>{letter}</span>)}</div>{editionTitle && <div className="editionName">{editionTitle}</div>}<div className="edition">Rage-free news, discovery & good times</div></div><div className="mastTools"><a className="personalizeButton" href="/make-it-yours">{profile ? "Tune my edition" : "Make it yours"}</a>{profile && <button className="genericButton" onClick={clearProfile}>Generic Edition</button>}<button className="accountButton" onClick={() => { setAccountStatus(user ? "Your Meanwhile is synced." : ""); setAccountOpen(true); }}>{user ? "My account" : "Sign in"}</button><button className="savedButton" onClick={() => setShowSaved(value => !value)}>Saved <b>{saved.length}</b></button><button className={`radio ${radio ? "radioOn" : ""}`} onClick={() => setRadio(!radio)} aria-label={`Meanwhile Radio ${radio ? "on" : "off"}`} title="Meanwhile Radio placeholder"><span>♪</span><small>{radio ? "ON" : "RADIO"}</small></button></div></header>
     <div className="hello"><h1>{greeting}.</h1><div className="helloAside"><p>{date}</p><span>{helloThought}</span></div></div>
@@ -479,7 +506,7 @@ export default function Home() {
     <section className="favoritesSection"><div className="sectionHead"><div><span>A few especially nice things</span><h2>Bright Spots</h2></div><p>Kindness, ingenuity & excellent dogs</p></div><div className="favorites">{uniqueFavorites.map(item => <a className="favorite" href={item.url} target="_blank" rel="noreferrer" key={item.canonicalUrl}><span>{age(item.date)}</span><h3>{item.title}</h3><b>{item.source}</b></a>)}</div></section>
 
     <section className="gallerySection"><div className="sectionHead wallHead"><div><span>Every good magazine on the table</span><h2>Good Stuff</h2></div><p>{profile ? "Your interests, with the wider world left in" : "A deliberately broad, lively mix"}</p></div>{visibleBatches.length ? <div className="galleryWall">{visibleBatches.map((batch, batchIndex) => <div className="galleryBatch" key={batchIndex}>{arrangeFrameClusters(batch).map((cluster, clusterIndex) => { const variant = (batchIndex * 3 + clusterIndex) % 3; return <div className={`tetrisCluster clusterVariant-${variant} clusterCount-${cluster.length} ${cluster.length <= 5 ? "partialCluster" : ""}`} key={clusterIndex}>{cluster.map((item, index) => { const absoluteIndex = batchIndex * BATCH_SIZE + clusterIndex * 10 + index; return item.format === "joy" ? <JoyTile item={item} index={absoluteIndex} key={item.canonicalUrl} /> : <Story item={item} index={absoluteIndex} paletteIndex={absoluteIndex} palette={palette} onRate={rate} onSave={toggleSave} onShare={share} saved={savedKeys.has(itemKey(item))} key={item.canonicalUrl} />; })}</div>; })}</div>)}</div> : <div className="loading" role="status" aria-live="polite"><span>Getting everything ready…</span><div className="loadingTrack" aria-hidden="true"><i /></div><small>Finding good things from around the world</small></div>}
-      {batches * BATCH_SIZE < wall.length && <div className="loadWrap"><button className="loadBtn" onClick={() => setBatches(count => count + 1)}>Load 25 More Good Things<span>↓</span></button></div>}
+      {data && <div className="loadWrap"><button className="loadBtn" onClick={loadMoreGoodThings} disabled={moreGoodLoading}>{moreGoodLoading ? "Finding More Good Things…" : "Load 25 More Good Things"}<span>↓</span></button></div>}
     </section>
 
     <section className="important"><div className="importantIntro"><span>Worth knowing</span><h2>Good News With Consequence</h2><p>A small, calm briefing about discoveries, progress and people making things better.</p></div><div className="importantGrid">{spreadAdjacentSources(data?.important || []).map((item, index) => <Story item={item} index={index} paletteIndex={1000 + index} palette={palette} onRate={rate} onSave={toggleSave} onShare={share} saved={savedKeys.has(itemKey(item))} key={item.canonicalUrl} />)}</div></section>

@@ -376,6 +376,14 @@
 @media(max-width:650px){.accountButton{padding:7px;font-size:7px}.accountVeil{padding:12px}.accountPanel{padding:31px 21px}.accountPanel h2{font-size:42px}.accountActions{align-items:stretch;flex-direction:column}.accountActions button{width:100%}}
 .loadBtn,.surpriseBtn{background:#d83a2e!important;color:#fff!important;border-color:#171512!important;box-shadow:4px 4px 0 #171512!important}
 .loadBtn:hover,.surpriseBtn:hover{background:#b92c23!important}
+.saveNudge{position:fixed;z-index:950;right:24px;bottom:24px;width:min(420px,calc(100vw - 32px));padding:27px 28px 24px;background:#fffaf0;border:1px solid #171512;box-shadow:8px 8px 0 #d83a2e;color:#171512}
+.saveNudgeClose{position:absolute;right:11px;top:8px;border:0;background:transparent;font:25px/1 Arial,sans-serif;cursor:pointer}
+.saveNudge>span{display:block;margin-bottom:8px;color:#d83a2e;font:800 9px "DM Sans",sans-serif;letter-spacing:.15em;text-transform:uppercase}
+.saveNudge h2{margin:0 0 10px;font:46px/.9 "DM Serif Display",serif;letter-spacing:-.035em}
+.saveNudge p{margin:0 0 9px;font:17px/1.35 Georgia,serif}
+.saveNudge small{display:block;margin-bottom:20px;color:#716b61;font:12px/1.45 Arial,sans-serif}
+.saveNudge>div{display:flex;align-items:center;gap:14px}.saveNudge>div button{border:1px solid #171512;background:#d83a2e;color:#fff;padding:11px 13px;font:800 9px "DM Sans",sans-serif;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;box-shadow:3px 3px 0 #171512}.saveNudge>div button:last-child{border:0;background:transparent;color:#716b61;box-shadow:none;text-decoration:underline;text-transform:none;letter-spacing:0}
+@media(max-width:650px){.saveNudge{right:16px;bottom:16px;padding:24px 21px 21px}.saveNudge h2{font-size:39px}}
 .importantIntro p{color:rgba(255,255,255,.82)}
 .loading{position:relative;isolation:isolate;overflow:hidden;height:420px;border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:34px;text-align:center;color:var(--muted);background:color-mix(in srgb,var(--card) 72%,transparent)}
 .loading:before{content:"";position:absolute;z-index:-1;inset:0;background:linear-gradient(105deg,transparent 25%,rgba(255,255,255,.72) 43%,transparent 61%);translate:-100% 0;animation:meanwhile-shimmer 2.4s ease-in-out infinite}

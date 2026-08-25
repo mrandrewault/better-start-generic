@@ -227,7 +227,7 @@ const granularSpecifics={
   "NFL":["Team news","Draft + prospects","Stadiums","Great plays","Football history","Coaching craft"],"MLB":["Team stories","Ballparks","Prospects","Great defense","Baseball history","Statistical curiosities"],
   "Modernism":["Bauhaus","International Style","Midcentury modern","Brazilian modernism","Modernist homes","Preservation"],"Editorial illustration":["Magazine illustration","New illustrators","Ink + collage","Visual essays","Illustration archives","Studio visits"]
 };
-const granularFor=label=>granularSpecifics[label]||[`Essential ${label}`,`New ${label}`,`${label} history`,`${label} people`,`Behind the scenes of ${label}`,`${label} deep cuts`];
+const granularFor=label=>granularSpecifics[label]||[label,`New in ${label}`,`${label} through the years`,`People shaping ${label}`,`Behind the scenes of ${label}`,`${label} deep cuts`];
 const featuredLanes={
   music:[
     {label:"Classical + composed",children:["Classical"]},
