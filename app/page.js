@@ -8,10 +8,8 @@ const SERENDIPITY_BATCH_SIZE = 9;
 const EDITION_MS = 2 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-const SERVER_REPEAT_WINDOW_MS = 180 * DAY_MS;
-const READER_REPEAT_WINDOW_MS = 365 * DAY_MS;
 const STORY_HISTORY_KEY = "betterStartReaderStoryHistory";
-const STORY_HISTORY_LIMIT = 5000;
+const STORY_HISTORY_LIMIT = 12000;
 const DAYPART_MESSAGES = {
   morning:[
     "Let’s start the day off rage-free, shall we?",
@@ -110,6 +108,14 @@ const emergencyBlocked = /\b(trump|maga|maha|nazi|neo[- ]?nazi|white supremac|sh
 const corporateAmazonBlocked = value => /\bamazon(?:'s)?\b/i.test(value) && !/\bamazon (?:rainforest|river|basin|forest|region|wildlife)\b/i.test(value);
 const titleFingerprint = value => normalizedIdentityTitle(value).split(/\s+/).filter(word => word.length > 2).slice(0, 9).join(" ");
 const titleFamily = value => [...new Set(normalizedIdentityTitle(value).split(/\s+/).filter(word => word.length > 3))].sort().slice(0, 14).join(" ");
+const retiredRepeat = /\b(?:james hetfield.*metallica|cis football (?:field|locations?)|runway magazine covers? celebrating 25th anniversary)\b/i;
+const titleWords = value => new Set(normalizedIdentityTitle(value).split(/\s+/).filter(word => word.length > 3));
+const nearSameTitle = (left, right) => {
+  const a = titleWords(left), b = titleWords(right);
+  if (a.size < 3 || b.size < 3) return false;
+  let shared = 0; a.forEach(word => { if (b.has(word)) shared++; });
+  return shared >= 4 && shared / Math.min(a.size, b.size) >= .72;
+};
 const commonsAssetKey = item => {
   const value = `${item?.url || ""} ${item?.image || ""}`, match = value.match(/(?:File:|File%3A|\/)([^/?#]+?\.(?:jpe?g|png|webp|gif|tiff?))(?:[/?#]|$)/i);
   if (!match) return "";
@@ -119,7 +125,7 @@ const identityKeys = item => [`url:${item?.canonicalUrl || item?.url || ""}`, `t
 const stableHash = value => { let hash = 2166136261; for (const char of String(value || "")) { hash ^= char.charCodeAt(0); hash = Math.imul(hash, 16777619); } return (hash >>> 0).toString(36); };
 const claimUnique = (items = [], seen = new Set()) => items.filter(item => {
   const safetyText = `${item?.title || ""} ${item?.summary || ""} ${item?.source || ""} ${item?.section || ""}`;
-  if (emergencyBlocked.test(safetyText) || corporateAmazonBlocked(safetyText)) return false;
+  if (emergencyBlocked.test(safetyText) || corporateAmazonBlocked(safetyText) || retiredRepeat.test(safetyText)) return false;
   const keys = identityKeys(item);
   if (!keys.length || keys.some(key => seen.has(key))) return false;
   keys.forEach(key => seen.add(key));
@@ -190,8 +196,10 @@ const savedPlaces = () => { try { const value = JSON.parse(localStorage.getItem(
 const storyHistory = () => { try { const value = JSON.parse(localStorage.getItem(STORY_HISTORY_KEY) || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } };
 const storyHistoryKeys = () => new Set(storyHistory().flatMap(entry => [entry.id, ...(entry.keys || [])]).filter(Boolean));
 const recentStoryAvoidance = () => {
-  const cutoff = Date.now() - SERVER_REPEAT_WINDOW_MS;
-  return [...new Set(storyHistory().filter(entry => (entry.ts || 0) >= cutoff).flatMap(entry => [entry.id, ...(entry.keys || [])]).filter(Boolean).map(stableHash))].slice(-5000).join(",");
+  // This is intentionally an all-time ledger, not a rolling window. Once a
+  // reader has seen a story or Commons asset, the server never receives
+  // permission to serve it again.
+  return [...new Set(storyHistory().flatMap(entry => [entry.id, ...(entry.keys || [])]).filter(Boolean).map(stableHash))].slice(-12000).join(",");
 };
 const localDayKey = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 const requestFeed = async payload => {
@@ -200,11 +208,13 @@ const requestFeed = async payload => {
   return response.json();
 };
 const filterEditionGlobally = next => {
-  // The server gets a compact 30-day blacklist. The browser is the final,
-  // stricter gate: no exact URL, title, image, asset or close topic identity
-  // seen in the last 90 days is allowed back onto the wall.
-  const cutoff = Date.now() - READER_REPEAT_WINDOW_MS;
-  const seen = new Set(storyHistory().filter(entry => (entry.ts || 0) >= cutoff).flatMap(entry => [entry.id, ...(entry.keys || [])]).filter(Boolean)), take = items => claimUnique(items || [], seen);
+  // The browser is the final permanent gate. In addition to exact URL, image,
+  // Commons asset and title-family keys, compare titles fuzzily so archive
+  // captions cannot return with a punctuation, date or wording variation.
+  const history = storyHistory();
+  const seen = new Set(history.flatMap(entry => [entry.id, ...(entry.keys || [])]).filter(Boolean));
+  const priorTitles = history.flatMap(entry => entry.keys || []).filter(key => key.startsWith("title:")).map(key => key.slice(6));
+  const take = items => claimUnique((items || []).filter(item => !priorTitles.some(title => nearSameTitle(item?.title, title))), seen);
   const tickerStories = take(next?.tickerStories || (next?.ribbonFavorite ? [next.ribbonFavorite] : []));
   const goodNews = take(next?.goodNews ? [next.goodNews] : [])[0] || null;
   return {...next,
@@ -399,7 +409,7 @@ export default function Home() {
       const [{data:cloudProfile}, {data:cloudSaved}, {data:cloudHistory}] = await Promise.all([
         supabase.from("profiles").select("preferences").eq("user_id", user.id).maybeSingle(),
         supabase.from("saved_stories").select("story_key,story,saved_at").eq("user_id", user.id).order("saved_at", {ascending:false}).limit(200),
-        supabase.from("story_history").select("story_key,identity_keys,last_seen_at").eq("user_id", user.id).order("last_seen_at", {ascending:false}).limit(900)
+        supabase.from("story_history").select("story_key,identity_keys,last_seen_at").eq("user_id", user.id).order("last_seen_at", {ascending:false}).limit(5000)
       ]);
       if (!active) return;
       const chosenProfile = cloudProfile?.preferences && Object.keys(cloudProfile.preferences).length ? cloudProfile.preferences : localProfile;
