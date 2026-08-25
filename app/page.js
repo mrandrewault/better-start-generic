@@ -11,7 +11,9 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 // marked automatically prepared (but never viewed) cards as permanently seen.
 const STORY_HISTORY_KEY = "betterStartReaderStoryHistoryV3";
 const SEEN_STORY_LEDGER_KEY = "meanwhileSeenStoryHashesV3";
-const FEED_SNAPSHOT_KEY = "meanwhileFeedSnapshotV1";
+// V2 discards the NASA-heavy snapshot produced before mixed-content image
+// URLs were upgraded and visual diversity was enforced.
+const FEED_SNAPSHOT_KEY = "meanwhileFeedSnapshotV2";
 const STORY_HISTORY_LIMIT = 1500;
 const SEEN_STORY_LEDGER_LIMIT = 50000;
 const DAYPART_MESSAGES = {

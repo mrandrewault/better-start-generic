@@ -97,7 +97,9 @@ function imageFor(item) {
     ...mediaThumbnail.map(value => value?.$?.url || value?.url),
     html.match(/<img[^>]+(?:data-lazy-src|data-src|src)=["']([^"']+)/i)?.[1],
     html.match(/<img[^>]+srcset=["']([^"' ,]+)/i)?.[1]
-  ].filter(Boolean);
+  ].filter(Boolean).map(url => String(url)
+    .replace(/&amp;|&#0*38;/gi, "&")
+    .replace(/^http:\/\//i, "https://"));
   return candidates.find(url => !/pixel|spacer|tracking|1x1|blank\.(gif|png)|favicon|avatar|default[-_ ]?image|site[-_ ]?logo|brandmark|lh3\.googleusercontent\.com\/J6_coFbogx/i.test(url)) || null;
 }
 function itemText(item) { return `${item.title || ""} ${item.contentSnippet || ""} ${item.content || ""}`.toLowerCase(); }
@@ -173,7 +175,8 @@ async function enrichStoryImage(item) {
     const image = html.match(/<meta[^>]+property=["']og:image(?::url)?["'][^>]+content=["']([^"']+)/i)?.[1]
       || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image(?::url)?["']/i)?.[1]
       || html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)/i)?.[1];
-    const usable = image && /^https?:/i.test(image) && !/lh3\.googleusercontent\.com\/J6_coFbogx|news\.google\.com|favicon|avatar|default[-_ ]?image|site[-_ ]?logo|brandmark/i.test(image) ? image : null;
+    const usableImage = image?.replace(/&amp;|&#0*38;/gi, "&").replace(/^http:\/\//i, "https://");
+    const usable = usableImage && /^https:/i.test(usableImage) && !/lh3\.googleusercontent\.com\/J6_coFbogx|news\.google\.com|favicon|avatar|default[-_ ]?image|site[-_ ]?logo|brandmark/i.test(usableImage) ? usableImage : null;
     storyImageCache.set(item.url, {expires:Date.now() + IMAGE_CACHE_MS,image:usable});
     return usable ? {...item,image:usable,format:"visual",imageEnriched:true} : item;
   } catch { storyImageCache.set(item.url, {expires:Date.now() + 5 * 60 * 1000,image:null}); return item; }
@@ -185,15 +188,14 @@ async function enrichIdentityImages(items, identity) {
   // text story.
   const candidates = items.filter(item => !item.image).sort((a, b) => {
     const relevance = item => (isIdentityStory(item, identity) ? 3 : 0) + (item.personalFit === "direct" ? 2 : item.personalFit === "adjacent" ? 1 : 0);
-    return relevance(b) - relevance(a) || b.score - a.score;
-  }).slice(0, 40);
+    const directPublisherPage = item => /news\.google\.com/i.test(item.url || "") ? 0 : 4;
+    return directPublisherPage(b) - directPublisherPage(a) || relevance(b) - relevance(a) || b.score - a.score;
+  }).slice(0, 200);
   if (!candidates.length) return items;
   const enriched = [];
   // Small batches avoid hammering publishers while still checking enough
   // source pages to build a genuinely visual edition.
-  for (let index = 0; index < candidates.length; index += 40) {
-    enriched.push(...await Promise.all(candidates.slice(index, index + 40).map(enrichStoryImage)));
-  }
+  enriched.push(...await Promise.all(candidates.map(enrichStoryImage)));
   const byUrl = new Map(enriched.map(item => [item.url, item]));
   return items.map(item => byUrl.get(item.url) || item);
 }
@@ -209,14 +211,68 @@ function distributeVisuals(items, identity, blockSize = 10) {
     let count = arranged.slice(start, end).filter(item => item.image).length;
     while (count < target) {
       const textIndex = arranged.slice(start, end).map((item, offset) => ({item, index:start + offset})).reverse().find(entry => !entry.item.image)?.index;
-      let visualIndex = arranged.findIndex((item, index) => index >= end && item.image && isIdentityStory(item, identity));
-      if (visualIndex < 0) visualIndex = arranged.findIndex((item, index) => index >= end && item.image);
+      const block = arranged.slice(start, end), visualSourceCount = source => block.filter(item => item.image && normalizeSource(item.source) === source).length;
+      const visualLaneCount = lane => block.filter(item => item.image && (item.mixLane || contentLane(item)) === lane).length;
+      const eligibleVisual = (item, index) => {
+        if (index < end || !item.image) return false;
+        const source = normalizeSource(item.source), lane = item.mixLane || contentLane(item);
+        return visualSourceCount(source) < 2 && visualLaneCount(lane) < 2;
+      };
+      let visualIndex = arranged.findIndex((item, index) => eligibleVisual(item, index) && isIdentityStory(item, identity));
+      if (visualIndex < 0) visualIndex = arranged.findIndex(eligibleVisual);
       if (textIndex === undefined || visualIndex < 0) break;
       [arranged[textIndex], arranged[visualIndex]] = [arranged[visualIndex], arranged[textIndex]];
       count++;
     }
   }
   return arranged;
+}
+
+function composeVisualWindows(items, identity, count = 140, blockSize = 20) {
+  const pool = unique(items).map((item, priority) => ({
+    ...item,
+    mixLane:item.mixLane || contentLane(item),
+    mixLabel:item.mixLabel || MIX_LABELS[item.mixLane || contentLane(item)],
+    _visualPriority:priority
+  }));
+  const result = [];
+  let nasaCount = 0;
+  const takeBest = predicate => {
+    const choices = pool.filter(predicate).sort((a, b) => a._visualPriority - b._visualPriority);
+    const winner = choices[0];
+    if (!winner) return null;
+    pool.splice(pool.indexOf(winner), 1);
+    if (normalizeSource(winner.source) === "nasa") nasaCount++;
+    const {_visualPriority, ...story} = winner;
+    return story;
+  };
+  while (result.length < count && pool.length) {
+    const block = [], target = Math.ceil(Math.min(blockSize, count - result.length) * Math.max(.7, identity.imageTarget || 0));
+    const sourceCount = source => block.filter(item => normalizeSource(item.source) === source).length;
+    const laneCount = lane => block.filter(item => item.mixLane === lane).length;
+    const allowedNASA = item => normalizeSource(item.source) !== "nasa" || nasaCount < 2;
+    const chooseVisual = (sourceCap, laneCap) => takeBest(item =>
+      (item.image || item.videoId) && allowedNASA(item)
+      && sourceCount(normalizeSource(item.source)) < sourceCap
+      && laneCount(item.mixLane) < laneCap
+    );
+    while (block.filter(item => item.image || item.videoId).length < target) {
+      const winner = chooseVisual(2, 2) || chooseVisual(2, 3) || chooseVisual(3, 3);
+      if (!winner) break;
+      block.push(winner);
+    }
+    while (block.length < Math.min(blockSize, count - result.length) && pool.length) {
+      const winner = takeBest(item => allowedNASA(item)
+        && sourceCount(normalizeSource(item.source)) < 2
+        && laneCount(item.mixLane) < 3)
+        || takeBest(item => allowedNASA(item) && sourceCount(normalizeSource(item.source)) < 3)
+        || takeBest(allowedNASA);
+      if (!winner) break;
+      block.push(winner);
+    }
+    result.push(...block);
+  }
+  return result;
 }
 
 const visualSearches = {
@@ -411,11 +467,11 @@ function contentLane(item) {
   if (/history|archive/.test(section)) return "history";
   if (/music/.test(section)) return "music";
   if (/film|theat|entertainment|culture/.test(section)) return "entertainment";
+  if (/science|ideas|math/.test(section)) return "thinking";
   if (/animals|nature|outdoor/.test(section)) return "outdoors";
   if (/people \+ joy|people \+ progress|giving|philanthrop/.test(section)) return "surprise";
   if (/tech/.test(section)) return "tech";
   if (/sports|fitness/.test(section)) return "sports";
-  if (/science|ideas|math/.test(section)) return "thinking";
   if (/food \+ travel/.test(section)) return /wine|beer|brew|cocktail|beverage|bar\b|coffee|tea\b|juice/.test(title) ? "beverage" : /food|restaurant|recipe|cook|chef|dining|bakery|cuisine/.test(title) ? "food" : "travel";
   if (/architecture|interior|home/.test(section)) return "home";
   if (/making|craft|diy|repair|workshop|furniture/.test(section)) return "crafts";
@@ -485,6 +541,8 @@ function balancedMagazine(candidates, count, interests = [], random = Math.rando
     const blockCounts = Object.fromEntries(Object.keys(targets).map(lane => [lane, block.filter(item => item.mixLane === lane).length]));
     const blockVisualShelfCount = block.filter(item => item.visualShelf).length;
     const blockSourceCount = source => block.filter(item => normalizeSource(item.source) === source).length;
+    const blockVisualSourceCount = source => block.filter(item => (item.image || item.videoId) && normalizeSource(item.source) === source).length;
+    const blockVisualLaneCount = lane => block.filter(item => (item.image || item.videoId) && item.mixLane === lane).length;
     const recentLanes = selected.slice(-2).map(item => item.mixLane);
     const lane = Object.keys(targets)
       .filter(candidate => !recentLanes.includes(candidate) && remaining.some(item => item.mixLane === candidate))
@@ -497,8 +555,9 @@ function balancedMagazine(candidates, count, interests = [], random = Math.rando
     const hardLaneLimit = item => item.mixLane === "sports" ? (sportsAllowedThisWindow ? 1 : 0) : item.mixLane === "fashion" ? 1 : 2;
     const obeysSourceAndFormatCaps = item => {
       const source = normalizeSource(item.source), pageCount = sourceCounts.get(source) || 0;
-      const pageLimit = /^(?:nyt arts|nyt books)$/.test(source) ? 2 : 5;
-      return pageCount < pageLimit && !((item.visualShelf && blockVisualShelfCount >= 2) || blockSourceCount(source) >= 2);
+      const pageLimit = /^nasa$/.test(source) ? 2 : 5;
+      const visual = item.image || item.videoId;
+      return pageCount < pageLimit && !((item.visualShelf && blockVisualShelfCount >= 2) || blockSourceCount(source) >= 2 || (visual && (blockVisualSourceCount(source) >= 2 || blockVisualLaneCount(item.mixLane) >= 2)));
     };
     const belowHardLaneCap = item => blockCounts[item.mixLane] < hardLaneLimit(item);
     const belowTarget = item => blockCounts[item.mixLane] < targets[item.mixLane];
@@ -573,13 +632,21 @@ function balancedMagazine(candidates, count, interests = [], random = Math.rando
 // publisher and source caps while treating visual/human-interest ratios as the
 // ranking priority for the remainder rather than a reason to stop entirely.
 function completeMagazineBench(selected, candidates, count = 140, random = Math.random) {
-  const result = unique(selected);
+  const result = [], seededSourceCounts = new Map();
+  unique(selected).forEach(item => {
+    const source = normalizeSource(item.source), limit = source === "nasa" ? 2 : 8;
+    if ((seededSourceCounts.get(source) || 0) >= limit) return;
+    seededSourceCounts.set(source, (seededSourceCounts.get(source) || 0) + 1); result.push(item);
+  });
   const used = new Set(result.flatMap(item => [canonicalUrl(item.url), `title:${normalizeTitle(item.title)}`, `topic:${titleFingerprint(item.title)}`]));
   const remaining = unique(candidates).filter(item => !used.has(canonicalUrl(item.url)) && !used.has(`title:${normalizeTitle(item.title)}`) && !used.has(`topic:${titleFingerprint(item.title)}`));
   while (result.length < count && remaining.length) {
     const position = result.length, block = result.slice(position - position % 20);
     const sourceCount = source => block.filter(item => normalizeSource(item.source) === source).length;
     const laneCount = lane => block.filter(item => item.mixLane === lane || contentLane(item) === lane).length;
+    const visualSourceCount = source => block.filter(item => (item.image || item.videoId) && normalizeSource(item.source) === source).length;
+    const visualLaneCount = lane => block.filter(item => (item.image || item.videoId) && (item.mixLane === lane || contentLane(item) === lane)).length;
+    const globalSourceCount = source => result.filter(item => normalizeSource(item.source) === source).length;
     const mainstreamCount = block.filter(item => !item.independentPublisher).length;
     const sportsAllowed = Math.floor(position / 20) % 2 === 1;
     const eligible = remaining.filter(item => {
@@ -587,13 +654,30 @@ function completeMagazineBench(selected, candidates, count = 140, random = Math.
       if (lane === "sports" && (!sportsAllowed || laneCount("sports") >= 1 || !humanInterestSports(item))) return false;
       if (lane === "fashion" && laneCount("fashion") >= 1) return false;
       if (laneCount(lane) >= 3 || sourceCount(source) >= 2) return false;
+      if (source === "nasa" && globalSourceCount(source) >= 2) return false;
+      if ((item.image || item.videoId) && (visualSourceCount(source) >= 2 || visualLaneCount(lane) >= 2)) return false;
       if (!item.independentPublisher && mainstreamCount >= 2) return false;
       return true;
     });
-    const pool = eligible.length ? eligible : remaining.filter(item => {
-      const lane = item.mixLane || contentLane(item);
-      return lane !== "sports" && (item.independentPublisher || mainstreamCount < 2);
+    const diversityFallback = remaining.filter(item => {
+      const lane = item.mixLane || contentLane(item), source = normalizeSource(item.source);
+      const visual = item.image || item.videoId;
+      // The fallback may relax the ideal subject mix, but never the rules that
+      // prevent one image-rich publisher (especially NASA) from taking over.
+      return lane !== "sports"
+        && !(source === "nasa" && globalSourceCount(source) >= 2)
+        && sourceCount(source) < 3
+        && (!visual || (visualSourceCount(source) < 2 && visualLaneCount(lane) < 2))
+        && (item.independentPublisher || mainstreamCount < 2);
     });
+    const depthFallback = remaining.filter(item => {
+      const lane = item.mixLane || contentLane(item), source = normalizeSource(item.source);
+      return lane !== "sports"
+        && !(source === "nasa" && globalSourceCount(source) >= 2)
+        && sourceCount(source) < 4
+        && (item.independentPublisher || mainstreamCount < 2);
+    });
+    const pool = eligible.length ? eligible : diversityFallback.length ? diversityFallback : depthFallback;
     if (!pool.length) break;
     const recentSources = new Set(result.slice(-4).map(item => normalizeSource(item.source)));
     const ranked = pool.map(item => {
@@ -688,7 +772,12 @@ async function feedResponse(params) {
   const genericPackIds = new Set(["sports","business-culture","fashion-style","books-history","making-garden","cars-boats","outdoors","food-travel","arts-culture","science-tech","philanthropy-community"]);
   // The broad magazine desk remains active for personalized editions too.
   // Specialist sources supplement it; they never replace the wider world.
-  const genericSources = packCatalog.filter(pack => genericPackIds.has(pack.id)).flatMap(pack => pack.sources.slice(0, pack.id === "food-travel" ? 4 : 2).map(source => ({...source, pack:pack.id, packLabel:pack.label, packHits:0})));
+  const genericSources = packCatalog.filter(pack => genericPackIds.has(pack.id)).flatMap(pack => {
+    // Arts needs the direct Colossal feed in the standing edition; unlike the
+    // two Google relay feeds before it, that feed carries its own artwork.
+    const take = pack.id === "food-travel" ? 4 : pack.id === "arts-culture" ? 3 : 2;
+    return pack.sources.slice(0, take).map(source => ({...source, pack:pack.id, packLabel:pack.label, packHits:0}));
+  });
   const sources = unique([...baseSources, ...genericSources, ...specialistSources].map(source => ({...source,title:source.name,summary:""})))
     .filter(source => !bannedSource({source:source.name,url:source.url}))
     .map(({canonicalUrl,normalizedTitle,title,summary,...source}) => source);
@@ -756,11 +845,36 @@ async function feedResponse(params) {
   const allVisualShelf = [];
   const magazinePool = galleryPool;
   const strictMagazine = balancedMagazine(magazinePool, 140, interests, random);
-  const selectedMagazine = distributeVisuals(completeMagazineBench(strictMagazine, magazinePool, 140, random), editorialIdentity, 20);
+  const completedBench = completeMagazineBench(strictMagazine, magazinePool, 140, random);
+  const benchKeys = new Set(completedBench.map(item => canonicalUrl(item.url)));
+  const visualBackfill = magazinePool.filter(item =>
+    (item.image || item.videoId)
+    && !benchKeys.has(canonicalUrl(item.url))
+    && normalizeSource(item.source) !== "nasa"
+  );
+  // Keep qualified visual reporting just behind the selected bench while the
+  // window pass runs. It can replace a text card in a sparse later window,
+  // rather than leaving all imagery concentrated near the top of the page.
+  const availableMagazine = [...completedBench, ...visualBackfill].filter(item => {
+    const url = canonicalUrl(item.url), title = normalizeTitle(item.title), topic = titleFingerprint(item.title), asset = commonsAssetKey(item);
+    return !usedUrls.has(url) && !usedTitles.has(title) && !(topic && usedTopics.has(topic)) && !(asset && usedAssets.has(asset));
+  });
+  const selectedMagazine = composeVisualWindows(availableMagazine, editorialIdentity, 140, 20);
   // Preserve the editor's 20-story windows. The client may arrange cards
   // inside each ten-card layout cluster, but no visual pass can import a later
   // story and silently alter the opening subject mix.
   const gallery = claim(selectedMagazine);
+  if (gallery.length < 100) {
+    gallery.push(...claim(magazinePool.filter(item =>
+      !usedUrls.has(canonicalUrl(item.url))
+      && !usedTitles.has(normalizeTitle(item.title))
+      && normalizeSource(item.source) !== "nasa"
+    )).slice(0, 100 - gallery.length));
+  }
+  // Claiming and depth backfill can shorten the carefully composed windows.
+  // Run the same editor once more on the final, deduplicated membership so
+  // those removals cannot quietly push the remaining pictures to the bottom.
+  gallery.splice(0, gallery.length, ...composeVisualWindows(gallery, editorialIdentity, gallery.length, 20));
   const galleryKeys = new Set(gallery.map(item => canonicalUrl(item.url)));
   const visualReserve = allVisualShelf.slice(56).filter(item => !galleryKeys.has(canonicalUrl(item.url))).slice(0, 24).map(item => ({...item, canonicalUrl:canonicalUrl(item.url)}));
   // Serendipity is composed from what remains after the primary magazine. It
