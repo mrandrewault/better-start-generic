@@ -15,6 +15,10 @@ const stableHash = value => { let hash = 2166136261; for (const char of String(v
 const publicSpaceUnsafe = /\b(porn(?:ography|ographic)?|nsfw|nud(?:e|ity)|naked|topless|full[- ]?frontal|genitals?|penis|vulva|vagina|erotic(?:a)?|sexually explicit|adult content|figure stud(?:y|ies)|boudoir)\b/i;
 const suggestiveFashionUnsafe = /\b(miami (?:fashion|swim) week|miami nightlife|swim week|bikini(?:s)?|micro[- ]?bikini|thong(?:s)?|lingerie|underwear runway|swimwear runway|see[- ]?through (?:dress|fashion|outfit)|sheer (?:dress|fashion|outfit))\b/i;
 const editoriallyExcluded = /\b(pickleball|tesla|cybertruck|elon musk|mark zuckerberg|meta platforms?|marvel cinematic|gordon ramsay|guy fieri|wall street|stock market|james patterson|young adult fiction|horror film|horror novel|hunting)\b/i;
+// Meanwhile is a politics-free publication. This deliberately excludes the
+// office and institution, not merely partisan vocabulary: a culture, travel,
+// style or arts story about a political figure is still a political story.
+const politicsUnsafe = /\b(?:trump|maga|maha|mar[- ]a[- ]lago|white house|oval office|first lady|first gentleman|president(?:ial)?|vice president|administration|cabinet|secretary of (?:state|defense|transportation|commerce|education|energy|labor|homeland security|health and human services|the interior|agriculture|the treasury|veterans affairs)|transportation secretary|state department|department of (?:state|defense|justice|transportation|commerce|education|energy|labor|homeland security)|pentagon|congress|congressional|senate|senator|house of representatives|representative|congressman|congresswoman|speaker of the house|supreme court|governor|lieutenant governor|mayor|prime minister|parliament|member of parliament|politician|political|republican|democrat|gop|campaign|election|ballot|rally|executive order|sean duffy)\b/i;
 
 function plain(value = "") {
   return value.replace(/<[^>]+>/g, " ").replace(/&\w+;/g, " ").replace(/\s+/g, " ").trim();
@@ -59,7 +63,7 @@ function isDisallowed(item) {
   const value = policyText(`${item.title || ""} ${item.summary || ""} ${item.contentSnippet || ""} ${item.source || ""} ${item.section || ""}`);
   const raw = `${item.title || ""} ${item.summary || ""} ${item.contentSnippet || ""} ${item.source || ""} ${item.section || ""}`;
   const corporateAmazon = /\bamazon(?:'s)?\b/i.test(raw) && !/\bamazon (?:rainforest|river|basin|forest|region|wildlife)\b/i.test(raw);
-  return corporateAmazon || /\bjeff bezos\b/i.test(raw) || editoriallyExcluded.test(raw) || bodyAnxiety.test(raw) || publicSpaceUnsafe.test(raw) || suggestiveFashionUnsafe.test(raw) || blockedTerms.some(term => value.includes(policyText(term)));
+  return corporateAmazon || /\bjeff bezos\b/i.test(raw) || politicsUnsafe.test(raw) || editoriallyExcluded.test(raw) || bodyAnxiety.test(raw) || publicSpaceUnsafe.test(raw) || suggestiveFashionUnsafe.test(raw) || blockedTerms.some(term => value.includes(policyText(term)));
 }
 function wasRecentlyShown(item, avoidStories) {
   if (!avoidStories?.size) return false;
