@@ -132,7 +132,16 @@ const commonsAssetKey = item => {
   try { return `commons:${decodeURIComponent(match[1]).toLowerCase().replace(/[_\s]+/g, "-")}`; } catch { return `commons:${match[1].toLowerCase()}`; }
 };
 const contentFingerprint = item => normalizedIdentityTitle(`${item?.title || ""} ${item?.summary || ""}`).split(/\s+/).filter(word => word.length > 2).slice(0, 24).join(" ");
-const identityKeys = item => [`url:${item?.canonicalUrl || item?.url || ""}`, `title:${item?.normalizedTitle || normalizedIdentityTitle(item?.title)}`, `topic:${titleFingerprint(item?.title)}`, `family:${titleFamily(item?.title)}`, `content:${contentFingerprint(item)}`, commonsAssetKey(item), `image:${item?.image || ""}`, `video:${item?.videoId || ""}`].filter(key => key && !key.endsWith(":"));
+const canonicalStoryUrl = value => {
+  try {
+    const url = new URL(value || "", "https://meanwhile.invalid");
+    url.hash = ""; url.hostname = url.hostname.replace(/^www\./, "");
+    ["utm_source","utm_medium","utm_campaign","utm_term","utm_content","gclid","fbclid","output"].forEach(key => url.searchParams.delete(key));
+    url.pathname = url.pathname.replace(/\/$/, "") || "/";
+    return `${url.hostname}${url.pathname}${url.searchParams.toString() ? `?${url.searchParams}` : ""}`;
+  } catch { return String(value || "").replace(/\/$/, ""); }
+};
+const identityKeys = item => [`url:${canonicalStoryUrl(item?.canonicalUrl || item?.url || "")}`, `title:${item?.normalizedTitle || normalizedIdentityTitle(item?.title)}`, `topic:${titleFingerprint(item?.title)}`, `family:${titleFamily(item?.title)}`, `content:${contentFingerprint(item)}`, commonsAssetKey(item), `image:${item?.image || ""}`, `video:${item?.videoId || ""}`].filter(key => key && !key.endsWith(":"));
 const stableHash = value => { let hash = 2166136261; for (const char of String(value || "")) { hash ^= char.charCodeAt(0); hash = Math.imul(hash, 16777619); } return (hash >>> 0).toString(36); };
 const readSeenLedger = () => { try { const value = JSON.parse(localStorage.getItem(SEEN_STORY_LEDGER_KEY) || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } };
 const identityHashes = item => [...new Set([itemKey(item), ...identityKeys(item)].filter(Boolean).map(stableHash))];
@@ -227,7 +236,7 @@ const rebalanceVisualBlocks = (items, blockSize = 10, ratio = .5) => {
   return arranged;
 };
 function age(date) { if (!date) return "From the shelf"; const hours = (Date.now() - new Date(date)) / 36e5; return hours < 1 ? `${Math.max(1, Math.round(hours * 60))} min ago` : hours < 24 ? `${Math.round(hours)} hr ago` : `${Math.round(hours / 24)}d ago`; }
-const itemKey = item => item.canonicalUrl || item.url || item.normalizedTitle || normalizedIdentityTitle(item.title);
+const itemKey = item => canonicalStoryUrl(item?.canonicalUrl || item?.url) || item?.normalizedTitle || normalizedIdentityTitle(item?.title);
 const savedPlaces = () => { try { const value = JSON.parse(localStorage.getItem("betterStartReaderPlaces") || "[]"); return Array.isArray(value) ? value.slice(0, 20).join("|") : ""; } catch { return ""; } };
 const storyHistory = () => { try { const value = JSON.parse(localStorage.getItem(STORY_HISTORY_KEY) || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } };
 const storyHistoryKeys = () => new Set(storyHistory().flatMap(entry => [entry.id, ...(entry.keys || [])]).filter(Boolean));
@@ -547,7 +556,7 @@ export default function Home() {
   // The API has already composed gallery in balanced 20-story windows. Keep
   // that canonical order: merging the auxiliary shelves here used to destroy
   // the topic quotas and was the source of sports-heavy and repeated pages.
-  const wall = useMemo(() => claimSessionUnique(data?.gallery || [], [...(data?.tickerStories || [data?.ribbonFavorite]), data?.goodNews, ...(data?.favorites || [])]), [data]);
+  const wall = useMemo(() => claimSessionUnique(data?.gallery || [], [...(data?.tickerStories || [data?.ribbonFavorite]), data?.goodNews, ...uniqueFavorites]), [data, uniqueFavorites]);
   const visibleBatches = useMemo(() => {
     const visibleWall = spreadAdjacentSources(wall.slice(0, batches * BATCH_SIZE));
     return Array.from({length: Math.ceil(visibleWall.length / BATCH_SIZE)}, (_, index) => visibleWall.slice(index * BATCH_SIZE, (index + 1) * BATCH_SIZE)).filter(batch => batch.length);
@@ -564,7 +573,9 @@ export default function Home() {
     try {
       const mediaHistory = recentHistory("betterStartReaderMediaHistory");
       const current = dataRef.current;
-      const currentItems = [...(current?.tickerStories || []), current?.goodNews, ...(current?.favorites || []), ...(current?.important || []), ...(current?.gallery || []), ...(current?.media || []), ...(current?.serendipity || [])].filter(Boolean);
+      // Only displayed/reserved stories count as consumed. Hidden auxiliary
+      // shelves are valid inventory for the next 25, not phantom duplicates.
+      const currentItems = [...(current?.tickerStories || []), current?.goodNews, ...(current?.favorites || []), ...(current?.gallery || [])].filter(Boolean);
       const avoid = [...new Set(mediaHistory.map(entry => entry.id))].slice(-120).join(",");
       const currentStoryKeys = currentItems.flatMap(item => [itemKey(item), ...identityKeys(item)]);
       const avoidStories = [...new Set([...recentStoryAvoidance().split(",").filter(Boolean), ...currentStoryKeys.map(stableHash)])].slice(-SEEN_STORY_LEDGER_LIMIT).join(",");
@@ -573,7 +584,12 @@ export default function Home() {
       const next = await requestFeed({visit,avoid,avoidStories,places,interests:profileTerms});
       const fresh = filterEditionGlobally(next);
       const existing = dataRef.current?.gallery || [];
-      const additions = claimSessionUnique(fresh?.gallery || [], currentItems);
+      const additions = claimSessionUnique([
+        ...(fresh?.gallery || []),
+        ...(fresh?.serendipity || []),
+        ...(fresh?.important || []),
+        ...(fresh?.media || [])
+      ], currentItems);
       if (additions.length) {
         setData(previous => ({...previous, gallery:stampNew([...(previous?.gallery || []), ...additions])})); setQueueExhausted(false);
         if (revealWhenReadyRef.current) { revealWhenReadyRef.current = false; setBatches(count => count + 1); }
@@ -596,7 +612,26 @@ export default function Home() {
   }, [data, wall.length, batches, queueLoading, queueExhausted]);
   useEffect(() => () => clearTimeout(retryTimerRef.current), []);
   const loadMoreGoodThings = () => {
-    if (batches * BATCH_SIZE < wall.length) { setBatches(count => count + 1); return; }
+    const visibleCount = batches * BATCH_SIZE;
+    if (visibleCount < wall.length) {
+      setBatches(count => Math.min(count + 1, Math.ceil(wall.length / BATCH_SIZE)));
+      return;
+    }
+    // The primary response also carries a reserve shelf. Promote it instantly
+    // before waiting on the network, so clicking the button always has a
+    // synchronous path whenever the server already prepared more stories.
+    const current = dataRef.current;
+    const displayed = [...(current?.tickerStories || []), current?.goodNews, ...(current?.favorites || []), ...(current?.gallery || [])].filter(Boolean);
+    const localAdditions = claimSessionUnique([
+      ...(current?.serendipity || []),
+      ...(current?.important || []),
+      ...(current?.media || [])
+    ], displayed).slice(0, BATCH_SIZE);
+    if (localAdditions.length) {
+      setData(previous => ({...previous, gallery:stampNew([...(previous?.gallery || []), ...localAdditions])}));
+      setBatches(count => count + 1);
+      return;
+    }
     revealWhenReadyRef.current = true; setQueueExhausted(false); prefetchMoreGoodThings();
   };
   useEffect(() => {
