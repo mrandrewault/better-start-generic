@@ -141,7 +141,17 @@ const canonicalStoryUrl = value => {
     return `${url.hostname}${url.pathname}${url.searchParams.toString() ? `?${url.searchParams}` : ""}`;
   } catch { return String(value || "").replace(/\/$/, ""); }
 };
-const identityKeys = item => [`url:${canonicalStoryUrl(item?.canonicalUrl || item?.url || "")}`, `title:${item?.normalizedTitle || normalizedIdentityTitle(item?.title)}`, `topic:${titleFingerprint(item?.title)}`, `family:${titleFamily(item?.title)}`, `content:${contentFingerprint(item)}`, commonsAssetKey(item), `image:${item?.image || ""}`, `video:${item?.videoId || ""}`].filter(key => key && !key.endsWith(":"));
+const publisherStoryKey = item => {
+  const value = `${item?.canonicalUrl || item?.url || ""} ${item?.source || ""}`;
+  if (/\bnpr\b|npr\.org/i.test(value)) {
+    const id = value.match(/(?:nx-s1-|\/)(\d{6,})(?:[/?#\s-]|$)/i)?.[1];
+    if (id) return `npr:${id}`;
+    const slug = canonicalStoryUrl(item?.canonicalUrl || item?.url).split("/").filter(Boolean).at(-1)?.replace(/^\d+-/, "");
+    if (slug) return `npr-slug:${slug}`;
+  }
+  return "";
+};
+const identityKeys = item => [`url:${canonicalStoryUrl(item?.canonicalUrl || item?.url || "")}`, publisherStoryKey(item), `title:${item?.normalizedTitle || normalizedIdentityTitle(item?.title)}`, `topic:${titleFingerprint(item?.title)}`, `family:${titleFamily(item?.title)}`, `content:${contentFingerprint(item)}`, commonsAssetKey(item), `image:${item?.image || ""}`, `video:${item?.videoId || ""}`].filter(key => key && !key.endsWith(":"));
 const stableHash = value => { let hash = 2166136261; for (const char of String(value || "")) { hash ^= char.charCodeAt(0); hash = Math.imul(hash, 16777619); } return (hash >>> 0).toString(36); };
 const readSeenLedger = () => { try { const value = JSON.parse(localStorage.getItem(SEEN_STORY_LEDGER_KEY) || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } };
 const identityHashes = item => [...new Set([itemKey(item), ...identityKeys(item)].filter(Boolean).map(stableHash))];
@@ -578,11 +588,16 @@ export default function Home() {
       const currentItems = [...(current?.tickerStories || []), current?.goodNews, ...(current?.favorites || []), ...(current?.gallery || [])].filter(Boolean);
       const avoid = [...new Set(mediaHistory.map(entry => entry.id))].slice(-120).join(",");
       const currentStoryKeys = currentItems.flatMap(item => [itemKey(item), ...identityKeys(item)]);
-      const avoidStories = [...new Set([...recentStoryAvoidance().split(",").filter(Boolean), ...currentStoryKeys.map(stableHash)])].slice(-SEEN_STORY_LEDGER_LIMIT).join(",");
+      // Infinite scroll has a session contract: exclude everything already in
+      // this edition, but do not send years of history and accidentally drain
+      // the candidate pool. Cross-visit freshness still applies on first load.
+      const avoidStories = [...new Set(currentStoryKeys.map(stableHash))].slice(-SEEN_STORY_LEDGER_LIMIT).join(",");
       const places = savedPlaces(), profileTerms = profile ? [...(profile.broadInterests || []), ...(profile.specificInterests || []), ...(profile.details || []), ...(profile.granularInterests || []), ...(profile.anythingElse || [])].slice(0, 72).join("|") : "";
       const visit = `more-good-${Date.now()}-${Math.random()}`;
       const next = await requestFeed({visit,avoid,avoidStories,places,interests:profileTerms});
-      const fresh = filterEditionGlobally(next);
+      // The request already excludes the current wall. Apply the live session
+      // registry below, rather than the permanent-history gate used at entry.
+      const fresh = next;
       const existing = dataRef.current?.gallery || [];
       const additions = claimSessionUnique([
         ...(fresh?.gallery || []),
@@ -638,11 +653,14 @@ export default function Home() {
     const target = loadMoreRef.current;
     if (!target || typeof IntersectionObserver === "undefined") return;
     const observer = new IntersectionObserver(entries => {
+      // Always register the reader's intent. If replenishment is already in
+      // flight, revealMoreGoodThings leaves a pending flag that the request
+      // fulfills on arrival instead of losing this intersection event.
       if (entries[0]?.isIntersecting) revealMoreGoodThings();
     }, {rootMargin:"1200px 0px"});
     observer.observe(target);
     return () => observer.disconnect();
-  }, [batches, wall.length, data]);
+  }, [batches, wall.length, data, queueLoading, queueExhausted]);
   const savedKeys = useMemo(() => new Set(saved.map(itemKey)), [saved]);
   const clearProfile = () => { localStorage.removeItem(PROFILE_KEY); location.href = "/"; };
   const closeWelcome = () => { localStorage.setItem("meanwhileWelcomeSeenV1", "yes"); setShowWelcome(false); };
