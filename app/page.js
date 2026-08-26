@@ -611,7 +611,7 @@ export default function Home() {
     if (data && queued < 100 && !queueLoading && !queueExhausted) prefetchMoreGoodThings();
   }, [data, wall.length, batches, queueLoading, queueExhausted]);
   useEffect(() => () => clearTimeout(retryTimerRef.current), []);
-  const loadMoreGoodThings = () => {
+  const revealMoreGoodThings = () => {
     const visibleCount = batches * BATCH_SIZE;
     if (visibleCount < wall.length) {
       setBatches(count => Math.min(count + 1, Math.ceil(wall.length / BATCH_SIZE)));
@@ -638,11 +638,11 @@ export default function Home() {
     const target = loadMoreRef.current;
     if (!target || typeof IntersectionObserver === "undefined") return;
     const observer = new IntersectionObserver(entries => {
-      if (entries[0]?.isIntersecting && batches * BATCH_SIZE < wall.length) setBatches(count => count + 1);
-    }, {rootMargin:"700px 0px"});
+      if (entries[0]?.isIntersecting) revealMoreGoodThings();
+    }, {rootMargin:"1200px 0px"});
     observer.observe(target);
     return () => observer.disconnect();
-  }, [batches, wall.length]);
+  }, [batches, wall.length, data]);
   const savedKeys = useMemo(() => new Set(saved.map(itemKey)), [saved]);
   const clearProfile = () => { localStorage.removeItem(PROFILE_KEY); location.href = "/"; };
   const closeWelcome = () => { localStorage.setItem("meanwhileWelcomeSeenV1", "yes"); setShowWelcome(false); };
@@ -667,7 +667,7 @@ export default function Home() {
     <section className="favoritesSection"><div className="sectionHead"><div><span>A few especially nice things</span><h2>Bright Spots</h2></div><p>Kindness, ingenuity & excellent dogs</p></div><div className="favorites">{uniqueFavorites.map(item => <a className="favorite" href={item.url} target="_blank" rel="noreferrer" key={item.canonicalUrl}><span>{age(item.date)}</span><h3>{item.title}</h3><b>{item.source}</b></a>)}</div></section>
 
     <section className="gallerySection"><div className="sectionHead wallHead"><div><span>Every good magazine on the table</span><h2>Good Stuff</h2></div><p>{profile ? "Your interests, with the wider world left in" : "A deliberately broad, lively mix"}</p></div>{visibleBatches.length ? <div className="galleryWall">{visibleBatches.map((batch, batchIndex) => <div className="galleryBatch" key={batchIndex}>{arrangeFrameClusters(batch).map((cluster, clusterIndex) => { const variant = (batchIndex * 3 + clusterIndex) % 3; return <div className={`tetrisCluster clusterVariant-${variant} clusterCount-${cluster.length} ${cluster.length <= 5 ? "partialCluster" : ""}`} key={clusterIndex}>{cluster.map((item, index) => { const absoluteIndex = batchIndex * BATCH_SIZE + clusterIndex * 10 + index; return item.format === "joy" ? <JoyTile item={item} index={absoluteIndex} key={item.canonicalUrl} /> : <Story item={item} index={absoluteIndex} paletteIndex={absoluteIndex} palette={palette} onRate={rate} onSave={toggleSave} onShare={share} saved={savedKeys.has(itemKey(item))} key={item.canonicalUrl} />; })}</div>; })}</div>)}</div> : <div className="loading" role="status" aria-live="polite"><span>Getting everything ready…</span><div className="loadingTrack" aria-hidden="true"><i /></div><small>Finding good things from around the world</small></div>}
-      {data && <div className="loadWrap" ref={loadMoreRef}><button className="loadBtn" onClick={loadMoreGoodThings}>Load 25 More Good Things<span>↓</span></button></div>}
+      {data && <div className="infiniteSentinel" ref={loadMoreRef} aria-hidden="true" />}
     </section>
 
     <footer><b>MEANWHILE</b><span>Good things worth knowing · No outrage required</span></footer>

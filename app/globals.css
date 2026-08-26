@@ -301,6 +301,7 @@
 .identity-making{--identity-accent:#9b5a29}.identity-making .wallHead{border-color:#9b5a29}.identity-books{--identity-accent:#765526}.identity-books .wallHead{border-color:#765526}.identity-books .tetrisCluster .tile h3{font-family:"DM Serif Display",serif}
 
 @media(max-width:650px){.identity-fashion .brand{font-size:14px}.identity-fashion .galleryBatch:first-child .tetrisCluster:first-child .tile:first-child .imageLink{flex-basis:auto}.identity-fashion .favorite:nth-child(n){background:#fff;color:#111}.identity-fashion .favorite:nth-child(3n+2){background:#111;color:#fff}}
+.infiniteSentinel{width:100%;height:1px;pointer-events:none}
 
 /* V8: every text card gets a unique, page-wide mixed-ink swatch. */
 .tile-mixed-ink{background-image:none!important;color:var(--tile-ink)!important}
