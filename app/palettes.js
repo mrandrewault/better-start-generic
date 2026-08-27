@@ -58,15 +58,18 @@ const hueDistance = (a, b) => { const d = Math.abs(toHsl(a).h - toHsl(b).h); ret
 // Preserve the chosen family, but repair low contrast and inject a harmonious
 // complementary accent when a family is too tonally narrow for the overlap.
 export const mastheadPalette = (palette, paper = "#F7F4EC") => {
-  const sources = palette.map(toHsl), result = [];
+  const sources = palette.map(toHsl), result = [], darkPaper = luminance(paper) < .24;
   for (let index = 0; index < 9; index += 1) {
     const source = sources[index % sources.length];
     let hue = source.h;
-    if (result.length && hueDistance(toHex({h:hue,s:70,l:34}), result.at(-1)) < 22) hue = (hue + (index % 2 ? 46 : 180)) % 360;
-    let lightness = [34,40,30,43,36,32,41,29,38][index];
+    const comparisonLightness = darkPaper ? 68 : 34;
+    if (result.length && hueDistance(toHex({h:hue,s:70,l:comparisonLightness}), result.at(-1)) < 22) hue = (hue + (index % 2 ? 46 : 180)) % 360;
+    let lightness = (darkPaper
+      ? [70,64,73,67,72,63,69,75,65]
+      : [34,40,30,43,36,32,41,29,38])[index];
     let candidate = toHex({h:hue,s:Math.min(88,Math.max(60,source.s)),l:lightness});
-    while (contrast(candidate,paper) < 4.8 && lightness > 24) {
-      lightness -= 2;
+    while (contrast(candidate,paper) < 4.8 && (darkPaper ? lightness < 90 : lightness > 18)) {
+      lightness += darkPaper ? 2 : -2;
       candidate = toHex({h:hue,s:Math.min(88,Math.max(60,source.s)),l:lightness});
     }
     result.push(candidate);
