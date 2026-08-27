@@ -11,9 +11,13 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 // marked automatically prepared (but never viewed) cards as permanently seen.
 const STORY_HISTORY_KEY = "betterStartReaderStoryHistoryV3";
 const SEEN_STORY_LEDGER_KEY = "meanwhileSeenStoryHashesV3";
+const DELIVERED_INVENTORY_LEDGER_KEY = "meanwhileDeliveredInventoryHashesV1";
 // V2 discards the NASA-heavy snapshot produced before mixed-content image
 // URLs were upgraded and visual diversity was enforced.
-const FEED_SNAPSHOT_KEY = "meanwhileFeedSnapshotV2";
+// V5 deliberately drops the text-heavy V4 bench. V4 is still migrated into
+// the prior-delivery ledger below, so dropping its presentation cannot grant
+// any of its stories another appearance.
+const FEED_SNAPSHOT_KEY = "meanwhileFeedSnapshotV5";
 const STORY_HISTORY_LIMIT = 1500;
 const SEEN_STORY_LEDGER_LIMIT = 50000;
 const DAYPART_MESSAGES = {
@@ -117,7 +121,7 @@ const routineSportsBlocked = /\b(?:final score|box score|standings|power ranking
 const corporateAmazonBlocked = value => /\bamazon(?:'s)?\b/i.test(value) && !/\bamazon (?:rainforest|river|basin|forest|region|wildlife)\b/i.test(value);
 const titleFingerprint = value => normalizedIdentityTitle(value).split(/\s+/).filter(word => word.length > 2).slice(0, 9).join(" ");
 const titleFamily = value => [...new Set(normalizedIdentityTitle(value).split(/\s+/).filter(word => word.length > 3))].sort().slice(0, 14).join(" ");
-const retiredRepeat = /\b(?:james hetfield.*metallica|cis football (?:field|locations?)|runway magazine covers? celebrating 25th anniversary|rocky horror.*mad scientist|chanel iman.*runway.*2009|not all boredom is the same)\b/i;
+const retiredRepeat = /\b(?:james hetfield.*metallica|cis football (?:field|locations?)|runway magazine covers? celebrating 25th anniversary|rocky horror.*mad scientist|chanel iman.*runway.*2009|not all boredom is the same|lush foliage permeates xanthe burdett)\b/i;
 const educationCultureWarBlocked = /(?:\b(?:lgbtq?|transgender|gender identity|drag queen|pride)\b.{0,90}\b(?:child(?:ren)?|kids?|school|classroom|curriculum|education|library|books?|reading hour)\b|\b(?:child(?:ren)?|kids?|school|classroom|curriculum|education|library|books?|reading hour)\b.{0,90}\b(?:lgbtq?|transgender|gender identity|drag queen|pride)\b)/i;
 const titleWords = value => new Set(normalizedIdentityTitle(value).split(/\s+/).filter(word => word.length > 2).map(word => word.length > 4 && word.endsWith("s") ? word.slice(0, -1) : word));
 const nearSameTitle = (left, right) => {
@@ -250,10 +254,28 @@ const itemKey = item => canonicalStoryUrl(item?.canonicalUrl || item?.url) || it
 const savedPlaces = () => { try { const value = JSON.parse(localStorage.getItem("betterStartReaderPlaces") || "[]"); return Array.isArray(value) ? value.slice(0, 20).join("|") : ""; } catch { return ""; } };
 const storyHistory = () => { try { const value = JSON.parse(localStorage.getItem(STORY_HISTORY_KEY) || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } };
 const storyHistoryKeys = () => new Set(storyHistory().flatMap(entry => [entry.id, ...(entry.keys || [])]).filter(Boolean));
-const recentStoryAvoidance = () => {
+const deliveredInventoryState = () => { try { const value = JSON.parse(localStorage.getItem(DELIVERED_INVENTORY_LEDGER_KEY) || "null"); if (Array.isArray(value)) return {day:localDayKey(new Date()),current:[],prior:value}; return value && typeof value === "object" ? {day:value.day || localDayKey(new Date()),current:Array.isArray(value.current) ? value.current : [],prior:Array.isArray(value.prior) ? value.prior : []} : {day:localDayKey(new Date()),current:[],prior:[]}; } catch { return {day:localDayKey(new Date()),current:[],prior:[]}; } };
+const writeDeliveredInventory = state => { try { localStorage.setItem(DELIVERED_INVENTORY_LEDGER_KEY, JSON.stringify({...state,current:[...new Set(state.current)].slice(-SEEN_STORY_LEDGER_LIMIT),prior:[...new Set(state.prior)].slice(-SEEN_STORY_LEDGER_LIMIT)})); } catch {} };
+const rotateDeliveredInventory = () => { const state = deliveredInventoryState(), today = localDayKey(new Date()); if (state.day !== today) { state.prior = [...new Set([...state.prior, ...state.current])].slice(-SEEN_STORY_LEDGER_LIMIT); state.current = []; state.day = today; writeDeliveredInventory(state); } return state; };
+const deliveredInventoryHashes = (includeCurrent = false) => { const state = rotateDeliveredInventory(); return new Set(includeCurrent ? [...state.prior, ...state.current] : state.prior); };
+const editionInventoryItems = edition => [...(edition?.tickerStories || []), edition?.goodNews, ...(edition?.favorites || []), ...(edition?.important || []), ...(edition?.gallery || []), ...(edition?.media || []), ...(edition?.serendipity || []), ...(edition?.visualReserve || [])].filter(Boolean);
+const recordDeliveredInventory = edition => { const state = rotateDeliveredInventory(), current = new Set(state.current); editionInventoryItems(edition).forEach(item => identityHashes(item).forEach(hash => current.add(hash))); state.current = [...current]; writeDeliveredInventory(state); };
+const rememberPriorInventory = edition => { const state = rotateDeliveredInventory(), prior = new Set(state.prior); editionInventoryItems(edition).forEach(item => identityHashes(item).forEach(hash => prior.add(hash))); state.prior = [...prior]; writeDeliveredInventory(state); };
+const syncDeliveredInventoryToCloud = async (edition, user) => {
+  if (!supabase || !user) return;
+  const lastSeenAt = new Date().toISOString(), storyKeys = new Set();
+  const rows = editionInventoryItems(edition).filter(item => item?.format !== "joy").map(item => {
+    const storyKey = itemKey(item);
+    if (!storyKey || storyKeys.has(storyKey)) return null;
+    storyKeys.add(storyKey);
+    return {user_id:user.id, story_key:storyKey, identity_keys:identityKeys(item), story:item, last_seen_at:lastSeenAt};
+  }).filter(Boolean);
+  if (rows.length) await supabase.from("story_history").upsert(rows, {onConflict:"user_id,story_key"});
+};
+const recentStoryAvoidance = (includeCurrent = false) => {
   // Compact hashes let the complete permanent ledger travel in the POST body
   // without repeatedly serializing full titles, URLs and image records.
-  return [...permanentSeenHashes()].slice(-SEEN_STORY_LEDGER_LIMIT).join(",");
+  return [...new Set([...permanentSeenHashes(), ...deliveredInventoryHashes(includeCurrent)])].slice(-SEEN_STORY_LEDGER_LIMIT).join(",");
 };
 const localDayKey = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 const requestFeed = async payload => {
@@ -267,7 +289,7 @@ const filterEditionGlobally = next => {
   // captions cannot return with a punctuation, date or wording variation.
   const history = storyHistory();
   const seen = new Set();
-  const seenHashes = permanentSeenHashes();
+  const seenHashes = new Set([...permanentSeenHashes(), ...deliveredInventoryHashes()]);
   const priorTitles = history.flatMap(entry => entry.keys || []).filter(key => key.startsWith("title:")).map(key => key.slice(6));
   const take = items => claimUnique((items || []).filter(item => {
     if (identityHashes(item).some(hash => seenHashes.has(hash))) return false;
@@ -404,7 +426,11 @@ function Story({item, index, paletteIndex = index, palette, onRate, onSave, onSh
   const playerUrl = type === "video" ? `https://www.youtube-nocookie.com/embed/${replacement.videoId}?autoplay=1&rel=0` : replacement.embedUrl;
   const inspectImage = event => {
     const image = event.currentTarget, longEdge = Math.max(image.naturalWidth, image.naturalHeight), shortEdge = Math.min(image.naturalWidth, image.naturalHeight);
-    if (longEdge < 900 || shortEdge < 500 || image.naturalWidth * image.naturalHeight < 700000) setImageRejected(true);
+    // RSS publishers commonly provide a clean 800–1200px editorial image.
+    // The old 1200x700 gate rejected most of those *after* the server had
+    // correctly counted them as visuals, turning an 80% visual edition into
+    // colored boxes in the browser. Reject only genuinely unusable thumbnails.
+    if (longEdge < 640 || shortEdge < 360 || image.naturalWidth * image.naturalHeight < 300000) setImageRejected(true);
   };
   useLayoutEffect(() => {
     const tile = tileRef.current;
@@ -448,7 +474,7 @@ function Story({item, index, paletteIndex = index, palette, onRate, onSave, onSh
 
 export default function Home() {
   const [data, setData] = useState(null), [batches, setBatches] = useState(1), [queueLoading, setQueueLoading] = useState(false), [queueExhausted, setQueueExhausted] = useState(false), [radio, setRadio] = useState(false), [now, setNow] = useState(new Date()), [saved, setSaved] = useState([]), [showSaved, setShowSaved] = useState(false), [showWelcome, setShowWelcome] = useState(false), [showSaveNudge, setShowSaveNudge] = useState(false), [showGenericNudge, setShowGenericNudge] = useState(false), [theme, setTheme] = useState("light"), [editionNote, setEditionNote] = useState("Composing edition"), [joyHistory, setJoyHistory] = useState([]), [profile, setProfile] = useState(null), [paletteIndex, setPaletteIndex] = useState(0), [user, setUser] = useState(null), [accountOpen, setAccountOpen] = useState(false), [accountEmail, setAccountEmail] = useState(""), [accountStatus, setAccountStatus] = useState("");
-  const dataRef = useRef(null), queueRequestRef = useRef(false), loadMoreRef = useRef(null), revealWhenReadyRef = useRef(false), retryTimerRef = useRef(null);
+  const dataRef = useRef(null), queueRequestRef = useRef(false), loadMoreRef = useRef(null), revealWhenReadyRef = useRef(false), retryTimerRef = useRef(null), refreshEditionRef = useRef(null);
   useEffect(() => { dataRef.current = data; }, [data]);
   useEffect(() => {
     if (!supabase) return;
@@ -516,9 +542,18 @@ export default function Home() {
   }, [user]);
   useEffect(() => {
     setSaved(JSON.parse(localStorage.getItem("betterStartReaderSaved") || "[]")); setJoyHistory(recentHistory("betterStartReaderJoyHistory"));
+    let cachedSnapshot = null;
     try {
-      const snapshot = JSON.parse(localStorage.getItem(FEED_SNAPSHOT_KEY) || "null");
-      if (snapshot?.gallery?.length >= BATCH_SIZE) { setData(snapshot); setEditionNote("Refreshing quietly"); }
+      cachedSnapshot = JSON.parse(localStorage.getItem(FEED_SNAPSHOT_KEY) || "null");
+      // Register every previous bench before requesting anything. A cache-key
+      // upgrade may discard stale presentation, but never its delivery record.
+      rotateDeliveredInventory();
+      if (cachedSnapshot) {
+        if (cachedSnapshot._dayKey === localDayKey(new Date())) recordDeliveredInventory(cachedSnapshot);
+        else rememberPriorInventory(cachedSnapshot);
+      }
+      [JSON.parse(localStorage.getItem("meanwhileFeedSnapshotV4") || "null"), JSON.parse(localStorage.getItem("meanwhileFeedSnapshotV3") || "null"), JSON.parse(localStorage.getItem("meanwhileFeedSnapshotV2") || "null")].filter(Boolean).forEach(rememberPriorInventory);
+      if (cachedSnapshot?._dayKey === localDayKey(new Date()) && cachedSnapshot?.gallery?.length >= BATCH_SIZE) { setData(cachedSnapshot); setEditionNote("Refreshing quietly"); }
     } catch {}
     setShowWelcome(localStorage.getItem("meanwhileWelcomeSeenV1") !== "yes");
     const priorPalette = Number(localStorage.getItem("betterStartPaletteIndex") || "-1"), nextPalette = (priorPalette + 1) % EDITION_PALETTES.length;
@@ -527,16 +562,25 @@ export default function Home() {
     try { activeProfile = JSON.parse(localStorage.getItem(PROFILE_KEY) || "null"); } catch {}
     setProfile(activeProfile);
     let lastLoad = Date.now();
-    const loadEdition = async preserve => {
-      const visit = `${Math.floor(Date.now() / EDITION_MS)}-${Date.now()}-${Math.random()}`, mediaHistory = recentHistory("betterStartReaderMediaHistory"), avoid = [...new Set(mediaHistory.map(entry => entry.id))].slice(-120).join(","), avoidStories = recentStoryAvoidance(), places = savedPlaces(), profileTerms = activeProfile ? [...(activeProfile.broadInterests || []), ...(activeProfile.specificInterests || []), ...(activeProfile.details || []), ...(activeProfile.granularInterests || []), ...(activeProfile.anythingElse || [])].slice(0, 72).join("|") : "";
+    const loadEdition = async (preserve, force = false) => {
+      const visit = `${Math.floor(Date.now() / EDITION_MS)}-${Date.now()}-${Math.random()}`, mediaHistory = recentHistory("betterStartReaderMediaHistory"), avoid = [...new Set(mediaHistory.map(entry => entry.id))].slice(-120).join(","), places = savedPlaces(), profileTerms = activeProfile ? [...(activeProfile.broadInterests || []), ...(activeProfile.specificInterests || []), ...(activeProfile.details || []), ...(activeProfile.granularInterests || []), ...(activeProfile.anythingElse || [])].slice(0, 72).join("|") : "";
       try {
         const today = localDayKey(new Date()), priorDay = localStorage.getItem("betterStartReaderDay"), hardRefresh = priorDay !== today;
+        const priorInventory = hardRefresh ? cachedSnapshot : force ? dataRef.current : null;
+        const inventoryItems = priorInventory ? [...(priorInventory.tickerStories || []), priorInventory.goodNews, ...(priorInventory.favorites || []), ...(priorInventory.gallery || []), ...(priorInventory.media || []), ...(priorInventory.serendipity || [])].filter(Boolean) : [];
+        const inventoryAvoidance = inventoryItems.flatMap(item => [itemKey(item), ...identityKeys(item)]).map(stableHash);
+        // Current inventory is delivered inventory. Always exclude it from a
+        // new assembly run—even on the same day and even during quiet refresh.
+        // The old `force` switch omitted today's ledger during normal startup,
+        // which is why exact stories could immediately come back.
+        const avoidStories = [...new Set([...recentStoryAvoidance(true).split(",").filter(Boolean), ...inventoryAvoidance])].slice(-SEEN_STORY_LEDGER_LIMIT).join(",");
         // First paint waits for one balanced edition only. The background
         // queue then grows invisibly to 100, without blocking the front door.
-        const editions = [await requestFeed({visit,avoid,avoidStories,places,interests:profileTerms})];
+        const editions = [await requestFeed({visit,avoid,avoidStories,places,interests:profileTerms,editionName:activeProfile?.title || ""})];
         localStorage.setItem("betterStartReaderDay", today); setJoyHistory(recentHistory("betterStartReaderJoyHistory"));
         if (preserve) setData(previous => {
-          const prepared = prepareEdition(editions[0], previous, !hardRefresh);
+          const prepared = {...prepareEdition(editions[0], previous, !hardRefresh && !force), _dayKey:today};
+          recordDeliveredInventory(prepared);
           try { localStorage.setItem(FEED_SNAPSHOT_KEY, JSON.stringify(prepared)); } catch {}
           return prepared;
         });
@@ -544,18 +588,20 @@ export default function Home() {
           const clean = editions.map(filterEditionGlobally), primary = clean[0];
           const reserved = [...(primary?.tickerStories || []), primary?.goodNews, ...(primary?.favorites || [])].filter(Boolean);
           const gallery = claimSessionUnique(clean.flatMap(edition => edition?.gallery || []), reserved).slice(0, 140);
-          const prepared = {...primary, gallery:stampNew(gallery)};
+          const prepared = {...primary, gallery:stampNew(gallery), _dayKey:today};
+          recordDeliveredInventory(prepared);
           try { localStorage.setItem(FEED_SNAPSHOT_KEY, JSON.stringify(prepared)); } catch {}
           setData(prepared);
         }
-        setEditionNote(`${preserve && !hardRefresh ? "Freshened" : "New"} ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})} edition`); lastLoad = Date.now();
+        setBatches(1); setEditionNote(`${preserve && !hardRefresh && !force ? "Freshened" : "New"} ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})} edition`); lastLoad = Date.now();
       } catch {}
     };
+    refreshEditionRef.current = () => { setEditionNote("Making a fresh edition…"); loadEdition(false, true); };
     loadEdition(false);
     const clock = setInterval(() => setNow(new Date()), 60000), editionTimer = setInterval(() => loadEdition(true), EDITION_MS);
     const onVisible = () => { if (!document.hidden && Date.now() - lastLoad >= EDITION_MS) loadEdition(true); };
     document.addEventListener("visibilitychange", onVisible);
-    return () => { clearInterval(clock); clearInterval(editionTimer); document.removeEventListener("visibilitychange", onVisible); };
+    return () => { refreshEditionRef.current = null; clearInterval(clock); clearInterval(editionTimer); document.removeEventListener("visibilitychange", onVisible); };
   }, []);
   const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
   const daypart = now.getHours() < 12 ? "morning" : now.getHours() < 17 ? "afternoon" : "evening";
@@ -563,6 +609,7 @@ export default function Home() {
   const date = now.toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"});
   const smallDelight = SMALL_DELIGHTS[Math.abs(data?.edition || Math.floor(Date.now() / EDITION_MS)) % SMALL_DELIGHTS.length];
   const uniqueFavorites = useMemo(() => { const seen = new Set(); (data?.tickerStories || [data?.ribbonFavorite]).filter(Boolean).forEach(item => identityKeys(item).forEach(key => seen.add(key))); return spreadAdjacentSources(claimUnique(data?.favorites || [], seen)); }, [data]);
+  const hasDisplayedDog = uniqueFavorites.some(item => item.source === "WeRateDogs" || /\b(dog|dogs|doggie|doggies|puppy|puppies|canine|greyhound|labrador|retriever|terrier|beagle|collie|shepherd|schnauzer|spaniel|corgi|dachshund)\b/i.test(`${item.title || ""} ${item.summary || ""} ${item.section || ""}`));
   // The API has already composed gallery in balanced 20-story windows. Keep
   // that canonical order: merging the auxiliary shelves here used to destroy
   // the topic quotas and was the source of sports-heavy and repeated pages.
@@ -571,6 +618,11 @@ export default function Home() {
     const visibleWall = spreadAdjacentSources(wall.slice(0, batches * BATCH_SIZE));
     return Array.from({length: Math.ceil(visibleWall.length / BATCH_SIZE)}, (_, index) => visibleWall.slice(index * BATCH_SIZE, (index + 1) * BATCH_SIZE)).filter(batch => batch.length);
   }, [wall, batches]);
+  useEffect(() => {
+    if (!user || !data) return;
+    recordDeliveredInventory(data);
+    void syncDeliveredInventoryToCloud(data, user);
+  }, [data, user]);
   useEffect(() => { if (!wall.length) return; const visible = [...(data?.tickerStories || []), data?.goodNews, ...(data?.favorites || []), ...wall.slice(0, batches * BATCH_SIZE)].filter(Boolean), nowSeen = Date.now(), stories = storyHistory(), storyKeys = new Set(stories.flatMap(entry => [entry.id, ...(entry.keys || [])]).filter(Boolean)), seenLedger = permanentSeenHashes(), newHistory = []; visible.filter(item => item.format !== "joy").forEach(item => { const keys = identityKeys(item), id = itemKey(item); if (!id) return; identityHashes(item).forEach(hash => seenLedger.add(hash)); if (keys.some(key => storyKeys.has(key)) || storyKeys.has(id)) return; stories.push({id,keys,ts:nowSeen}); newHistory.push({user_id:user?.id, story_key:id, identity_keys:keys, story:item, last_seen_at:new Date(nowSeen).toISOString()}); storyKeys.add(id); keys.forEach(key => storyKeys.add(key)); }); writeSeenLedger(seenLedger); try { localStorage.setItem(STORY_HISTORY_KEY, JSON.stringify(stories.slice(-STORY_HISTORY_LIMIT))); } catch {} if (supabase && user && newHistory.length) supabase.from("story_history").upsert(newHistory, {onConflict:"user_id,story_key"}); const media = recentHistory("betterStartReaderMediaHistory"), mediaIds = new Set(media.map(entry => entry.id)); visible.filter(item => item.videoId && !mediaIds.has(item.videoId)).forEach(item => media.push({id: item.videoId, ts: nowSeen})); localStorage.setItem("betterStartReaderMediaHistory", JSON.stringify(media.slice(-300))); const joy = recentHistory("betterStartReaderJoyHistory"), joyIds = new Set(joy.map(entry => entry.signature)); visible.filter(item => item.signature && !joyIds.has(item.signature)).forEach(item => joy.push({signature: item.signature, ts:nowSeen})); localStorage.setItem("betterStartReaderJoyHistory", JSON.stringify(joy.slice(-300))); }, [data, wall, batches, user]);
   const rate = (item, action) => { const ratings = JSON.parse(localStorage.getItem("betterStartReaderFeedback") || "[]"); ratings.push({url: item.url, title: item.title, source: item.source, action, ts: Date.now()}); localStorage.setItem("betterStartReaderFeedback", JSON.stringify(ratings.slice(-250))); if (supabase && user) supabase.from("story_feedback").insert({user_id:user.id, story_key:itemKey(item), action, story:item}); };
   const toggleSave = item => setSaved(current => { const exists = current.some(savedItem => itemKey(savedItem) === itemKey(item)), next = exists ? current.filter(savedItem => itemKey(savedItem) !== itemKey(item)) : [{...item, savedAt: Date.now()}, ...current]; localStorage.setItem("betterStartReaderSaved", JSON.stringify(next.slice(0, 200))); if (supabase && user) { if (exists) supabase.from("saved_stories").delete().eq("user_id", user.id).eq("story_key", itemKey(item)); else supabase.from("saved_stories").upsert({user_id:user.id, story_key:itemKey(item), story:item}); } return next.slice(0, 200); });
@@ -594,7 +646,7 @@ export default function Home() {
       const avoidStories = [...new Set(currentStoryKeys.map(stableHash))].slice(-SEEN_STORY_LEDGER_LIMIT).join(",");
       const places = savedPlaces(), profileTerms = profile ? [...(profile.broadInterests || []), ...(profile.specificInterests || []), ...(profile.details || []), ...(profile.granularInterests || []), ...(profile.anythingElse || [])].slice(0, 72).join("|") : "";
       const visit = `more-good-${Date.now()}-${Math.random()}`;
-      const next = await requestFeed({visit,avoid,avoidStories,places,interests:profileTerms});
+      const next = await requestFeed({visit,avoid,avoidStories,places,interests:profileTerms,editionName:profile?.title || ""});
       // The request already excludes the current wall. Apply the live session
       // registry below, rather than the permanent-history gate used at entry.
       const fresh = next;
@@ -606,7 +658,7 @@ export default function Home() {
         ...(fresh?.media || [])
       ], currentItems);
       if (additions.length) {
-        setData(previous => ({...previous, gallery:stampNew([...(previous?.gallery || []), ...additions])})); setQueueExhausted(false);
+        setData(previous => { const prepared = {...previous, gallery:stampNew([...(previous?.gallery || []), ...additions])}; recordDeliveredInventory(prepared); return prepared; }); setQueueExhausted(false);
         if (revealWhenReadyRef.current) { revealWhenReadyRef.current = false; setBatches(count => count + 1); }
       }
       else {
@@ -675,14 +727,14 @@ export default function Home() {
     {showSaveNudge && <div className="saveNudge" role="dialog" aria-labelledby="save-nudge-title"><button className="saveNudgeClose" onClick={closeSaveNudge} aria-label="Dismiss save edition message">×</button><span>Your edition is looking good</span><h2 id="save-nudge-title">Want to keep it?</h2><p>Sign up with your email and we’ll save your personalized Meanwhile.</p><small>We won’t spam you or sell your information. Promise. We just want to help you keep your edition.</small><div><button onClick={openSaveAccount}>Save my edition</button><button onClick={closeSaveNudge}>Maybe later</button></div></div>}
     {showGenericNudge && <div className="saveNudge genericNudge" role="dialog" aria-labelledby="generic-nudge-title"><button className="saveNudgeClose" onClick={closeGenericNudge} aria-label="Dismiss personalized edition invitation">×</button><span>Meanwhile, but more you</span><h2 id="generic-nudge-title">Want your own edition?</h2><p>Tell us a little about what you love and we’ll weave more of it into your feed.</p><small>It never becomes a filter bubble. At least half of every edition stays broad, surprising and edited by Meanwhile.</small><div><a href="/make-it-yours" onClick={closeGenericNudge}>Make it mine</a><button onClick={closeGenericNudge}>Keep reading</button></div></div>}
     {accountOpen && <AccountPanel user={user} email={accountEmail} setEmail={setAccountEmail} status={accountStatus} onSendLink={sendSignInLink} onSignOut={signOut} onClose={() => setAccountOpen(false)} />}
-    <header className="mast"><div className="mastIdentity"><div className="brand brandVignelli" aria-label="Meanwhile">{"Meanwhile".split("").map((letter,index) => <span aria-hidden="true" style={{color:masthead[index]}} key={`${letter}-${index}`}>{letter}</span>)}</div>{editionTitle && <div className="editionName">{editionTitle}</div>}<div className="edition">Rage-free news, discovery & good times</div></div><div className="mastTools"><a className="personalizeButton" href="/make-it-yours">{profile ? "Tune my edition" : "Make it yours"}</a>{profile && <button className="genericButton" onClick={clearProfile}>Generic Edition</button>}<button className="accountButton" onClick={() => { setAccountStatus(user ? "Your Meanwhile is synced." : ""); setAccountOpen(true); }}>{user ? "My account" : "Sign in"}</button><button className="savedButton" onClick={() => setShowSaved(value => !value)}>Saved <b>{saved.length}</b></button><button className={`radio ${radio ? "radioOn" : ""}`} onClick={() => setRadio(!radio)} aria-label={`Meanwhile Radio ${radio ? "on" : "off"}`} title="Meanwhile Radio placeholder"><span>♪</span><small>{radio ? "ON" : "RADIO"}</small></button><button className="themeToggle" onClick={() => setTheme(value => value === "dark" ? "light" : "dark")} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}><span>{theme === "dark" ? "☀" : "☾"}</span><small>{theme === "dark" ? "LIGHT" : "DARK"}</small></button></div></header>
+    <header className="mast"><div className="mastIdentity"><div className="brand brandVignelli" aria-label="Meanwhile">{"Meanwhile".split("").map((letter,index) => <span aria-hidden="true" style={{color:masthead[index]}} key={`${letter}-${index}`}>{letter}</span>)}</div>{editionTitle && <div className="editionName">{editionTitle}</div>}<div className="edition">Rage-free news, discovery & good times</div></div><div className="mastTools"><a className="personalizeButton" href="/make-it-yours">{profile ? "Tune my edition" : "Make it yours"}</a>{profile && <button className="genericButton" onClick={clearProfile}>Generic Edition</button>}<button className="refreshButton" onClick={() => refreshEditionRef.current?.()} aria-label="Load a completely fresh edition" title="Load a completely fresh edition"><span>↻</span><small>REFRESH</small></button><button className="accountButton" onClick={() => { setAccountStatus(user ? "Your Meanwhile is synced." : ""); setAccountOpen(true); }}>{user ? "My account" : "Sign in"}</button><button className="savedButton" onClick={() => setShowSaved(value => !value)}>Saved <b>{saved.length}</b></button><button className={`radio ${radio ? "radioOn" : ""}`} onClick={() => setRadio(!radio)} aria-label={`Meanwhile Radio ${radio ? "on" : "off"}`} title="Meanwhile Radio placeholder"><span>♪</span><small>{radio ? "ON" : "RADIO"}</small></button><button className="themeToggle" onClick={() => setTheme(value => value === "dark" ? "light" : "dark")} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}><span>{theme === "dark" ? "☀" : "☾"}</span><small>{theme === "dark" ? "LIGHT" : "DARK"}</small></button></div></header>
     <div className="hello"><h1>{greeting}.</h1><div className="helloAside"><p>{date}</p><span>{helloThought}</span></div></div>
 
     <section className="ribbon" aria-label="Quick facts"><div className="weatherFact"><b>{greeting}</b><span>{date}</span></div><GoodNewsWire items={spreadAdjacentSources(data?.tickerStories || (data?.ribbonFavorite ? [data.ribbonFavorite] : []))}/><RollingFact label={editionNote}>{smallDelight}</RollingFact></section>
 
     {showSaved && <section className="savedShelf"><div className="sectionHead"><div><span>Your keepers</span><h2>Saved Good Stuff</h2></div><button onClick={() => setShowSaved(false)}>Close</button></div>{saved.length ? <div className="savedGrid">{saved.map(item => <article key={itemKey(item)}><span>{item.section}</span><h3><a href={item.url} target="_blank" rel="noreferrer">{item.title}</a></h3><div><button onClick={() => share(item)}>Share</button><button onClick={() => toggleSave(item)}>Remove</button></div></article>)}</div> : <p className="emptySaved">Things you save will wait here—even when the wall refreshes.</p>}</section>}
 
-    <section className="favoritesSection"><div className="sectionHead"><div><span>A few especially nice things</span><h2>Bright Spots</h2></div><p>Kindness, ingenuity & excellent dogs</p></div><div className="favorites">{uniqueFavorites.map(item => <a className="favorite" href={item.url} target="_blank" rel="noreferrer" key={item.canonicalUrl}><span>{age(item.date)}</span><h3>{item.title}</h3><b>{item.source}</b></a>)}</div></section>
+    <section className="favoritesSection"><div className="sectionHead"><div><span>A few especially nice things</span><h2>Bright Spots</h2></div><p>{hasDisplayedDog ? "Kindness, ingenuity & excellent dogs" : "Kindness, ingenuity & excellent animals"}</p></div><div className="favorites">{uniqueFavorites.map(item => <a className="favorite" href={item.url} target="_blank" rel="noreferrer" key={item.canonicalUrl}><span>{age(item.date)}</span><h3>{item.title}</h3><b>{item.source}</b></a>)}</div></section>
 
     <section className="gallerySection"><div className="sectionHead wallHead"><div><span>Every good magazine on the table</span><h2>Good Stuff</h2></div><p>{profile ? "Your interests, with the wider world left in" : "A deliberately broad, lively mix"}</p></div>{visibleBatches.length ? <div className="galleryWall">{visibleBatches.map((batch, batchIndex) => <div className="galleryBatch" key={batchIndex}>{arrangeFrameClusters(batch).map((cluster, clusterIndex) => { const variant = (batchIndex * 3 + clusterIndex) % 3; return <div className={`tetrisCluster clusterVariant-${variant} clusterCount-${cluster.length} ${cluster.length <= 5 ? "partialCluster" : ""}`} key={clusterIndex}>{cluster.map((item, index) => { const absoluteIndex = batchIndex * BATCH_SIZE + clusterIndex * 10 + index; return item.format === "joy" ? <JoyTile item={item} index={absoluteIndex} key={item.canonicalUrl} /> : <Story item={item} index={absoluteIndex} paletteIndex={absoluteIndex} palette={palette} onRate={rate} onSave={toggleSave} onShare={share} saved={savedKeys.has(itemKey(item))} key={item.canonicalUrl} />; })}</div>; })}</div>)}</div> : <div className="loading" role="status" aria-live="polite"><span>Getting everything ready…</span><div className="loadingTrack" aria-hidden="true"><i /></div><small>Finding good things from around the world</small></div>}
       {data && <div className="infiniteSentinel" ref={loadMoreRef} aria-hidden="true" />}

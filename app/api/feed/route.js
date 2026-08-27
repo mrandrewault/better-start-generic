@@ -3,7 +3,10 @@ import fs from "fs";
 import path from "path";
 
 const parser = new Parser({
-  timeout: 9000,
+  // Publisher feeds are assembled in parallel and this runs behind the
+  // preloaded first shelf. A single unhealthy source must never hold the
+  // background bench open for nine seconds; the next rotating run can retry.
+  timeout: 4000,
   headers: {"User-Agent": "BetterStart/2.0"},
   customFields: {item: [["media:content", "mediaContent"], ["media:thumbnail", "mediaThumbnail"]]}
 });
@@ -47,7 +50,7 @@ const religionUnsafe = /\b(?:religion|religious|faith(?:ful)?|christian(?:ity)?|
 const editoriallyExcluded = /\b(pickleball|tesla|cybertruck|elon musk|mark zuckerberg|meta platforms?|marvel cinematic|gordon ramsay|guy fieri|wall street|stock market|james patterson|young adult fiction|horror film|horror novel|hunting)\b/i;
 // Confirmed archive repeats stay retired even for readers whose older browser
 // history predates the permanent story ledger.
-const retiredRepeat = /\b(?:james hetfield.*metallica|cis football (?:field|locations?)|runway magazine covers? celebrating 25th anniversary|rocky horror.*mad scientist|chanel iman.*runway.*2009|not all boredom is the same)\b/i;
+const retiredRepeat = /\b(?:james hetfield.*metallica|cis football (?:field|locations?)|runway magazine covers? celebrating 25th anniversary|rocky horror.*mad scientist|chanel iman.*runway.*2009|not all boredom is the same|lush foliage permeates xanthe burdett)\b/i;
 // Meanwhile is a politics-free publication. This deliberately excludes the
 // office and institution, not merely partisan vocabulary: a culture, travel,
 // style or arts story about a political figure is still a political story.
@@ -124,7 +127,7 @@ function isJoyful(item) {
 }
 function isSpecialistWorthwhile(item) {
   const value = `${item.title || ""} ${item.summary || ""}`;
-  return /profile|interview|explainer|guide|design|history|archive|craft|studio|maker|founder|leader|company|business|market|finance|style|fashion|couture|runway|atelier|collection|costume|wardrobe|beauty|cosmetic|photographer|supermodel|book|author|novelist|library|museum|yoga|pilates|movement|wellness|fitness|running|garden|plant|workshop|repair|restor|car|automotive|boat|sail|maritime|train|aviation|team|player|wnba|baseball|tennis|football|soccer/i.test(value) && !hasBadMood(value);
+  return /profile|interview|explainer|guide|design|history|archive|craft|studio|maker|founder|leader|company|business|market|finance|style|fashion|couture|runway|atelier|collection|costume|wardrobe|beauty|cosmetic|photographer|photography|painting|drawing|illustration|artist|gallery|exhibition|supermodel|book|author|novelist|library|museum|yoga|pilates|movement|wellness|fitness|running|garden|plant|workshop|repair|restor|car|automotive|boat|sail|maritime|train|aviation|team|player|wnba|baseball|tennis|football|soccer/i.test(value) && !hasBadMood(value);
 }
 const bodyAnxiety = /\b(bmi|body fat|weight[- ]loss|lose weight|obesity|overweight|fat burning|belly fat|calorie deficit|dieting|slim down|thinness|being thin|beach body|anti-aging)\b/i;
 const distressedAnimal = /\b(abuse|abandoned|starving|dying|near death|neglect|euthan|dumped|injured|horrific|suffering|thousands of miles away)\b/i;
@@ -135,7 +138,7 @@ function detectEditorialIdentity(interests, activePacks) {
     const packHits = activePacks.reduce((total, pack) => total + (identity.packs.includes(pack.id) ? pack.hits : 0), 0);
     return {id, ...identity, score:signalHits * 3 + packHits * 2};
   }).filter(identity => identity.score > 0).sort((a, b) => b.score - a.score);
-  return ranked[0] || {id:"general", label:"Meanwhile", references:[], accent:"classic", imageTarget:.70, score:0};
+  return ranked[0] || {id:"general", label:"Meanwhile", references:[], accent:"classic", imageTarget:.80, score:0};
 }
 function contextAllowed(item, identity) {
   const value = `${item.title || ""} ${item.summary || ""}`;
@@ -147,7 +150,7 @@ function contextAllowed(item, identity) {
 function visualFirst(items, identity, count = 20, requestedTarget) {
   // A color field is useful art direction, but it is not editorial imagery.
   // Identity image targets therefore count only honest story images/video stills.
-  const target = requestedTarget ?? Math.ceil(count * Math.max(.7, identity.imageTarget || 0));
+  const target = requestedTarget ?? Math.ceil(count * Math.max(.8, identity.imageTarget || 0));
   const opening = items.slice(0, count), rest = items.slice(count);
   let visualCount = opening.filter(item => item.image).length;
   while (visualCount < target) {
@@ -204,7 +207,7 @@ function distributeVisuals(items, identity, blockSize = 10) {
   const arranged = [...items];
   const targetFor = start => Math.min(
     blockSize,
-    Math.ceil(Math.min(blockSize, arranged.length - start) * Math.max(.7, identity.imageTarget || 0))
+    Math.ceil(Math.min(blockSize, arranged.length - start) * Math.max(.8, identity.imageTarget || 0))
   );
   for (let start = 0; start < arranged.length; start += blockSize) {
     const end = Math.min(arranged.length, start + blockSize), target = targetFor(start);
@@ -236,23 +239,27 @@ function composeVisualWindows(items, identity, count = 140, blockSize = 20) {
     _visualPriority:priority
   }));
   const result = [];
-  let nasaCount = 0;
+  const globallyLimitedCounts = new Map();
+  const globallyAllowed = item => {
+    const source = normalizeSource(item.source);
+    return !/^(?:nasa|jstor daily|colossal)$/.test(source) || (globallyLimitedCounts.get(source) || 0) < 1;
+  };
   const takeBest = predicate => {
     const choices = pool.filter(predicate).sort((a, b) => a._visualPriority - b._visualPriority);
     const winner = choices[0];
     if (!winner) return null;
     pool.splice(pool.indexOf(winner), 1);
-    if (normalizeSource(winner.source) === "nasa") nasaCount++;
+    const source = normalizeSource(winner.source);
+    if (/^(?:nasa|jstor daily|colossal)$/.test(source)) globallyLimitedCounts.set(source, (globallyLimitedCounts.get(source) || 0) + 1);
     const {_visualPriority, ...story} = winner;
     return story;
   };
   while (result.length < count && pool.length) {
-    const block = [], target = Math.ceil(Math.min(blockSize, count - result.length) * Math.max(.7, identity.imageTarget || 0));
+    const block = [], target = Math.ceil(Math.min(blockSize, count - result.length) * Math.max(.8, identity.imageTarget || 0));
     const sourceCount = source => block.filter(item => normalizeSource(item.source) === source).length;
     const laneCount = lane => block.filter(item => item.mixLane === lane).length;
-    const allowedNASA = item => normalizeSource(item.source) !== "nasa" || nasaCount < 2;
     const chooseVisual = (sourceCap, laneCap) => takeBest(item =>
-      (item.image || item.videoId) && allowedNASA(item)
+      (item.image || item.videoId) && globallyAllowed(item)
       && sourceCount(normalizeSource(item.source)) < sourceCap
       && laneCount(item.mixLane) < laneCap
     );
@@ -262,17 +269,68 @@ function composeVisualWindows(items, identity, count = 140, blockSize = 20) {
       block.push(winner);
     }
     while (block.length < Math.min(blockSize, count - result.length) && pool.length) {
-      const winner = takeBest(item => allowedNASA(item)
+      const winner = takeBest(item => globallyAllowed(item)
         && sourceCount(normalizeSource(item.source)) < 2
         && laneCount(item.mixLane) < 3)
-        || takeBest(item => allowedNASA(item) && sourceCount(normalizeSource(item.source)) < 3)
-        || takeBest(allowedNASA);
+        || takeBest(item => globallyAllowed(item) && sourceCount(normalizeSource(item.source)) < 3)
+        || takeBest(globallyAllowed);
       if (!winner) break;
       block.push(winner);
     }
     result.push(...block);
   }
   return result;
+}
+
+function enforceVisualShare(items, target = .80, minimum = 100) {
+  const visuals = items.filter(item => item.image || item.videoId);
+  if (!visuals.length || visuals.length / items.length >= target) return items;
+  const textAllowance = Math.floor(visuals.length * (1 - target) / target);
+  let textCount = 0;
+  return items.filter(item => {
+    if (item.image || item.videoId) return true;
+    if (textCount >= textAllowance) return false;
+    textCount++; return true;
+  });
+}
+
+// Last gate before serialization. Earlier editors may rank and backfill, but
+// this contract cannot be relaxed by a later “make it 100” operation.
+function enforceFinalMagazineContract(items, count = 100) {
+  const pool = unique(items).map(item => ({...item, mixLane:item.mixLane || contentLane(item)}));
+  const result = [], sourceCounts = new Map(), laneCounts = new Map();
+  const canTake = (item, visualOnly = false) => {
+    const source = normalizeSource(item.source), lane = item.mixLane;
+    const block = result.slice(result.length - result.length % 20);
+    const special = /^(?:nasa|jstor daily|colossal)$/.test(source);
+    if (visualOnly && !(item.image || item.videoId)) return false;
+    if ((sourceCounts.get(source) || 0) >= (special ? 1 : 8)) return false;
+    if ((laneCounts.get(lane) || 0) >= 10) return false;
+    if (block.filter(entry => normalizeSource(entry.source) === source).length >= 2) return false;
+    if (block.filter(entry => entry.mixLane === lane).length >= 3) return false;
+    return true;
+  };
+  const take = visualOnly => {
+    const candidates = pool.filter(item => canTake(item, visualOnly));
+    if (!candidates.length) return false;
+    candidates.sort((a, b) => {
+      const rarity = item => (sourceCounts.get(normalizeSource(item.source)) || 0) * 8 + (laneCounts.get(item.mixLane) || 0) * 5;
+      return rarity(a) - rarity(b) || Number(Boolean(b.humanInterest)) - Number(Boolean(a.humanInterest)) || Number(b.score || 0) - Number(a.score || 0);
+    });
+    const winner = candidates[0], source = normalizeSource(winner.source), lane = winner.mixLane;
+    pool.splice(pool.indexOf(winner), 1); result.push(winner);
+    sourceCounts.set(source, (sourceCounts.get(source) || 0) + 1);
+    laneCounts.set(lane, (laneCounts.get(lane) || 0) + 1);
+    return true;
+  };
+  while (result.length < count && pool.length) {
+    const blockStart = result.length - result.length % 20;
+    const blockTarget = Math.min(20, count - blockStart);
+    const blockVisualTarget = Math.ceil(blockTarget * .8);
+    while (result.length - blockStart < blockVisualTarget && take(true)) {}
+    if (!take(false)) break;
+  }
+  return enforceVisualShare(result, .80);
 }
 
 const visualSearches = {
@@ -336,7 +394,13 @@ function isFreshLocal(item) {
   // NYT's desk feeds keep older entries available longer than this product's
   // live-feed promise permits, so they receive a deliberately tighter window.
   if (/^nyt\b/i.test(item.source || "")) return age <= 1.5;
-  return age <= (item.sourcePack ? 120 : 45);
+  if (/^jstor daily$/i.test(item.source || "")) return age <= 3;
+  if (/^nasa$/i.test(item.source || "")) return age <= 2;
+  if (/^colossal$/i.test(item.source || "")) return age <= 2;
+  // Universal source audit: no ordinary feed can fill a current edition from
+  // a months-old archive. Specialist desks get a slightly wider weekly-publisher
+  // window, while standing feeds must furnish work from the last two weeks.
+  return age <= (item.sourcePack ? 45 : 30);
 }
 function isGoodNews(item) {
   const value = `${item.title || ""} ${item.summary || ""}`;
@@ -555,7 +619,7 @@ function balancedMagazine(candidates, count, interests = [], random = Math.rando
     const hardLaneLimit = item => item.mixLane === "sports" ? (sportsAllowedThisWindow ? 1 : 0) : item.mixLane === "fashion" ? 1 : 2;
     const obeysSourceAndFormatCaps = item => {
       const source = normalizeSource(item.source), pageCount = sourceCounts.get(source) || 0;
-      const pageLimit = /^nasa$/.test(source) ? 2 : 5;
+      const pageLimit = /^(?:nasa|jstor daily|colossal)$/.test(source) ? 1 : 5;
       const visual = item.image || item.videoId;
       return pageCount < pageLimit && !((item.visualShelf && blockVisualShelfCount >= 2) || blockSourceCount(source) >= 2 || (visual && (blockVisualSourceCount(source) >= 2 || blockVisualLaneCount(item.mixLane) >= 2)));
     };
@@ -634,7 +698,7 @@ function balancedMagazine(candidates, count, interests = [], random = Math.rando
 function completeMagazineBench(selected, candidates, count = 140, random = Math.random) {
   const result = [], seededSourceCounts = new Map();
   unique(selected).forEach(item => {
-    const source = normalizeSource(item.source), limit = source === "nasa" ? 2 : 8;
+    const source = normalizeSource(item.source), limit = /^(?:nasa|jstor daily|colossal)$/.test(source) ? 1 : 8;
     if ((seededSourceCounts.get(source) || 0) >= limit) return;
     seededSourceCounts.set(source, (seededSourceCounts.get(source) || 0) + 1); result.push(item);
   });
@@ -654,7 +718,7 @@ function completeMagazineBench(selected, candidates, count = 140, random = Math.
       if (lane === "sports" && (!sportsAllowed || laneCount("sports") >= 1 || !humanInterestSports(item))) return false;
       if (lane === "fashion" && laneCount("fashion") >= 1) return false;
       if (laneCount(lane) >= 3 || sourceCount(source) >= 2) return false;
-      if (source === "nasa" && globalSourceCount(source) >= 2) return false;
+      if (/^(?:nasa|jstor daily|colossal)$/.test(source) && globalSourceCount(source) >= 1) return false;
       if ((item.image || item.videoId) && (visualSourceCount(source) >= 2 || visualLaneCount(lane) >= 2)) return false;
       if (!item.independentPublisher && mainstreamCount >= 2) return false;
       return true;
@@ -665,7 +729,7 @@ function completeMagazineBench(selected, candidates, count = 140, random = Math.
       // The fallback may relax the ideal subject mix, but never the rules that
       // prevent one image-rich publisher (especially NASA) from taking over.
       return lane !== "sports"
-        && !(source === "nasa" && globalSourceCount(source) >= 2)
+        && !(/^(?:nasa|jstor daily|colossal)$/.test(source) && globalSourceCount(source) >= 1)
         && sourceCount(source) < 3
         && (!visual || (visualSourceCount(source) < 2 && visualLaneCount(lane) < 2))
         && (item.independentPublisher || mainstreamCount < 2);
@@ -673,7 +737,7 @@ function completeMagazineBench(selected, candidates, count = 140, random = Math.
     const depthFallback = remaining.filter(item => {
       const lane = item.mixLane || contentLane(item), source = normalizeSource(item.source);
       return lane !== "sports"
-        && !(source === "nasa" && globalSourceCount(source) >= 2)
+        && !(/^(?:nasa|jstor daily|colossal)$/.test(source) && globalSourceCount(source) >= 1)
         && sourceCount(source) < 4
         && (item.independentPublisher || mainstreamCount < 2);
     });
@@ -747,6 +811,55 @@ function activateSourcePacks(interests, packs) {
   }).filter(pack => pack.hits > 0).sort((a, b) => b.hits - a.hits).slice(0, 4);
 }
 
+function andrewGallerySources(editionName, visit) {
+  if (!/^andrew(?:['’]s)? edition$/i.test(String(editionName || "").trim())) return [];
+  const watchlist = load("andrew-gallery-watchlist.json");
+  const chunks = Object.entries(watchlist).flatMap(([region, galleries]) => {
+    const result = [];
+    for (let index = 0; index < galleries.length; index += 4) result.push({region, galleries:galleries.slice(index, index + 4)});
+    return result;
+  });
+  // Twelve four-gallery searches keep each refresh quick. The seeded start
+  // rotates the desk through the entire list across visits and background fills.
+  const rotation = Math.floor(seededRandom(`andrew-gallery-${visit}`)() * chunks.length);
+  return Array.from({length:Math.min(12, chunks.length)}, (_, index) => chunks[(rotation + index * 5) % chunks.length]).map(({region, galleries}) => {
+    const names = galleries.map(name => `\"${name}\"`).join(" OR ");
+    const query = `(${names}) (exhibition OR artist OR painting OR photography OR drawing) -politics -war`;
+    return {
+      name:`Andrew’s Gallery Desk · ${region}`,
+      url:`https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`,
+      section:"ARTS + MUSEUMS",
+      pack:"andrew-gallery-desk",
+      packLabel:"Andrew’s Gallery Desk",
+      packHits:4
+    };
+  });
+}
+
+function rotatingAuditedSources(visit, count = 40) {
+  const catalog = load("approved-sources.json"), random = seededRandom(`audited-source-pool-${visit}`);
+  const shuffled = values => [...values].sort(() => random() - .5);
+  const balancedPick = (values, target) => {
+    const groups = new Map();
+    shuffled(values).forEach(source => {
+      const key = source.section || "WORLD + WONDER";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(source);
+    });
+    const keys = shuffled([...groups.keys()]), selected = [];
+    while (selected.length < target && keys.some(key => groups.get(key)?.length)) {
+      for (const key of keys) {
+        const item = groups.get(key)?.shift();
+        if (item) selected.push(item);
+        if (selected.length >= target) break;
+      }
+    }
+    return selected;
+  };
+  const usTarget = Math.round(count * .8), us = catalog.filter(source => source.country === "United States"), international = catalog.filter(source => source.country !== "United States");
+  return [...balancedPick(us, usTarget), ...balancedPick(international, count - usTarget)].map(source => ({...source,pack:"audited-independent",packLabel:"Audited independent publishers",packHits:0}));
+}
+
 async function sharedVideoSources() {
   const fallback = load("video-sources.json"), url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL, token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
   if (!url || !token) return fallback;
@@ -764,7 +877,7 @@ async function loadReaderVideos(avoid = new Set()) {
 }
 
 async function feedResponse(params) {
-  const random = seededRandom(params.get("visit") || String(Math.floor(Date.now() / 72e5))), avoidVideos = new Set((params.get("avoid") || "").split(",").filter(Boolean)), avoidStories = new Set((params.get("avoidStories") || "").split(",").filter(Boolean)), localPlaces = (params.get("places") || "").split("|").map(value => value.trim().toLowerCase()).filter(Boolean).slice(0, 20), interests = (params.get("interests") || "").split("|").map(value => value.trim().toLowerCase()).filter(Boolean).slice(0, 48);
+  const visit = params.get("visit") || String(Math.floor(Date.now() / 72e5)), editionName = params.get("editionName") || "", random = seededRandom(visit), avoidVideos = new Set((params.get("avoid") || "").split(",").filter(Boolean)), avoidStories = new Set((params.get("avoidStories") || "").split(",").filter(Boolean)), localPlaces = (params.get("places") || "").split("|").map(value => value.trim().toLowerCase()).filter(Boolean).slice(0, 20), interests = (params.get("interests") || "").split("|").map(value => value.trim().toLowerCase()).filter(Boolean).slice(0, 48);
   const taste = load("taste.json"), baseSources = load("sources.json"), packCatalog = load("source-packs.json"), activePacks = activateSourcePacks(interests, packCatalog), editorialIdentity = detectEditorialIdentity(interests, activePacks), specialistSources = activePacks.flatMap(pack => pack.sources.map(source => ({...source, pack:pack.id, packLabel:pack.label, packHits:pack.hits})));
   // The generic magazine needs real reporting inventory for every desk. Two
   // carefully chosen feeds from each under-supplied source pack provide that
@@ -778,7 +891,8 @@ async function feedResponse(params) {
     const take = pack.id === "food-travel" ? 4 : pack.id === "arts-culture" ? 3 : 2;
     return pack.sources.slice(0, take).map(source => ({...source, pack:pack.id, packLabel:pack.label, packHits:0}));
   });
-  const sources = unique([...baseSources, ...genericSources, ...specialistSources].map(source => ({...source,title:source.name,summary:""})))
+  const gallerySources = andrewGallerySources(editionName, visit), auditedSources = rotatingAuditedSources(visit);
+  const sources = unique([...baseSources, ...genericSources, ...specialistSources, ...auditedSources, ...gallerySources].map(source => ({...source,title:source.name,summary:""})))
     .filter(source => !bannedSource({source:source.name,url:source.url}))
     .map(({canonicalUrl,normalizedTitle,title,summary,...source}) => source);
   const results = await Promise.allSettled(sources.map(async source => {
@@ -794,6 +908,16 @@ async function feedResponse(params) {
   results.forEach(result => { if (result.status === "fulfilled") all.push(...result.value); });
   all = unique(all.filter(item => item.score > 18 && !isDisallowed(item) && !wasRecentlyShown(item, avoidStories) && contextAllowed(item, editorialIdentity) && (isJoyful(item) || (item.sourcePack && isSpecialistWorthwhile(item))) && isFreshLocal(item)).map(item => personalize(item, interests)).sort((a, b) => b.score - a.score));
   all = await enrichIdentityImages(all, editorialIdentity);
+  // These two visually strong archive feeds can otherwise leak into several
+  // page regions. One shared gate means one NASA story and one JSTOR story in
+  // the entire response, including the wire, Bright Spots and deep bench.
+  const limitedSourceCounts = new Map();
+  all = all.filter(item => {
+    const source = normalizeSource(item.source);
+    if (!/^(?:nasa|jstor daily|colossal)$/.test(source)) return true;
+    if ((limitedSourceCounts.get(source) || 0) >= 1) return false;
+    limitedSourceCounts.set(source, 1); return true;
+  });
 
   // One shared registry across every page region makes duplicates impossible.
   const usedUrls = new Set(), usedTitles = new Set(), usedTopics = new Set(), usedAssets = new Set();
@@ -805,15 +929,24 @@ async function feedResponse(params) {
   const brightPool = all.filter(item => /PEOPLE|ANIMALS|PROGRESS|AROUND AMERICA/.test(item.section) || isGoodNews(item));
   const tickerStories = claim(compose(brightPool, 8, {}, random));
   const ribbonFavorite = tickerStories[0] || null;
-  const favoriteSelection = claim(compose(brightPool.filter(item => !usedUrls.has(canonicalUrl(item.url))), 6, {}, random));
   const goodNews = claim(compose(all.filter(isGoodNews), 1, {}, random))[0] || null;
   const videoPool = (await loadReaderVideos(avoidVideos)).filter(item => !wasRecentlyShown(item, avoidStories)).map(item => personalize(item, interests));
+  // The Bright Spots promise includes one genuinely good dog. Prefer the
+  // dedicated WeRateDogs channel, then another current dog video/story. If
+  // every dog source is temporarily unavailable, the client quietly says
+  // "excellent animals" instead of making a promise the edition cannot keep.
+  const standingDog = videoPool.find(item => item.source === "WeRateDogs")
+    || videoPool.find(isDogStory)
+    || brightPool.find(item => !usedUrls.has(canonicalUrl(item.url)) && isDogStory(item));
+  const favoriteSelection = standingDog ? claim([standingDog]) : [];
+  favoriteSelection.push(...claim(compose(brightPool.filter(item => !usedUrls.has(canonicalUrl(item.url))), 6 - favoriteSelection.length, {}, random)));
+  const hasGoodDog = favoriteSelection.some(isDogStory) || favoriteSelection.some(item => item.source === "WeRateDogs");
   const fashionFocus = editorialIdentity.id === "fashion";
   const focusMediaSignal = /fashion|runway|couture|designer|costume|wardrobe|atelier|supermodel|vogue|editorial photography|fashion photography|style archive|fashion week|women.?s tennis|wnba|author interview|novelist|book club/i;
   const relevantMedia = videoPool.filter(item => item.personalFit !== "editorial" && (!fashionFocus || focusMediaSignal.test(`${item.title} ${item.summary} ${item.section}`)));
   // A strongly signaled fashion/women's edition never gets padded with
   // unrelated generic videos just because those thumbnails are available.
-  const mediaPool = fashionFocus ? relevantMedia : [...relevantMedia, ...videoPool.filter(item => item.personalFit === "editorial").slice(0, 5)];
+  const mediaPool = fashionFocus ? relevantMedia : [...relevantMedia, ...videoPool.filter(item => item.personalFit === "editorial").slice(0, 30)];
   // Playable media competes for the same subject slots as every other story.
   // Keeping it in a separate stream would quietly turn format into category.
   const mediaCandidates = compose(mediaPool, 24, {}, random);
@@ -863,18 +996,9 @@ async function feedResponse(params) {
   // Preserve the editor's 20-story windows. The client may arrange cards
   // inside each ten-card layout cluster, but no visual pass can import a later
   // story and silently alter the opening subject mix.
-  const gallery = claim(selectedMagazine);
-  if (gallery.length < 100) {
-    gallery.push(...claim(magazinePool.filter(item =>
-      !usedUrls.has(canonicalUrl(item.url))
-      && !usedTitles.has(normalizeTitle(item.title))
-      && normalizeSource(item.source) !== "nasa"
-    )).slice(0, 100 - gallery.length));
-  }
-  // Claiming and depth backfill can shorten the carefully composed windows.
-  // Run the same editor once more on the final, deduplicated membership so
-  // those removals cannot quietly push the remaining pictures to the bottom.
-  gallery.splice(0, gallery.length, ...composeVisualWindows(gallery, editorialIdentity, gallery.length, 20));
+  // Quality wins over an arbitrary card count. Never refill after this gate:
+  // doing so was the precise bug that restored text cards and source floods.
+  const gallery = claim(enforceFinalMagazineContract(selectedMagazine, 100));
   const galleryKeys = new Set(gallery.map(item => canonicalUrl(item.url)));
   const visualReserve = allVisualShelf.slice(56).filter(item => !galleryKeys.has(canonicalUrl(item.url))).slice(0, 24).map(item => ({...item, canonicalUrl:canonicalUrl(item.url)}));
   // Serendipity is composed from what remains after the primary magazine. It
@@ -886,7 +1010,7 @@ async function feedResponse(params) {
   const openingWindow = gallery.slice(0, 20);
   const actualCounts = Object.fromEntries(Object.keys(BALANCED_MAGAZINE_COUNTS).map(lane => [lane, openingWindow.filter(item => item.mixLane === lane).length]));
   const personalizedCount = openingWindow.filter(item => item.personalFit !== "editorial").length;
-  return Response.json({generatedAt: new Date().toISOString(), edition: Math.floor(Date.now() / 72e5), personalized:!!interests.length, editorialIdentity:{id:editorialIdentity.id,label:editorialIdentity.label,accent:editorialIdentity.accent,references:editorialIdentity.references,imageTarget:editorialIdentity.imageTarget}, composition:{window:20,targetCounts,actualCounts,personalization:{maximum:10,actual:personalizedCount,generic:openingWindow.length-personalizedCount},labels:MIX_LABELS}, activeSourcePacks:activePacks.map(pack => ({id:pack.id,label:pack.label,hits:pack.hits})), tickerStories, ribbonFavorite, goodNews, favorites: favoriteSelection, media, gallery, visualReserve, important, serendipity, sourceStatus: {total: sources.length, specialist:specialistSources.length, successful: results.filter(result => result.status === "fulfilled").length}}, {headers: {"Cache-Control": "no-store"}});
+  return Response.json({generatedAt: new Date().toISOString(), edition: Math.floor(Date.now() / 72e5), personalized:!!interests.length, hasGoodDog, editorialIdentity:{id:editorialIdentity.id,label:editorialIdentity.label,accent:editorialIdentity.accent,references:editorialIdentity.references,imageTarget:editorialIdentity.imageTarget}, composition:{window:20,targetCounts,actualCounts,personalization:{maximum:10,actual:personalizedCount,generic:openingWindow.length-personalizedCount},labels:MIX_LABELS}, activeSourcePacks:activePacks.map(pack => ({id:pack.id,label:pack.label,hits:pack.hits})), tickerStories, ribbonFavorite, goodNews, favorites: favoriteSelection, media, gallery, visualReserve, important, serendipity, sourceStatus: {total: sources.length, auditedPool:auditedSources.length, auditedCatalog:load("approved-sources.json").length, specialist:specialistSources.length, successful: results.filter(result => result.status === "fulfilled").length}}, {headers: {"Cache-Control": "no-store"}});
 }
 
 export async function GET(request) {
