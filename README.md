@@ -1,4 +1,18 @@
-# Meanwhile 21 — Balanced Variety Fix
+# Meanwhile 22 — Audited Source-Pool Expansion
+
+This numbered test build preserves Meanwhile 21 and adds 29 net-new publishers
+from the 28 August 2026 source audit. The production catalog now contains 191
+approved records. Only candidates marked APPROVED and carrying a hand-curated
+editorial category were activated; LIMITED, QUARANTINE and REJECT candidates
+remain inactive. The import also rejects publishers already present by name,
+feed URL or domain so expanding the pool cannot create a duplicate subscription.
+
+The existing editorial assembly line is unchanged: politics and the barred
+Musk/Zuckerberg/Bezos company universe are rejected before composition, story
+identities are deduplicated, and the visual target remains at least 80%.
+`data/source-import-v22.json` is the machine-readable import report.
+
+## Foundation inherited from Meanwhile 21
 
 This revision fixes the rendered-feed photography flood found in Meanwhile 20.
 Good Stuff now receives the full editorial inventory before serendipity is

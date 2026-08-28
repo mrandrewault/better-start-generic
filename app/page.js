@@ -652,14 +652,28 @@ export default function Home() {
       // registry below, rather than the permanent-history gate used at entry.
       const fresh = next;
       const existing = dataRef.current?.gallery || [];
-      const additions = claimSessionUnique([
+      const candidateAdditions = [
         ...(fresh?.gallery || []),
         ...(fresh?.serendipity || []),
         ...(fresh?.important || []),
         ...(fresh?.media || [])
-      ], currentItems);
-      if (additions.length) {
-        setData(previous => { const prepared = {...previous, gallery:stampNew([...(previous?.gallery || []), ...additions])}; recordDeliveredInventory(prepared); return prepared; }); setQueueExhausted(false);
+      ];
+      // Desktop can hit the sentinel again while a background request is
+      // resolving. Claim against the *live* React state inside the atomic
+      // append—not the inventory snapshot captured when the request began.
+      // This closes the last race that could append an already-visible card.
+      const preflightAdditions = claimSessionUnique(candidateAdditions, currentItems);
+      if (preflightAdditions.length) {
+        setData(previous => {
+          const liveInventory = [...(previous?.tickerStories || []), previous?.goodNews, ...(previous?.favorites || []), ...(previous?.gallery || [])].filter(Boolean);
+          const liveAdditions = claimSessionUnique(candidateAdditions, liveInventory);
+          if (!liveAdditions.length) return previous;
+          const prepared = {...previous, gallery:stampNew([...(previous?.gallery || []), ...liveAdditions])};
+          dataRef.current = prepared;
+          recordDeliveredInventory(prepared);
+          return prepared;
+        });
+        setQueueExhausted(false);
         if (revealWhenReadyRef.current) { revealWhenReadyRef.current = false; setBatches(count => count + 1); }
       }
       else {
@@ -690,13 +704,21 @@ export default function Home() {
     // synchronous path whenever the server already prepared more stories.
     const current = dataRef.current;
     const displayed = [...(current?.tickerStories || []), current?.goodNews, ...(current?.favorites || []), ...(current?.gallery || [])].filter(Boolean);
-    const localAdditions = claimSessionUnique([
+    const localCandidates = [
       ...(current?.serendipity || []),
       ...(current?.important || []),
       ...(current?.media || [])
-    ], displayed).slice(0, BATCH_SIZE);
+    ];
+    const localAdditions = claimSessionUnique(localCandidates, displayed).slice(0, BATCH_SIZE);
     if (localAdditions.length) {
-      setData(previous => ({...previous, gallery:stampNew([...(previous?.gallery || []), ...localAdditions])}));
+      setData(previous => {
+        const liveInventory = [...(previous?.tickerStories || []), previous?.goodNews, ...(previous?.favorites || []), ...(previous?.gallery || [])].filter(Boolean);
+        const liveAdditions = claimSessionUnique(localCandidates, liveInventory).slice(0, BATCH_SIZE);
+        if (!liveAdditions.length) return previous;
+        const prepared = {...previous, gallery:stampNew([...(previous?.gallery || []), ...liveAdditions])};
+        dataRef.current = prepared;
+        return prepared;
+      });
       setBatches(count => count + 1);
       return;
     }
