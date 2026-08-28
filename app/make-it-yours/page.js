@@ -15,7 +15,7 @@ const topics=[
   {id:"books",label:"Books + ideas",color:"brown",size:"lg",children:["Fiction, please","History rabbit holes","Essays + big ideas","Lives well lived","Poetry counts","Mysteries + thrillers","Science fiction + fantasy","Graphic novels + comics","Book design","Independent magazines","Archives + museums","Bookshops are destinations"]},
   {id:"outdoors",label:"Nature + outdoors",color:"green",size:"xl",children:["Hiking","National parks","Gardens","Forests","Birding","Camping","Beautiful landscapes","Conservation"]},
   {id:"travel",label:"Travel",color:"orange",size:"md",children:["Types of travel","World regions","Destinations","Hotels + resorts","Road + rail","Camping + outdoors","Food + culture trips","Slow travel"]},
-  {id:"design",label:"Art + design",color:"blue",size:"lg",children:["Painting","Sculpture","Illustration + comic art","Poster art","Photography as art","Graphic design","Architecture","Furniture + objects","Typography","Museums + exhibitions","Craft","Public art","Digital + new media","Creative studios"]},
+  {id:"design",label:"Art + design",color:"blue",size:"lg",children:["Painting","Sculpture","Illustration + comic art","Poster art","Photography","Graphic design","Architecture","Furniture + objects","Typography","Museums + exhibitions","Craft","Public art","Digital + new media","Creative studios"]},
   {id:"comedy",label:"Comedy",color:"yellow",size:"sm",children:["Stand-up","Sketches","Funny interviews","Classic comedy","Late-night archives","Absurdity","Comic actors","Smart silliness"]},
   {id:"local",label:"Local discoveries",color:"rust",size:"md",children:["New restaurants","Neighborhood history","Day trips","Local arts","Independent shops","Parks + trails","Community wins","Things happening nearby"]},
   {id:"making",label:"Making things",color:"brown",size:"sm",children:["Woodworking","Ceramics","Printmaking","Home studios","Repair","Analog tools","Creative process","Beautiful objects"]},
@@ -98,7 +98,7 @@ const specifics={
   "Illustration + comic art":["Editorial illustration","Comics","Graphic memoirs","New illustrators","Sequential art","Ink + paint"],
   "Poster art":["Concert posters","Film posters","Screen printing","Poster archives","Polish poster art"],
   "Fine art":["Painting","Sculpture","Installation","Printmaking","Artist studios","Major rediscoveries"],
-  "Photography as art":["Photo books","Portraiture","Conceptual photography","Darkrooms","New photographers"],
+  "Photography":["Photo books","Portraiture","Conceptual photography","Darkrooms","New photographers"],
   "Public art":["Murals","Sculpture parks","Transit art","Community commissions","Street art"],
   "Fiction, please":["Literary fiction","Short stories","Debut novels","Translated fiction","Funny novels","Big old novels"],
   "History rabbit holes":["Social history","Design history","Archaeology","Local history","Archives","Odd little histories"],
@@ -154,7 +154,7 @@ const specifics={
   ,"Boutique labels":["The Row","Khaite","Toteme","Alaïa","Loewe","Dries Van Noten","Gabriela Hearst","Ulla Johnson"]
   ,"Vintage runway":["Archive pulls","Vintage YSL","Vintage Halston","Phoebe Philo years","Lee McQueen","Runway archaeology"]
   ,"Department stores":["Bergdorf Goodman","Le Bon Marché","Liberty London","La Rinascente","Fashion windows","Legendary buyers"]
-  ,"Emerging designers":["Fashion-school graduates","Central Saint Martins","Independent ateliers","Design competitions","Names to know"]
+  ,"Emerging designers":["Fashion-school graduates","Central Saint Martins","Independent ateliers","Design competitions","Designers to watch"]
   ,"Book clubs + reading":["Reese’s Book Club","Read with Jenna","Service95 Books","Independent booksellers","Beach reads","Literary fiction"]
   ,"Women founders":["Fashion founders","Beauty founders","Creative entrepreneurs","Women-led companies","Independent studios"]
   ,"Money put to good use":["MacKenzie Scott","Giving Pledge follow-through","Transformational gifts","Community-led giving","What changed afterward"]
@@ -230,7 +230,7 @@ const funnelSpecifics={
   "Sculpture":["Modern sculpture","Public sculpture","Ceramics","Installation","Stone + metal","Sculpture parks"],
   "Illustration + comic art":["Editorial illustration","Comics","Graphic memoirs","New illustrators","Sequential art","Ink + paint"],
   "Poster art":["Concert posters","Film posters","Screen printing","Poster archives","Polish poster art","Political-free public posters"],
-  "Photography as art":["Photo books","Portraiture","Conceptual photography","Darkrooms","New photographers","Photo archives"],
+  "Photography":["Photo books","Portraiture","Conceptual photography","Darkrooms","New photographers","Photo archives"],
   "Graphic design":["Identity design","Editorial design","Packaging","Print design","Wayfinding","Design archives"],
   "Architecture":["Modernism","Adaptive reuse","Residential architecture","Public buildings","Architecture history","Sustainable design"],
   "Furniture + objects":["Furniture design","Industrial design","Lighting","Everyday objects","Collectible design","Independent makers"],
@@ -269,7 +269,7 @@ const granularSpecifics={
   ,"Best pizza nearby":["Neapolitan pizza","New York slices","Detroit style","Tavern style","Wood-fired pizza","Old-school pizzerias"]
   ,"Knives":["Japanese knives","French chef’s knives","Independent makers","Sharpening","Vintage cutlery","Knife skills"]
 };
-const granularFor=label=>granularSpecifics[label]||[`${label}: names to know`,`${label}: places to know`,`${label}: studios + makers`,`${label}: defining moments`,`${label}: new discoveries`,`${label}: deep cuts`];
+const granularFor=label=>granularSpecifics[label]||[`${label}: people`,`${label}: places`,`${label}: makers`,`${label}: history`,`${label}: what’s new`,`${label}: deep cuts`];
 const featuredLanes={
   music:[
     {label:"Classical + composed",children:["Classical"]},
@@ -295,7 +295,7 @@ const featuredLanes={
   ],
   design:[
     {label:"Fine art",children:["Painting","Sculpture","Public art"]},
-    {label:"Pictures + print",children:["Illustration + comic art","Poster art","Photography as art"]},
+    {label:"Pictures + print",children:["Illustration + comic art","Poster art","Photography"]},
     {label:"Graphic + type",children:["Graphic design","Typography"]},
     {label:"Buildings + objects",children:["Architecture","Furniture + objects","Craft"]},
     {label:"Exhibitions + new media",children:["Museums + exhibitions","Digital + new media","Creative studios"]}
