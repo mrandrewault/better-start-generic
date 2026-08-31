@@ -396,7 +396,9 @@ async function loadVisualShelf(identity, count = 80) {
   return unique(results).slice(0, count);
 }
 function isFreshLocal(item) {
-  if (!item.date) return true;
+  // A missing date is not proof of freshness. Undated feed entries are
+  // rejected instead of being treated as permanently new.
+  if (!item.date) return false;
   const age = (Date.now() - new Date(item.date)) / 864e5;
   // If a publication has stopped producing fresh material, move laterally to
   // another source in the category instead of recycling its archive forever.
@@ -406,10 +408,12 @@ function isFreshLocal(item) {
   if (/^jstor daily$/i.test(item.source || "")) return age <= 3;
   if (/^nasa$/i.test(item.source || "")) return age <= 2;
   if (/^colossal$/i.test(item.source || "")) return age <= 2;
-  // Universal source audit: no ordinary feed can fill a current edition from
-  // a months-old archive. Specialist desks get a slightly wider weekly-publisher
-  // window, while standing feeds must furnish work from the last two weeks.
-  return age <= (item.sourcePack ? 14 : 7);
+  // Each audited source already declares its own freshness promise. That field
+  // used to be discarded here and replaced by a blanket 14-day allowance,
+  // allowing slow RSS feeds to recycle the same archive cards for days.
+  const configuredDays = Number(item.freshnessDays);
+  const sourceLimit = Number.isFinite(configuredDays) ? Math.max(1, configuredDays) : 1;
+  return age <= Math.min(1, sourceLimit);
 }
 function isGoodNews(item) {
   const value = `${item.title || ""} ${item.summary || ""}`;
@@ -909,7 +913,7 @@ async function feedResponse(params) {
     return (feed.items || []).slice(0, 40).map((item, index) => {
       const scored = score(item, source, taste);
       const publisher = publisherName(item, source), independentPublisher = isIndependentPublisher(publisher, source);
-      const story = {title: plain(item.title) || "Untitled", url: item.link || "#", summary: plain(item.contentSnippet || item.content || ""), date: item.isoDate || item.pubDate || null, source: publisher, aggregatorSource:source.name, publisher, independentPublisher, section: source.section, image: source.noImages ? null : imageFor(item), sourcePack:source.pack || null, sourcePackLabel:source.packLabel || null, sourcePackHits:source.packHits || 0, noImageEnrichment:Boolean(source.noImages), ...scored, score:scored.score + (independentPublisher ? 30 : -25) + (source.pack ? 18 + Math.min(24, (source.packHits || 0) * 4) : 0)};
+      const story = {title: plain(item.title) || "Untitled", url: item.link || "#", summary: plain(item.contentSnippet || item.content || ""), date: item.isoDate || item.pubDate || null, source: publisher, aggregatorSource:source.name, publisher, independentPublisher, section: source.section, image: source.noImages ? null : imageFor(item), freshnessDays:source.freshnessDays, sourcePack:source.pack || null, sourcePackLabel:source.packLabel || null, sourcePackHits:source.packHits || 0, noImageEnrichment:Boolean(source.noImages), ...scored, score:scored.score + (independentPublisher ? 30 : -25) + (source.pack ? 18 + Math.min(24, (source.packHits || 0) * 4) : 0)};
       return {...story, humanInterest:humanInterestSignal.test(`${story.title} ${story.summary} ${story.section}`), geoClass: classifyGeography(story, localPlaces), format: formatFor(story, index)};
     });
   }));

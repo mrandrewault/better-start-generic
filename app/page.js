@@ -10,16 +10,16 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 // V3 intentionally leaves behind the poisoned ledger written by builds that
 // marked automatically prepared (but never viewed) cards as permanently seen.
 const STORY_HISTORY_KEY = "betterStartReaderStoryHistoryV3";
-const SEEN_STORY_LEDGER_KEY = "meanwhileSeenStoryHashesV3";
+const SEEN_STORY_LEDGER_KEY = "meanwhileSeenStoryHashesV4";
 const DELIVERED_INVENTORY_LEDGER_KEY = "meanwhileDeliveredInventoryHashesV1";
 // V2 discards the NASA-heavy snapshot produced before mixed-content image
 // URLs were upgraded and visual diversity was enforced.
 // V5 deliberately drops the text-heavy V4 bench. V4 is still migrated into
 // the prior-delivery ledger below, so dropping its presentation cannot grant
 // any of its stories another appearance.
-const FEED_SNAPSHOT_KEY = "meanwhileFeedSnapshotV5";
+const FEED_SNAPSHOT_KEY = "meanwhileFeedSnapshotV6";
 const STORY_HISTORY_LIMIT = 1500;
-const SEEN_STORY_LEDGER_LIMIT = 50000;
+const SEEN_STORY_LEDGER_LIMIT = 200000;
 const DAYPART_MESSAGES = {
   morning:[
     "Let’s start the day off rage-free, shall we?",
@@ -166,7 +166,7 @@ const publisherStoryKey = item => {
 };
 const identityKeys = item => [`url:${canonicalStoryUrl(item?.canonicalUrl || item?.url || "")}`, `strict-url:${strictStoryUrl(item?.canonicalUrl || item?.url || "")}`, publisherStoryKey(item), `title:${normalizedIdentityTitle(item?.title)}`, `strict-title:${strictStoryTitle(item?.title)}`, item?.normalizedTitle && `feed-title:${normalizedIdentityTitle(item.normalizedTitle)}`, `topic:${titleFingerprint(item?.title)}`, `family:${titleFamily(item?.title)}`, `content:${contentFingerprint(item)}`, commonsAssetKey(item), `image:${strictStoryUrl(item?.image || "")}`, `video:${item?.videoId || ""}`].filter(key => key && !key.endsWith(":"));
 const stableHash = value => { let hash = 2166136261; for (const char of String(value || "")) { hash ^= char.charCodeAt(0); hash = Math.imul(hash, 16777619); } return (hash >>> 0).toString(36); };
-const readSeenLedger = () => { try { const value = JSON.parse(localStorage.getItem(SEEN_STORY_LEDGER_KEY) || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } };
+const readSeenLedger = () => { try { const current = JSON.parse(localStorage.getItem(SEEN_STORY_LEDGER_KEY) || "[]"), prior = JSON.parse(localStorage.getItem("meanwhileSeenStoryHashesV3") || "[]"); return [...new Set([...(Array.isArray(prior) ? prior : []), ...(Array.isArray(current) ? current : [])])].slice(-SEEN_STORY_LEDGER_LIMIT); } catch { return []; } };
 const identityHashes = item => [...new Set([itemKey(item), ...identityKeys(item)].filter(Boolean).map(stableHash))];
 const permanentSeenHashes = () => new Set([
   ...readSeenLedger(),
@@ -268,7 +268,7 @@ const writeDeliveredInventory = state => { try { localStorage.setItem(DELIVERED_
 const rotateDeliveredInventory = () => { const state = deliveredInventoryState(), now = Date.now(); if (now - state.startedAt >= DAY_MS) { state.prior = [...new Set([...state.prior, ...state.current])].slice(-SEEN_STORY_LEDGER_LIMIT); state.current = []; state.startedAt = now; } writeDeliveredInventory(state); return state; };
 const deliveredInventoryHashes = (includeCurrent = false) => { const state = rotateDeliveredInventory(); return new Set(includeCurrent ? [...state.prior, ...state.current] : state.prior); };
 const editionInventoryItems = edition => [...(edition?.tickerStories || []), edition?.goodNews, ...(edition?.favorites || []), ...(edition?.important || []), ...(edition?.gallery || []), ...(edition?.media || []), ...(edition?.serendipity || []), ...(edition?.visualReserve || [])].filter(Boolean);
-const recordDeliveredInventory = edition => { const state = rotateDeliveredInventory(), current = new Set(state.current); editionInventoryItems(edition).forEach(item => identityHashes(item).forEach(hash => current.add(hash))); state.current = [...current]; writeDeliveredInventory(state); };
+const recordDeliveredInventory = edition => { const state = rotateDeliveredInventory(), current = new Set(state.current), permanent = permanentSeenHashes(); editionInventoryItems(edition).forEach(item => identityHashes(item).forEach(hash => { current.add(hash); permanent.add(hash); })); state.current = [...current]; writeDeliveredInventory(state); writeSeenLedger(permanent); };
 const rememberPriorInventory = edition => { const state = rotateDeliveredInventory(), prior = new Set(state.prior); editionInventoryItems(edition).forEach(item => identityHashes(item).forEach(hash => prior.add(hash))); state.prior = [...prior]; writeDeliveredInventory(state); };
 const syncDeliveredInventoryToCloud = async (edition, user) => {
   if (!supabase || !user) return;
@@ -580,7 +580,7 @@ export default function Home() {
         if (cachedSnapshot._dayKey === localDayKey(new Date())) recordDeliveredInventory(cachedSnapshot);
         else rememberPriorInventory(cachedSnapshot);
       }
-      [JSON.parse(localStorage.getItem("meanwhileFeedSnapshotV4") || "null"), JSON.parse(localStorage.getItem("meanwhileFeedSnapshotV3") || "null"), JSON.parse(localStorage.getItem("meanwhileFeedSnapshotV2") || "null")].filter(Boolean).forEach(rememberPriorInventory);
+      [JSON.parse(localStorage.getItem("meanwhileFeedSnapshotV5") || "null"), JSON.parse(localStorage.getItem("meanwhileFeedSnapshotV4") || "null"), JSON.parse(localStorage.getItem("meanwhileFeedSnapshotV3") || "null"), JSON.parse(localStorage.getItem("meanwhileFeedSnapshotV2") || "null")].filter(Boolean).forEach(rememberPriorInventory);
       const snapshotStartedAt = Number(cachedSnapshot?._editionStartedAt || cachedSnapshot?._generatedAt || 0);
       const snapshotCurrent = snapshotStartedAt > 0 && Date.now() - snapshotStartedAt < DAY_MS;
       if (!browserReload && snapshotCurrent && cachedSnapshot?.gallery?.length >= BATCH_SIZE) { setData(cachedSnapshot); setEditionNote("Refreshing quietly"); }
