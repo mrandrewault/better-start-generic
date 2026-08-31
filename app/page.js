@@ -263,9 +263,9 @@ const itemKey = item => canonicalStoryUrl(item?.canonicalUrl || item?.url) || it
 const savedPlaces = () => { try { const value = JSON.parse(localStorage.getItem("betterStartReaderPlaces") || "[]"); return Array.isArray(value) ? value.slice(0, 20).join("|") : ""; } catch { return ""; } };
 const storyHistory = () => { try { const value = JSON.parse(localStorage.getItem(STORY_HISTORY_KEY) || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } };
 const storyHistoryKeys = () => new Set(storyHistory().flatMap(entry => [entry.id, ...(entry.keys || [])]).filter(Boolean));
-const deliveredInventoryState = () => { try { const value = JSON.parse(localStorage.getItem(DELIVERED_INVENTORY_LEDGER_KEY) || "null"); if (Array.isArray(value)) return {day:localDayKey(new Date()),current:[],prior:value}; return value && typeof value === "object" ? {day:value.day || localDayKey(new Date()),current:Array.isArray(value.current) ? value.current : [],prior:Array.isArray(value.prior) ? value.prior : []} : {day:localDayKey(new Date()),current:[],prior:[]}; } catch { return {day:localDayKey(new Date()),current:[],prior:[]}; } };
+const deliveredInventoryState = () => { try { const value = JSON.parse(localStorage.getItem(DELIVERED_INVENTORY_LEDGER_KEY) || "null"), now = Date.now(); if (Array.isArray(value)) return {startedAt:now,current:[],prior:value}; return value && typeof value === "object" ? {startedAt:Number(value.startedAt) || now,current:Array.isArray(value.current) ? value.current : [],prior:Array.isArray(value.prior) ? value.prior : []} : {startedAt:now,current:[],prior:[]}; } catch { return {startedAt:Date.now(),current:[],prior:[]}; } };
 const writeDeliveredInventory = state => { try { localStorage.setItem(DELIVERED_INVENTORY_LEDGER_KEY, JSON.stringify({...state,current:[...new Set(state.current)].slice(-SEEN_STORY_LEDGER_LIMIT),prior:[...new Set(state.prior)].slice(-SEEN_STORY_LEDGER_LIMIT)})); } catch {} };
-const rotateDeliveredInventory = () => { const state = deliveredInventoryState(), today = localDayKey(new Date()); if (state.day !== today) { state.prior = [...new Set([...state.prior, ...state.current])].slice(-SEEN_STORY_LEDGER_LIMIT); state.current = []; state.day = today; writeDeliveredInventory(state); } return state; };
+const rotateDeliveredInventory = () => { const state = deliveredInventoryState(), now = Date.now(); if (now - state.startedAt >= DAY_MS) { state.prior = [...new Set([...state.prior, ...state.current])].slice(-SEEN_STORY_LEDGER_LIMIT); state.current = []; state.startedAt = now; } writeDeliveredInventory(state); return state; };
 const deliveredInventoryHashes = (includeCurrent = false) => { const state = rotateDeliveredInventory(); return new Set(includeCurrent ? [...state.prior, ...state.current] : state.prior); };
 const editionInventoryItems = edition => [...(edition?.tickerStories || []), edition?.goodNews, ...(edition?.favorites || []), ...(edition?.important || []), ...(edition?.gallery || []), ...(edition?.media || []), ...(edition?.serendipity || []), ...(edition?.visualReserve || [])].filter(Boolean);
 const recordDeliveredInventory = edition => { const state = rotateDeliveredInventory(), current = new Set(state.current); editionInventoryItems(edition).forEach(item => identityHashes(item).forEach(hash => current.add(hash))); state.current = [...current]; writeDeliveredInventory(state); };
@@ -568,6 +568,8 @@ export default function Home() {
   }, [user]);
   useEffect(() => {
     setSaved(JSON.parse(localStorage.getItem("betterStartReaderSaved") || "[]")); setJoyHistory(recentHistory("betterStartReaderJoyHistory"));
+    const navigationType = performance.getEntriesByType?.("navigation")?.[0]?.type;
+    const browserReload = navigationType === "reload";
     let cachedSnapshot = null;
     try {
       cachedSnapshot = JSON.parse(localStorage.getItem(FEED_SNAPSHOT_KEY) || "null");
@@ -579,7 +581,9 @@ export default function Home() {
         else rememberPriorInventory(cachedSnapshot);
       }
       [JSON.parse(localStorage.getItem("meanwhileFeedSnapshotV4") || "null"), JSON.parse(localStorage.getItem("meanwhileFeedSnapshotV3") || "null"), JSON.parse(localStorage.getItem("meanwhileFeedSnapshotV2") || "null")].filter(Boolean).forEach(rememberPriorInventory);
-      if (cachedSnapshot?._dayKey === localDayKey(new Date()) && cachedSnapshot?.gallery?.length >= BATCH_SIZE) { setData(cachedSnapshot); setEditionNote("Refreshing quietly"); }
+      const snapshotStartedAt = Number(cachedSnapshot?._editionStartedAt || cachedSnapshot?._generatedAt || 0);
+      const snapshotCurrent = snapshotStartedAt > 0 && Date.now() - snapshotStartedAt < DAY_MS;
+      if (!browserReload && snapshotCurrent && cachedSnapshot?.gallery?.length >= BATCH_SIZE) { setData(cachedSnapshot); setEditionNote("Refreshing quietly"); }
     } catch {}
     setShowWelcome(localStorage.getItem("meanwhileWelcomeSeenV1") !== "yes");
     const priorPalette = Number(localStorage.getItem("betterStartPaletteIndex") || "-1"), nextPalette = (priorPalette + 1) % EDITION_PALETTES.length;
@@ -591,7 +595,7 @@ export default function Home() {
     const loadEdition = async (preserve, force = false) => {
       const visit = `${Math.floor(Date.now() / EDITION_MS)}-${Date.now()}-${Math.random()}`, mediaHistory = recentHistory("betterStartReaderMediaHistory"), avoid = [...new Set(mediaHistory.map(entry => entry.id))].slice(-120).join(","), places = savedPlaces(), profileTerms = activeProfile ? [...(activeProfile.broadInterests || []), ...(activeProfile.specificInterests || []), ...(activeProfile.details || []), ...(activeProfile.granularInterests || []), ...(activeProfile.anythingElse || [])].slice(0, 72).join("|") : "";
       try {
-        const today = localDayKey(new Date()), priorDay = localStorage.getItem("betterStartReaderDay"), hardRefresh = priorDay !== today;
+        const today = localDayKey(new Date()), editionStartedAt = Number(cachedSnapshot?._editionStartedAt || cachedSnapshot?._generatedAt || 0), hardRefresh = force || browserReload || !editionStartedAt || Date.now() - editionStartedAt >= DAY_MS;
         const priorInventory = hardRefresh ? cachedSnapshot : force ? dataRef.current : null;
         const inventoryItems = priorInventory ? [...(priorInventory.tickerStories || []), priorInventory.goodNews, ...(priorInventory.favorites || []), ...(priorInventory.gallery || []), ...(priorInventory.media || []), ...(priorInventory.serendipity || [])].filter(Boolean) : [];
         const inventoryAvoidance = inventoryItems.flatMap(item => [itemKey(item), ...identityKeys(item)]).map(stableHash);
@@ -605,7 +609,7 @@ export default function Home() {
         const editions = [await requestFeed({visit,avoid,avoidStories,places,interests:profileTerms,editionName:activeProfile?.title || ""})];
         localStorage.setItem("betterStartReaderDay", today); setJoyHistory(recentHistory("betterStartReaderJoyHistory"));
         if (preserve) setData(previous => {
-          const prepared = {...prepareEdition(editions[0], previous, !hardRefresh && !force), _dayKey:today};
+          const prepared = {...prepareEdition(editions[0], previous, !hardRefresh), _dayKey:today, _generatedAt:Date.now(), _editionStartedAt:hardRefresh ? Date.now() : Number(previous?._editionStartedAt) || Date.now()};
           recordDeliveredInventory(prepared);
           try { localStorage.setItem(FEED_SNAPSHOT_KEY, JSON.stringify(prepared)); } catch {}
           return prepared;
@@ -614,7 +618,7 @@ export default function Home() {
           const clean = editions.map(filterEditionGlobally), primary = clean[0];
           const reserved = [...(primary?.tickerStories || []), primary?.goodNews, ...(primary?.favorites || [])].filter(Boolean);
           const gallery = claimSessionUnique(clean.flatMap(edition => edition?.gallery || []), reserved).slice(0, 140);
-          const prepared = {...primary, gallery:stampNew(gallery), _dayKey:today};
+          const prepared = {...primary, gallery:stampNew(gallery), _dayKey:today, _generatedAt:Date.now(), _editionStartedAt:Date.now()};
           recordDeliveredInventory(prepared);
           try { localStorage.setItem(FEED_SNAPSHOT_KEY, JSON.stringify(prepared)); } catch {}
           setData(prepared);

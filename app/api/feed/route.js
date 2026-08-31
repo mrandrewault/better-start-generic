@@ -409,7 +409,7 @@ function isFreshLocal(item) {
   // Universal source audit: no ordinary feed can fill a current edition from
   // a months-old archive. Specialist desks get a slightly wider weekly-publisher
   // window, while standing feeds must furnish work from the last two weeks.
-  return age <= (item.sourcePack ? 45 : 30);
+  return age <= (item.sourcePack ? 14 : 7);
 }
 function isGoodNews(item) {
   const value = `${item.title || ""} ${item.summary || ""}`;
@@ -467,11 +467,11 @@ function formatFor(item, index) {
   return "article";
 }
 function unique(items) {
-  const urls = new Set(), titles = new Set(), output = [];
+  const urls = new Set(), titles = new Set(), families = new Set(), contents = new Set(), assets = new Set(), output = [];
   for (const item of items) {
-    const url = canonicalUrl(item.url), title = normalizeTitle(item.title);
-    if (!url || !title || urls.has(url) || titles.has(title)) continue;
-    urls.add(url); titles.add(title); output.push({...item, canonicalUrl: url, normalizedTitle: title});
+    const url = canonicalUrl(item.url), title = normalizeTitle(item.title), family = titleFamily(item.title), content = contentFingerprint(item), asset = commonsAssetKey(item);
+    if (!url || !title || urls.has(url) || titles.has(title) || (family && families.has(family)) || (content && contents.has(content)) || (asset && assets.has(asset))) continue;
+    urls.add(url); titles.add(title); if (family) families.add(family); if (content) contents.add(content); if (asset) assets.add(asset); output.push({...item, canonicalUrl: url, normalizedTitle: title});
   }
   return output;
 }
