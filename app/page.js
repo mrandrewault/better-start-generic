@@ -482,12 +482,12 @@ function Story({item, index, paletteIndex = index, palette, onRate, onSave, onSh
   const inkStyle = !hasImage && !playable ? mixedInk(paletteIndex, palette) : undefined;
   return <article ref={tileRef} style={inkStyle} className={`tile tile-${type} tile-pattern-${index % 9} ${hasImage ? "tile-has-image" : "tile-no-image tile-text-art tile-mixed-ink"} ${categoryClass(replacement.section)}`}>
     {playable && playing ? <div className="inlinePlayer"><iframe src={playerUrl} title={replacement.title} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen /></div> : hasImage && (playable ? <button className="imageLink mediaTrigger" onClick={() => setPlaying(true)} aria-label={`Play ${replacement.title}`}><img src={replacement.image} alt="" onLoad={inspectImage} onError={() => setImageRejected(true)} /><span className="play">▶</span></button> : <a className="imageLink" href={replacement.url} target="_blank" rel="noreferrer"><img src={replacement.image} alt="" onLoad={inspectImage} onError={() => setImageRejected(true)} /></a>)}
-    <div className="tileBody"><div className="kicker"><span>{replacement.mixLabel || replacement.section}</span><span>{type === "bandcamp" ? "New release" : type === "video" ? "Saved find" : age(replacement.date)}</span></div><h3><a href={replacement.url} target="_blank" rel="noreferrer">{replacement.title}</a></h3>{replacement.summary && type !== "visual" && <p>{replacement.summary.slice(0, type === "feature" ? 280 : 170)}</p>}<div className="meta">{replacement.sourcePackLabel && <i>From {replacement.sourcePackLabel}</i>}{replacement.source}</div><Feedback item={replacement} onRate={onRate} onSave={onSave} onShare={onShare} saved={saved}/></div>
+    <div className="tileBody"><div className="kicker"><span>{replacement.mixLabel || replacement.section}</span><span>{type === "bandcamp" ? "New release" : type === "video" ? "Saved find" : age(replacement.date)}</span></div><h3><a href={replacement.url} target="_blank" rel="noreferrer">{replacement.title}</a></h3>{replacement.summary && type !== "visual" && <p>{replacement.summary.slice(0, type === "feature" ? 280 : 170)}</p>}<div className="meta">{replacement.source}</div><Feedback item={replacement} onRate={onRate} onSave={onSave} onShare={onShare} saved={saved}/></div>
   </article>;
 }
 
 export default function Home() {
-  const [data, setData] = useState(null), [batches, setBatches] = useState(1), [queueLoading, setQueueLoading] = useState(false), [queueExhausted, setQueueExhausted] = useState(false), [now, setNow] = useState(new Date()), [saved, setSaved] = useState([]), [showSaved, setShowSaved] = useState(false), [showWelcome, setShowWelcome] = useState(false), [showSaveNudge, setShowSaveNudge] = useState(false), [showGenericNudge, setShowGenericNudge] = useState(false), [theme, setTheme] = useState("light"), [editionNote, setEditionNote] = useState("Composing edition"), [joyHistory, setJoyHistory] = useState([]), [profile, setProfile] = useState(null), [paletteIndex, setPaletteIndex] = useState(0), [user, setUser] = useState(null), [accountOpen, setAccountOpen] = useState(false), [accountEmail, setAccountEmail] = useState(""), [accountPassword, setAccountPassword] = useState(""), [accountMode, setAccountMode] = useState("signin"), [accountStatus, setAccountStatus] = useState(""), [menuOpen, setMenuOpen] = useState(false);
+  const [data, setData] = useState(null), [batches, setBatches] = useState(1), [queueLoading, setQueueLoading] = useState(false), [queueExhausted, setQueueExhausted] = useState(false), [now, setNow] = useState(new Date()), [saved, setSaved] = useState([]), [showSaved, setShowSaved] = useState(false), [showWelcome, setShowWelcome] = useState(false), [showSaveNudge, setShowSaveNudge] = useState(false), [showGenericNudge, setShowGenericNudge] = useState(false), [theme, setTheme] = useState("light"), [editionNote, setEditionNote] = useState("Composing edition"), [joyHistory, setJoyHistory] = useState([]), [profile, setProfile] = useState(null), [paletteIndex, setPaletteIndex] = useState(0), [user, setUser] = useState(null), [accountOpen, setAccountOpen] = useState(false), [accountEmail, setAccountEmail] = useState(""), [accountPassword, setAccountPassword] = useState(""), [accountMode, setAccountMode] = useState("signin"), [accountStatus, setAccountStatus] = useState(""), [menuOpen, setMenuOpen] = useState(false), [laneCount, setLaneCount] = useState(3);
   const dataRef = useRef(null), queueRequestRef = useRef(false), loadMoreRef = useRef(null), revealWhenReadyRef = useRef(false), retryTimerRef = useRef(null), refreshEditionRef = useRef(null);
   useEffect(() => { dataRef.current = data; }, [data]);
   useEffect(() => {
@@ -521,6 +521,12 @@ export default function Home() {
   useEffect(() => {
     const savedTheme = localStorage.getItem("meanwhileTheme");
     setTheme(savedTheme || (window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
+  }, []);
+  useEffect(() => {
+    const chooseLanes = () => setLaneCount(window.innerWidth <= 650 ? 1 : window.innerWidth <= 900 ? 2 : 3);
+    chooseLanes();
+    window.addEventListener("resize", chooseLanes);
+    return () => window.removeEventListener("resize", chooseLanes);
   }, []);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -642,10 +648,26 @@ export default function Home() {
   // that canonical order: merging the auxiliary shelves here used to destroy
   // the topic quotas and was the source of sports-heavy and repeated pages.
   const wall = useMemo(() => claimSessionUnique(data?.gallery || [], [...(data?.tickerStories || [data?.ribbonFavorite]), data?.goodNews, ...uniqueFavorites]), [data, uniqueFavorites]);
-  const visibleBatches = useMemo(() => {
-    const visibleWall = spreadAdjacentSources(wall.slice(0, batches * BATCH_SIZE));
-    return Array.from({length: Math.ceil(visibleWall.length / BATCH_SIZE)}, (_, index) => visibleWall.slice(index * BATCH_SIZE, (index + 1) * BATCH_SIZE)).filter(batch => batch.length);
-  }, [wall, batches]);
+  // This is an append-only edition sequence. Do not re-sort it when another
+  // batch arrives: that made already-read stories jump to a new screen position.
+  // Joy breaks are deterministic members of the same sequence, so they return
+  // without displacing or duplicating a story.
+  const visibleSequence = useMemo(() => {
+    const stories = wall.slice(0, batches * BATCH_SIZE), sequence = [];
+    stories.forEach((item, index) => {
+      sequence.push(item);
+      if (index >= 10 && (index - 10) % 17 === 0) {
+        const joyIndex = Math.floor((index - 10) / 17), joyTypes = ["doodle", "chime", "ripple", "question"];
+        sequence.push({format:"joy", joyType:joyTypes[joyIndex % joyTypes.length], variant:(Number(data?.edition) || 0) + joyIndex, edition:Number(data?.edition) || 0, signature:`joy-${data?._editionStartedAt || data?._generatedAt || "edition"}-${joyIndex}`});
+      }
+    });
+    return sequence;
+  }, [wall, batches, data?.edition, data?._editionStartedAt, data?._generatedAt]);
+  const stableLanes = useMemo(() => {
+    const lanes = Array.from({length: laneCount}, () => []);
+    visibleSequence.forEach((item, index) => lanes[index % laneCount].push({item, index}));
+    return lanes;
+  }, [visibleSequence, laneCount]);
   useEffect(() => {
     if (!user || !data) return;
     recordDeliveredInventory(data);
@@ -802,7 +824,7 @@ export default function Home() {
 
     <section className="favoritesSection"><div className="sectionHead"><div><span>A few especially nice things</span><h2>Bright Spots</h2></div></div><div className="favorites">{uniqueFavorites.map(item => <a className="favorite" href={item.url} target="_blank" rel="noreferrer" key={item.canonicalUrl}><span>{age(item.date)}</span><h3>{item.title}</h3><b>{item.source}</b></a>)}</div></section>
 
-    <section className="gallerySection"><div className="sectionHead wallHead"><div><span>Every good magazine on the table</span><h2>Good Stuff</h2></div></div>{visibleBatches.length ? <div className="galleryWall">{visibleBatches.map((batch, batchIndex) => <div className="galleryBatch" key={batchIndex}>{arrangeFrameClusters(batch).map((cluster, clusterIndex) => { const variant = (batchIndex * 3 + clusterIndex) % 3; return <div className={`tetrisCluster clusterVariant-${variant} clusterCount-${cluster.length} ${cluster.length <= 5 ? "partialCluster" : ""}`} key={clusterIndex}>{cluster.map((item, index) => { const absoluteIndex = batchIndex * BATCH_SIZE + clusterIndex * 10 + index; const renderKey = `${itemKey(item)}-${absoluteIndex}`; return item.format === "joy" ? <JoyTile item={item} index={absoluteIndex} key={renderKey} /> : <Story item={item} index={absoluteIndex} paletteIndex={absoluteIndex} palette={palette} onRate={rate} onSave={toggleSave} onShare={share} saved={savedKeys.has(itemKey(item))} key={renderKey} />; })}</div>; })}</div>)}</div> : <div className="loading" role="status" aria-live="polite"><span>Getting everything ready…</span><div className="loadingTrack" aria-hidden="true"><i /></div><small>Finding good things from around the world</small></div>}
+    <section className="gallerySection"><div className="sectionHead wallHead"><div><span>Every good magazine on the table</span><h2>Good Stuff</h2></div></div>{visibleSequence.length ? <div className="stableGalleryWall" style={{"--lane-count":laneCount}}>{stableLanes.map((lane, laneIndex) => <div className="stableGalleryLane" key={`lane-${laneIndex}`}>{lane.map(({item,index}) => { const renderKey = item.format === "joy" ? item.signature : `${itemKey(item)}-${index}`; return item.format === "joy" ? <JoyTile item={item} index={index} key={renderKey} /> : <Story item={item} index={index} paletteIndex={index} palette={palette} onRate={rate} onSave={toggleSave} onShare={share} saved={savedKeys.has(itemKey(item))} key={renderKey} />; })}</div>)}</div> : <div className="loading" role="status" aria-live="polite"><span>Getting everything ready…</span><div className="loadingTrack" aria-hidden="true"><i /></div><small>Finding good things from around the world</small></div>}
       {data && <div className="infiniteSentinel" ref={loadMoreRef} aria-hidden="true" />}
     </section>
 
