@@ -121,8 +121,15 @@ const bannedSource = item => /(?:\b(?:nyt|new york times|espn)\b|(?:^|\.)(?:nyti
 const routineSportsBlocked = /\b(?:final score|box score|standings|power rankings?|depth chart|starting lineup|roster move|trade(?:d|s)?|free agen(?:t|cy)|draft pick|mock draft|contract extension|waiver|injury report|quarterback|wide receiver|running back|head coach|playoffs? odds|game recap|match recap|season opener|transfer portal)\b/i;
 const corporateAmazonBlocked = value => /\bamazon(?:'s)?\b/i.test(value) && !/\bamazon (?:rainforest|river|basin|forest|region|wildlife)\b/i.test(value);
 const civicBlocked = /(?:\b(?:politics?|politicians?|elected officials?|public officials?|government officials?|officeholders?|candidates?|pols?|u\.?s\.? sen\.?|sen\.|lobby(?:ing|ist|ists)?|state legislative|legislative|legislative aims?|legislatures?|lawmakers?|city council|county council|municipal council|councils?|councilmembers?|councillors?|commissioners?|public safety|public policy|regulators?|regulations?|regulatory|ministries?|ministers?|governance|public administration|statehouse|city hall|capitol|clean energy law|bipartisan|appropriations?|taxpayer|constituents?|courts?|judges?|attorneys? general|district attorneys?|prosecutors?|state agencies?|department of human services|fiscal transparency)\b|\b(?:pol[ií]tica|pol[ií]tico|gobierno|governo|candidatos?|senador(?:a)?|seguran[cç]a p[uú]blica|seguridad p[uú]blica|gouvernement|politique|ministre|d[eé]put[eé]|parlement|regierung|politik)\b)/i;
+// A second editorial gate catches civic conflict and hostile/negative criticism
+// even when an item avoids explicit party-political vocabulary.
+const civicConflictBlocked = /\b(?:police|sheriff|law enforcement|school districts?|school closures?|closing schools?|closes? schools?|public schools?|district officials?|education boards?|labor talks?|labour talks?|labor disputes?|labour disputes?|trade unions?|unions?|collective bargaining|pensions?|public hearings?|municipalities?|village councils?|government deals?|resettlement|asylum|refugees?|border authorities|budget cuts?|budget shortfalls?|public funding|referendums?|ordinances?|impasse|backlash|controvers(?:y|ial)|disagreement|standoff|feud|row|clash|protests?|strikes?|pickets?|lawsuits?|court battles?|secrecy|scandals?)\b/i;
+const negativeCriticismBlocked = /\b(?:snark(?:y)?|sneer(?:s|ing|ed)?|mock(?:s|ing|ed)?|ridicule(?:s|d)?|scathing|takedown|tears? (?:it|them|him|her) (?:apart|down)|panned|slammed|roasted|worst|awful|terrible|dreadful|disappointing|disappointment|flop|failure|trainwreck|not worth|misses? the mark|falls? flat|bad review|negative review)\b/i;
+const reviewContextBlocked = /\b(?:reviews?|critique|criticism|rated?|ratings?|stars?|album|record|song|film|movie|show|series|book|novel|exhibition|artwork|performance|restaurant)\b/i;
+const sadNewsBlocked = /\b(?:bad news|sad news|tragic|tragedy|grief|mourning|heartbreak|devastat(?:e|ed|ing|ion)|layoffs?|job cuts?|bankrupt(?:cy)?|shuts? down|closure|collaps(?:e|ed|ing)|crisis|shortage|threatens?|suffering|deep disagreement)\b/i;
+const editorialToneBlocked = value => civicConflictBlocked.test(value) || sadNewsBlocked.test(value) || (reviewContextBlocked.test(value) && negativeCriticismBlocked.test(value));
 const barredTechEmpireBlocked = /\b(?:mark zuckerberg|zuckerberg|elon musk|musk|jeff bezos|bezos|meta(?: platforms?)?|facebook|instagram|threads|whatsapp|twitter|tweet(?:s|ed|ing)?|amazon|tesla|cybertruck|spacex|starlink|blue origin)\b|(?:^|[\s./])x\.com(?:[\s/?#]|$)/i;
-const absoluteSafetyBlocked = value => politicsReligionZeroToleranceBlocked.test(value) || emergencyBlocked.test(value) || civicBlocked.test(value) || barredTechEmpireBlocked.test(value);
+const absoluteSafetyBlocked = value => politicsReligionZeroToleranceBlocked.test(value) || emergencyBlocked.test(value) || civicBlocked.test(value) || editorialToneBlocked(value) || barredTechEmpireBlocked.test(value);
 const titleFingerprint = value => normalizedIdentityTitle(value).split(/\s+/).filter(word => word.length > 2).slice(0, 9).join(" ");
 const titleFamily = value => [...new Set(normalizedIdentityTitle(value).split(/\s+/).filter(word => word.length > 3))].sort().slice(0, 14).join(" ");
 const retiredRepeat = /\b(?:james hetfield.*metallica|cis football (?:field|locations?)|runway magazine covers? celebrating 25th anniversary|rocky horror.*mad scientist|chanel iman.*runway.*2009|not all boredom is the same|lush foliage permeates xanthe burdett)\b/i;
@@ -610,26 +617,42 @@ export default function Home() {
         // The old `force` switch omitted today's ledger during normal startup,
         // which is why exact stories could immediately come back.
         const avoidStories = [...new Set([...recentStoryAvoidance(true).split(",").filter(Boolean), ...inventoryAvoidance])].slice(-SEEN_STORY_LEDGER_LIMIT).join(",");
-        // First paint waits for one balanced edition only. The background
-        // queue then grows invisibly to 100, without blocking the front door.
-        const editions = [await requestFeed({visit,avoid,avoidStories,places,interests:profileTerms,editionName:activeProfile?.title || ""})];
+        // Pull three independently rotated source desks for every assembly
+        // run. One RSS page per source is not deep enough to guarantee a truly
+        // fresh edition after the permanent seen-story gate has done its job.
+        const editions = await Promise.all(Array.from({length:3}, (_, desk) => requestFeed({visit:`${visit}-desk-${desk}`,avoid,avoidStories,places,interests:profileTerms,editionName:activeProfile?.title || ""})));
+        const primary = editions[0], reserved = [...(primary?.tickerStories || []), primary?.goodNews, ...(primary?.favorites || [])].filter(Boolean);
+        const assembled = {...primary,
+          gallery:claimSessionUnique(editions.flatMap(edition => edition?.gallery || []), reserved).slice(0, 140),
+          media:claimSessionUnique(editions.flatMap(edition => edition?.media || []), reserved).slice(0, 40),
+          serendipity:claimSessionUnique(editions.flatMap(edition => edition?.serendipity || []), reserved).slice(0, 60)
+        };
         localStorage.setItem("betterStartReaderDay", today); setJoyHistory(recentHistory("betterStartReaderJoyHistory"));
-        if (preserve) setData(previous => {
-          const prepared = {...prepareEdition(editions[0], previous, !hardRefresh), _dayKey:today, _generatedAt:Date.now(), _editionStartedAt:hardRefresh ? Date.now() : Number(previous?._editionStartedAt) || Date.now()};
-          recordDeliveredInventory(prepared);
-          try { localStorage.setItem(FEED_SNAPSHOT_KEY, JSON.stringify(prepared)); } catch {}
-          return prepared;
-        });
+        if (preserve && !hardRefresh) {
+          // An open browser page is append-only. A timed refresh may add new
+          // cards below the reader, but may never replace, reorder or collapse
+          // anything already on screen. The all-new edition is cached
+          // separately and becomes the starting edition on the next visit.
+          const freshEdition = {...prepareEdition(assembled, null, false), _dayKey:today, _generatedAt:Date.now(), _editionStartedAt:Date.now()};
+          const previous = dataRef.current;
+          const liveInventory = [...(previous?.tickerStories || []), previous?.goodNews, ...(previous?.favorites || []), ...(previous?.gallery || [])].filter(Boolean);
+          const additions = claimSessionUnique(freshEdition.gallery || [], liveInventory);
+          if (previous && additions.length) {
+            const live = {...previous, gallery:stampNew([...(previous.gallery || []), ...additions]), _generatedAt:Date.now()};
+            dataRef.current = live; setData(live);
+            recordDeliveredInventory({...freshEdition, gallery:additions});
+          }
+          try { localStorage.setItem(FEED_SNAPSHOT_KEY, JSON.stringify(freshEdition)); } catch {}
+        }
         else {
-          const clean = editions.map(filterEditionGlobally), primary = clean[0];
-          const reserved = [...(primary?.tickerStories || []), primary?.goodNews, ...(primary?.favorites || [])].filter(Boolean);
-          const gallery = claimSessionUnique(clean.flatMap(edition => edition?.gallery || []), reserved).slice(0, 140);
-          const prepared = {...primary, gallery:stampNew(gallery), _dayKey:today, _generatedAt:Date.now(), _editionStartedAt:Date.now()};
+          const clean = filterEditionGlobally(assembled);
+          const prepared = {...clean, gallery:stampNew(clean.gallery), _dayKey:today, _generatedAt:Date.now(), _editionStartedAt:Date.now()};
           recordDeliveredInventory(prepared);
           try { localStorage.setItem(FEED_SNAPSHOT_KEY, JSON.stringify(prepared)); } catch {}
           setData(prepared);
+          setBatches(1);
         }
-        setBatches(1); setEditionNote(`${preserve && !hardRefresh && !force ? "Freshened" : "New"} ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})} edition`); lastLoad = Date.now();
+        setEditionNote(`${preserve && !hardRefresh && !force ? "Fresh stories added" : "New"} ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})} edition`); lastLoad = Date.now();
       } catch {}
     };
     refreshEditionRef.current = () => { setEditionNote("Making a fresh edition…"); loadEdition(false, true); };
@@ -824,7 +847,7 @@ export default function Home() {
 
     <section className="favoritesSection"><div className="sectionHead"><div><span>A few especially nice things</span><h2>Bright Spots</h2></div></div><div className="favorites">{uniqueFavorites.map(item => <a className="favorite" href={item.url} target="_blank" rel="noreferrer" key={item.canonicalUrl}><span>{age(item.date)}</span><h3>{item.title}</h3><b>{item.source}</b></a>)}</div></section>
 
-    <section className="gallerySection"><div className="sectionHead wallHead"><div><span>Every good magazine on the table</span><h2>Good Stuff</h2></div></div>{visibleSequence.length ? <div className="stableGalleryWall" style={{"--lane-count":laneCount}}>{stableLanes.map((lane, laneIndex) => <div className="stableGalleryLane" key={`lane-${laneIndex}`}>{lane.map(({item,index}) => { const renderKey = item.format === "joy" ? item.signature : `${itemKey(item)}-${index}`; return item.format === "joy" ? <JoyTile item={item} index={index} key={renderKey} /> : <Story item={item} index={index} paletteIndex={index} palette={palette} onRate={rate} onSave={toggleSave} onShare={share} saved={savedKeys.has(itemKey(item))} key={renderKey} />; })}</div>)}</div> : <div className="loading" role="status" aria-live="polite"><span>Getting everything ready…</span><div className="loadingTrack" aria-hidden="true"><i /></div><small>Finding good things from around the world</small></div>}
+    <section className="gallerySection"><div className="sectionHead wallHead"><div><h2>Good Stuff</h2></div></div>{visibleSequence.length ? <div className="stableGalleryWall" style={{"--lane-count":laneCount}}>{stableLanes.map((lane, laneIndex) => <div className="stableGalleryLane" key={`lane-${laneIndex}`}>{lane.map(({item,index}) => { const renderKey = item.format === "joy" ? item.signature : `${itemKey(item)}-${index}`; return item.format === "joy" ? <JoyTile item={item} index={index} key={renderKey} /> : <Story item={item} index={index} paletteIndex={index} palette={palette} onRate={rate} onSave={toggleSave} onShare={share} saved={savedKeys.has(itemKey(item))} key={renderKey} />; })}</div>)}</div> : <div className="loading" role="status" aria-live="polite"><span>Getting everything ready…</span><div className="loadingTrack" aria-hidden="true"><i /></div><small>Finding good things from around the world</small></div>}
       {data && <div className="infiniteSentinel" ref={loadMoreRef} aria-hidden="true" />}
     </section>
 
