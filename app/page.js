@@ -17,7 +17,7 @@ const DELIVERED_INVENTORY_LEDGER_KEY = "meanwhileDeliveredInventoryHashesV1";
 // V5 deliberately drops the text-heavy V4 bench. V4 is still migrated into
 // the prior-delivery ledger below, so dropping its presentation cannot grant
 // any of its stories another appearance.
-const FEED_SNAPSHOT_KEY = "meanwhileFeedSnapshotV7";
+const FEED_SNAPSHOT_KEY = "meanwhileFeedSnapshotV8";
 const STORY_HISTORY_LIMIT = 1500;
 const SEEN_STORY_LEDGER_LIMIT = 200000;
 const DAYPART_MESSAGES = {
@@ -121,6 +121,8 @@ const bannedSource = item => /(?:\b(?:nyt|new york times|espn)\b|(?:^|\.)(?:nyti
 const routineSportsBlocked = /\b(?:final score|box score|standings|power rankings?|depth chart|starting lineup|roster move|trade(?:d|s)?|free agen(?:t|cy)|draft pick|mock draft|contract extension|waiver|injury report|quarterback|wide receiver|running back|head coach|playoffs? odds|game recap|match recap|season opener|transfer portal)\b/i;
 const corporateAmazonBlocked = value => /\bamazon(?:'s)?\b/i.test(value) && !/\bamazon (?:rainforest|river|basin|forest|region|wildlife)\b/i.test(value);
 const civicBlocked = /(?:\b(?:politics?|politicians?|elected officials?|public officials?|government officials?|officeholders?|candidates?|pols?|u\.?s\.? sen\.?|sen\.|lobby(?:ing|ist|ists)?|state legislative|legislative|legislative aims?|legislatures?|lawmakers?|city council|county council|municipal council|councils?|councilmembers?|councillors?|commissioners?|public safety|public policy|regulators?|regulations?|regulatory|ministries?|ministers?|governance|public administration|statehouse|city hall|capitol|clean energy law|bipartisan|appropriations?|taxpayer|constituents?|courts?|judges?|attorneys? general|district attorneys?|prosecutors?|state agencies?|department of human services|fiscal transparency)\b|\b(?:pol[ií]tica|pol[ií]tico|gobierno|governo|candidatos?|senador(?:a)?|seguran[cç]a p[uú]blica|seguridad p[uú]blica|gouvernement|politique|ministre|d[eé]put[eé]|parlement|regierung|politik)\b)/i;
+const civicAgendaBlocked = /\b(?:interior secretary|secretary of the interior|public lands?|county budgets?|city budgets?|municipal budgets?|budget season|budget talks?|budget negotiations?|budget cuts?|new taxes?|tax increases?|tax cuts?|divided leaders?|county leaders?|city leaders?|public officials?|government officials?|michele tafoya|doug burgum|united nations|u\.?n\.? headquarters|u\.?n\.? barricades?)\b/i;
+const alarmingIncidentBlocked = /\b(?:breaks?|broke|crashes?|crashed|rams?|rammed|smashes?|smashed|plows?|plowed|drives?|drove)\b.{0,80}\b(?:barricades?|barriers?|checkpoint|crowd|building|gate)\b|\b(?:barricades?|barriers?|checkpoint)\b.{0,80}\b(?:car|vehicle|driver)\b/i;
 // A second editorial gate catches civic conflict and hostile/negative criticism
 // even when an item avoids explicit party-political vocabulary.
 const civicConflictBlocked = /\b(?:police|sheriff|law enforcement|school districts?|school closures?|closing schools?|closes? schools?|public schools?|district officials?|education boards?|labor talks?|labour talks?|labor disputes?|labour disputes?|trade unions?|unions?|collective bargaining|pensions?|public hearings?|municipalities?|village councils?|government deals?|resettlement|asylum|refugees?|border authorities|budget cuts?|budget shortfalls?|public funding|referendums?|ordinances?|impasse|backlash|controvers(?:y|ial)|disagreement|standoff|feud|row|clash|protests?|strikes?|pickets?|lawsuits?|court battles?|secrecy|scandals?)\b/i;
@@ -129,7 +131,7 @@ const reviewContextBlocked = /\b(?:reviews?|critique|criticism|rated?|ratings?|s
 const sadNewsBlocked = /\b(?:bad news|sad news|tragic|tragedy|grief|mourning|heartbreak|devastat(?:e|ed|ing|ion)|layoffs?|job cuts?|bankrupt(?:cy)?|shuts? down|closure|collaps(?:e|ed|ing)|crisis|shortage|threatens?|suffering|deep disagreement)\b/i;
 const editorialToneBlocked = value => civicConflictBlocked.test(value) || sadNewsBlocked.test(value) || (reviewContextBlocked.test(value) && negativeCriticismBlocked.test(value));
 const barredTechEmpireBlocked = /\b(?:mark zuckerberg|zuckerberg|elon musk|musk|jeff bezos|bezos|meta(?: platforms?)?|facebook|instagram|threads|whatsapp|twitter|tweet(?:s|ed|ing)?|amazon|tesla|cybertruck|spacex|starlink|blue origin)\b|(?:^|[\s./])x\.com(?:[\s/?#]|$)/i;
-const absoluteSafetyBlocked = value => politicsReligionZeroToleranceBlocked.test(value) || emergencyBlocked.test(value) || civicBlocked.test(value) || editorialToneBlocked(value) || barredTechEmpireBlocked.test(value);
+const absoluteSafetyBlocked = value => politicsReligionZeroToleranceBlocked.test(value) || emergencyBlocked.test(value) || civicBlocked.test(value) || civicAgendaBlocked.test(value) || alarmingIncidentBlocked.test(value) || editorialToneBlocked(value) || barredTechEmpireBlocked.test(value);
 const titleFingerprint = value => normalizedIdentityTitle(value).split(/\s+/).filter(word => word.length > 2).slice(0, 9).join(" ");
 const titleFamily = value => [...new Set(normalizedIdentityTitle(value).split(/\s+/).filter(word => word.length > 3))].sort().slice(0, 14).join(" ");
 const retiredRepeat = /\b(?:james hetfield.*metallica|cis football (?:field|locations?)|runway magazine covers? celebrating 25th anniversary|rocky horror.*mad scientist|chanel iman.*runway.*2009|not all boredom is the same|lush foliage permeates xanthe burdett)\b/i;

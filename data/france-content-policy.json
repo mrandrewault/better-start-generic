@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "locale": "fr-FR",
+  "edition": "paris",
+  "principle": "A story must be both safe and affirmatively delightful. Merely being non-political is not enough.",
+  "absolute_exclusions": {
+    "politics_and_government": [
+      "politique", "politicien", "parti politique", "majorité", "opposition", "campagne électorale", "élection", "scrutin", "vote", "sondage électoral",
+      "président de la république", "présidence", "élysée", "matignon", "premier ministre", "ministre", "gouvernement", "remaniement", "cabinet ministériel",
+      "assemblée nationale", "sénat", "député", "sénateur", "parlement", "projet de loi", "proposition de loi", "décret", "ordonnance", "réforme",
+      "maire", "mairie", "hôtel de ville", "conseil municipal", "conseil régional", "conseil départemental", "préfecture", "préfet", "collectivité territoriale",
+      "budget public", "dépense publique", "impôt", "taxe", "fiscalité", "subvention publique", "service public", "administration publique"
+    ],
+    "civic_conflict_and_labor": [
+      "grève", "préavis de grève", "manifestation", "mobilisation", "cortège", "blocage", "piquet de grève", "syndicat", "syndical", "conflit social",
+      "bras de fer", "négociations sociales", "convention collective", "retraite", "réforme des retraites", "licenciement", "plan social", "suppression de postes",
+      "fermeture d'école", "fermeture de classe", "carte scolaire", "conseil d'administration", "politique scolaire", "fonction publique"
+    ],
+    "controversy_and_culture_war": [
+      "polémique", "controverse", "fait débat", "ne fait pas l'unanimité", "sous le feu des critiques", "provoque un tollé", "levée de boucliers",
+      "colère", "indignation", "scandale", "affaire", "accusation", "mis en cause", "mise en cause", "plainte", "procès", "tribunal", "justice",
+      "laïcité", "identité nationale", "immigration", "migrant", "réfugié", "asile", "frontière", "communautarisme", "cancel culture", "guerre culturelle"
+    ],
+    "crime_violence_and_weapons": [
+      "arme", "armes", "arme à feu", "pistolet", "revolver", "fusil", "carabine", "munition", "coup de feu", "tir", "tirs", "fusillade",
+      "violence", "violent", "agression", "meurtre", "assassinat", "homicide", "attentat", "terrorisme", "attaque", "viol", "abus sexuel",
+      "enlèvement", "otage", "trafic humain", "gang", "narcotrafic", "faits divers", "police", "gendarmerie", "arrestation", "garde à vue", "enquête criminelle"
+    ],
+    "war_and_geopolitics": [
+      "guerre", "invasion", "bombardement", "frappe militaire", "armée", "militaire", "missile", "drone de combat", "conflit armé",
+      "sanction internationale", "diplomatie", "géopolitique", "otan", "union européenne", "commission européenne", "parlement européen"
+    ],
+    "tragedy_and_distress": [
+      "mort", "décès", "tué", "tuer", "victime", "bilan humain", "funérailles", "deuil", "suicide", "overdose", "maladie grave", "cancer",
+      "catastrophe", "désastre", "incendie meurtrier", "inondation meurtrière", "effondrement", "disparition inquiétante", "souffrance", "maltraitance",
+      "crise", "pénurie", "menace", "fermeture", "faillite", "déclin", "perte d'emploi", "chômage"
+    ],
+    "religion": [
+      "religion", "religieux", "église", "catholique", "protestant", "évangélique", "judaïsme", "juif", "islam", "musulman", "mosquée", "synagogue",
+      "clergé", "prêtre", "pape", "vatican", "rabbin", "imam", "culte", "foi", "théologie", "secte"
+    ],
+    "negative_criticism_and_snark": [
+      "critique négative", "mauvaise critique", "échec", "rate son pari", "ne convainc pas", "déçoit", "décevant", "déception", "le pire", "navet",
+      "sans intérêt", "à éviter", "on a détesté", "tombe à plat", "manque sa cible", "ridicule", "moquerie", "sarcasme", "cynique", "snob", "tacle",
+      "étrille", "démolit", "descend en flammes", "massacre", "flop", "fiasco", "désastre artistique"
+    ],
+    "rage_bait": [
+      "buzz", "bad buzz", "internet s'enflamme", "les internautes sont furieux", "provoque la colère", "fait scandale", "vous n'allez pas croire",
+      "choc", "choquant", "hallucinant", "incroyable mais vrai", "tout le monde en parle", "clash", "règlement de comptes"
+    ],
+    "unsafe_adult_or_body_content": [
+      "pornographie", "pornographique", "nudité", "nu intégral", "nue", "topless", "érotique", "sexuellement explicite", "lingerie transparente",
+      "perte de poids", "maigrir", "régime minceur", "obésité", "graisse corporelle", "corps idéal", "anti-âge"
+    ]
+  },
+  "contextual_rules": [
+    {
+      "rule": "Institutions are not automatically safe",
+      "description": "Museums, universities and city institutions may be used for exhibitions, discoveries and public programs, but not governance, budgets, appointments, disputes or policy."
+    },
+    {
+      "rule": "Transformation can outweigh a closure term",
+      "description": "A closed factory becoming an artist studio may qualify; a threatened closure, layoffs or community dispute does not."
+    },
+    {
+      "rule": "Reviews require affirmative tone",
+      "description": "Recommendations, appreciations and discoveries may qualify. Ratings, takedowns, disappointment and adversarial criticism do not."
+    },
+    {
+      "rule": "Events must be culturally safe",
+      "description": "Festivals, exhibitions and neighborhood celebrations qualify only when their subject is not political, religious, controversial or distressing."
+    }
+  ],
+  "positive_qualification": [
+    "beautiful", "playful", "ingenious", "restorative", "useful", "generous", "culturally enriching", "surprising", "wonder-inducing", "locally discoverable"
+  ],
+  "review_labels": [
+    "fits_meanwhile_paris", "safe_but_uninteresting", "too_political", "too_negative", "too_controversial", "too_touristy", "culturally_awkward", "rights_unclear", "reject"
+  ]
+}
