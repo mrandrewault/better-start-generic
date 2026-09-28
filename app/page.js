@@ -4,6 +4,7 @@ import {EDITION_PALETTES, mastheadPalette} from "./palettes";
 import {supabase, supabaseConfigured} from "../lib/supabase";
 
 const BATCH_SIZE = 25;
+const ACTIVE_POLICY_VERSION = 28;
 const EDITION_MS = 2 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -17,7 +18,7 @@ const DELIVERED_INVENTORY_LEDGER_KEY = "meanwhileDeliveredInventoryHashesV1";
 // V5 deliberately drops the text-heavy V4 bench. V4 is still migrated into
 // the prior-delivery ledger below, so dropping its presentation cannot grant
 // any of its stories another appearance.
-const FEED_SNAPSHOT_KEY = "meanwhileFeedSnapshotV9";
+const FEED_SNAPSHOT_KEY = "meanwhileFeedSnapshotV11";
 const STORY_HISTORY_LIMIT = 1500;
 const SEEN_STORY_LEDGER_LIMIT = 200000;
 const DAYPART_MESSAGES = {
@@ -115,7 +116,7 @@ const mixedInk = (position = 0, palette = EDITION_PALETTES[0]) => {
 const categoryClass = section => `cat-${(section || "news").toLowerCase().replace(/[^a-z]+/g, "-").replace(/(^-|-$)/g, "")}`;
 const normalizedIdentityTitle = value => (value || "").toLowerCase().replace(/\b(the|a|an|and|or|but|to|of|for|in|on|at|with|from)\b/g, " ").replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
 const emergencyBlocked = /\b(trump|maga|maha|zohran mamdani|mamdani|benjamin netanyahu|netanyahu|israel(?:i)?|palestin(?:e|ian)|gaza|west bank|middle east conflict|nazi|neo[- ]?nazi|white supremac|shooting|gunman|guns?|firearms?|rifles?|pistols?|revolvers?|shotguns?|ammunition|assault weapons?|murder|war|terroris|rape|sexual abuse|suicide|overdose|deadly|killed|outrage|religious|christian nationalism|white nationalism|nationalis(?:m|t)|religious right|religious left|culture[- ]?war|conservative|liberal|left[- ]wing|right[- ]wing|partisan|ideology|ideological|activis(?:m|t)|advocacy|protest|legislation|legislature|policy debate|government|federal agency|immigration|abortion|gun rights?|gun control|book ban|school board|voting rights?|civil rights legislation|geopolitic|diploma(?:cy|tic)|sanctions?|anti[- ]?vax|ufc|mma|gambling|google pixel|samsung galaxy|android phone|jeff bezos|bmi|body fat|weight[- ]loss|being thin|obesity|overweight|porn(?:ography|ographic)?|nsfw|nud(?:e|ity)|naked|topless|full[- ]?frontal|genitals?|penis|vulva|vagina|erotic(?:a)?|sexually explicit|miami (?:fashion|swim) week|miami nightlife|swim week|bikini(?:s)?|micro[- ]?bikini|thong(?:s)?|lingerie|underwear runway|swimwear runway|see[- ]?through (?:dress|fashion|outfit)|sheer (?:dress|fashion|outfit))\b/i;
-const joyContractBlocked = /\b(?:casino|casinos|gambling|sportsbook|wager(?:ing)?|lottery|jackpot|sam'?s club|member'?s mark|walmart|costco|big[- ]box|shopping deals?|best buys?|android|nokia phone|google pixel|samsung galaxy|prisons?|jails?|incarcerat(?:e|ed|ion)|correctional|detention center|sentenced? to|criminal sentence|private equity|leveraged buyout|portfolio compan(?:y|ies)|beverage container program|bottle bill|container deposit|redemption program|motorcycles?|motorbikes?|motocross|superbikes?|cafe racers?|choppers?|manosphere|red pill|alpha male|pickup artist|men'?s rights|incels?|andrew tate|fresh and fit)\b/i;
+const joyContractBlocked = /\b(?:casino|casinos|gambling|sportsbook|wager(?:ing)?|lottery|jackpot|sam'?s club|member'?s mark|walmart|costco|big[- ]box|shopping deals?|best buys?|android|nokia|samsung|microsoft|windows (?:pc|computer)|pc (?:computer|computers|gaming|hardware)|surface (?:pro|laptop|computer)|prisons?|jails?|incarcerat(?:e|ed|ion)|correctional|detention center|sentenced? to|criminal sentence|private equity|leveraged buyout|portfolio compan(?:y|ies)|beverage container program|bottle bill|container deposit|redemption program|motorcycles?|motorbikes?|motocross|superbikes?|cafe racers?|choppers?|manosphere|red pill|alpha male|pickup artist|men'?s rights|incels?|andrew tate|fresh and fit|alcohol|alcoholic|beer|ale|lager|stout|brewery|breweries|taproom|wine|winery|wineries|vineyard|liquor|whisk(?:y|ey)|bourbon|vodka|gin|rum|tequila|cocktails?|champagne|prosecco|cider|distillery|distilleries|traffic circles?|roundabouts?|road construction|roadworks?|traffic|commute|highway construction|street construction|lane closures?|detours?)\b/i;
 const dullAdministrationBlocked = /\b(?:state|county|municipal|department|agency|authority|commission|board)\b.{0,90}\b(?:program|regulation|compliance|administration|funding|contract|procurement|container|recycling)\b/i;
 const pre1965VehicleBlocked = value => {
   if (!/\b(?:car|cars|automobile|automotive|roadster|coupe|sedan|wagon|convertible|vehicle)\b/i.test(value)) return false;
@@ -306,7 +307,11 @@ const localDayKey = date => `${date.getFullYear()}-${String(date.getMonth() + 1)
 const requestFeed = async payload => {
   const response = await fetch("/api/feed", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(payload), cache:"no-store"});
   if (!response.ok) throw new Error(`Feed request failed: ${response.status}`);
-  return response.json();
+  const edition = await response.json();
+  // Never let a newly deployed browser accept an edition produced by an
+  // older policy engine. Keep the last locally filtered edition instead.
+  if (edition?.policyVersion !== ACTIVE_POLICY_VERSION) throw new Error(`Outdated feed policy: ${edition?.policyVersion || "unknown"}`);
+  return edition;
 };
 const filterEditionGlobally = next => {
   // The browser is the final permanent gate. In addition to exact URL, image,
@@ -496,6 +501,10 @@ function Story({item, index, paletteIndex = index, palette, onRate, onSave, onSh
     return () => { observer.disconnect(); tile.querySelectorAll("img").forEach(image => image.removeEventListener("load", fitContents)); };
   }, [replacement.canonicalUrl, playing]);
   const inkStyle = !hasImage && !playable ? mixedInk(paletteIndex, palette) : undefined;
+  const finalSafetyText = `${replacement?.title || ""} ${replacement?.summary || ""} ${replacement?.source || ""} ${replacement?.section || ""} ${replacement?.url || ""}`;
+  // Last-resort rendering firewall: even malformed or manually injected data
+  // cannot paint a prohibited card onto the page.
+  if (absoluteSafetyBlocked(finalSafetyText) || religionBlocked.test(finalSafetyText) || educationCultureWarBlocked.test(finalSafetyText) || corporateAmazonBlocked(finalSafetyText) || retiredRepeat.test(finalSafetyText)) return null;
   return <article ref={tileRef} style={inkStyle} className={`tile tile-${type} tile-pattern-${index % 9} ${hasImage ? "tile-has-image" : "tile-no-image tile-text-art tile-mixed-ink"} ${categoryClass(replacement.section)}`}>
     {playable && playing ? <div className="inlinePlayer"><iframe src={playerUrl} title={replacement.title} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen /></div> : hasImage && (playable ? <button className="imageLink mediaTrigger" onClick={() => setPlaying(true)} aria-label={`Play ${replacement.title}`}><img src={replacement.image} alt="" onLoad={inspectImage} onError={() => setImageRejected(true)} /><span className="play">▶</span></button> : <a className="imageLink" href={replacement.url} target="_blank" rel="noreferrer"><img src={replacement.image} alt="" onLoad={inspectImage} onError={() => setImageRejected(true)} /></a>)}
     <div className="tileBody"><div className="kicker"><span>{replacement.mixLabel || replacement.section}</span><span>{type === "bandcamp" ? "New release" : type === "video" ? "Saved find" : age(replacement.date)}</span></div><h3><a href={replacement.url} target="_blank" rel="noreferrer">{replacement.title}</a></h3>{replacement.summary && type !== "visual" && <p>{replacement.summary.slice(0, type === "feature" ? 280 : 170)}</p>}<div className="meta">{replacement.source}</div><Feedback item={replacement} onRate={onRate} onSave={onSave} onShare={onShare} saved={saved}/></div>
@@ -596,7 +605,7 @@ export default function Home() {
     try {
       // Show the last safe edition immediately, including once during a cache
       // version upgrade, while a new edition is assembled out of sight.
-      cachedSnapshot = JSON.parse(localStorage.getItem(FEED_SNAPSHOT_KEY) || localStorage.getItem("meanwhileFeedSnapshotV8") || "null");
+      cachedSnapshot = JSON.parse(localStorage.getItem(FEED_SNAPSHOT_KEY) || localStorage.getItem("meanwhileFeedSnapshotV9") || localStorage.getItem("meanwhileFeedSnapshotV8") || "null");
       // Register every previous bench before requesting anything. A cache-key
       // upgrade may discard stale presentation, but never its delivery record.
       rotateDeliveredInventory();
@@ -635,8 +644,10 @@ export default function Home() {
         const primary = editions[0], reserved = [...(primary?.tickerStories || []), primary?.goodNews, ...(primary?.favorites || [])].filter(Boolean);
         const assembled = {...primary,
           gallery:claimSessionUnique(editions.flatMap(edition => edition?.gallery || []), reserved).slice(0, 300),
-          media:claimSessionUnique(editions.flatMap(edition => edition?.media || []), reserved).slice(0, 40),
-          serendipity:claimSessionUnique(editions.flatMap(edition => edition?.serendipity || []), reserved).slice(0, 60)
+          media:claimSessionUnique(editions.flatMap(edition => edition?.media || []), reserved).slice(0, 90),
+          serendipity:claimSessionUnique(editions.flatMap(edition => edition?.serendipity || []), reserved).slice(0, 180),
+          important:claimSessionUnique(editions.flatMap(edition => edition?.important || []), reserved).slice(0, 30),
+          visualReserve:claimSessionUnique(editions.flatMap(edition => edition?.visualReserve || []), reserved).slice(0, 72)
         };
         localStorage.setItem("betterStartReaderDay", today); setJoyHistory(recentHistory("betterStartReaderJoyHistory"));
         if (preserve && !hardRefresh) {
@@ -681,7 +692,25 @@ export default function Home() {
   // The API has already composed gallery in balanced 20-story windows. Keep
   // that canonical order: merging the auxiliary shelves here used to destroy
   // the topic quotas and was the source of sports-heavy and repeated pages.
-  const wall = useMemo(() => claimSessionUnique(data?.gallery || [], [...(data?.tickerStories || [data?.ribbonFavorite]), data?.goodNews, ...uniqueFavorites]), [data, uniqueFavorites]);
+  const wall = useMemo(() => {
+    const candidates = claimSessionUnique([
+      ...(data?.gallery || []),
+      ...(data?.serendipity || []),
+      ...(data?.important || []),
+      ...(data?.media || []),
+      ...(data?.visualReserve || [])
+    ], [...(data?.tickerStories || [data?.ribbonFavorite]), data?.goodNews, ...uniqueFavorites]);
+    const result = [];
+    let bicycleCount = 0;
+    candidates.forEach(item => {
+      const text = `${item?.title || ""} ${item?.summary || ""} ${item?.section || ""}`;
+      const bicycle = /\b(?:bicycle|bicycles|cargo bike|city bike|e-bike|cycling)\b/i.test(text);
+      if (bicycle && (bicycleCount >= 4 || result.slice(-60).some(story => /\b(?:bicycle|bicycles|cargo bike|city bike|e-bike|cycling)\b/i.test(`${story?.title || ""} ${story?.summary || ""} ${story?.section || ""}`)))) return;
+      if (bicycle) bicycleCount += 1;
+      result.push(item);
+    });
+    return result;
+  }, [data, uniqueFavorites]);
   // This is an append-only edition sequence. Do not re-sort it when another
   // batch arrives: that made already-read stories jump to a new screen position.
   // Joy breaks are deterministic members of the same sequence, so they return
@@ -737,7 +766,7 @@ export default function Home() {
       const current = dataRef.current;
       // Only displayed/reserved stories count as consumed. Hidden auxiliary
       // shelves are valid inventory for the next 25, not phantom duplicates.
-      const currentItems = [...(current?.tickerStories || []), current?.goodNews, ...(current?.favorites || []), ...(current?.gallery || [])].filter(Boolean);
+      const currentItems = editionInventoryItems(current);
       const avoid = [...new Set(mediaHistory.map(entry => entry.id))].slice(-120).join(",");
       const currentStoryKeys = currentItems.flatMap(item => [itemKey(item), ...identityKeys(item)]);
       // Infinite scroll has a session contract: exclude everything already in
@@ -862,6 +891,6 @@ export default function Home() {
       {data && <div className="infiniteSentinel" ref={loadMoreRef} aria-hidden="true" />}
     </section>
 
-    <footer><b>MEANWHILE</b></footer>
+    <footer><b>MEANWHILE</b><span>BUILD 28</span></footer>
   </main>;
 }

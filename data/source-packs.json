@@ -135,7 +135,7 @@
   {
     "id":"food-travel",
     "label":"Food, Tables + Places",
-    "signals":["food","restaurant","cooking","recipe","chef","coffee","wine","travel","hotels","somewhere good to eat"],
+    "signals":["food","restaurant","cooking","recipe","chef","coffee","tea","travel","hotels","somewhere good to eat"],
     "sources":[
       {"name":"Saveur","url":"https://news.google.com/rss/search?q=site%3Asaveur.com+food+recipe+travel+tradition+-politics&hl=en-US&gl=US&ceid=US:en","section":"FOOD + CULTURE","quality":11},
       {"name":"Eater","url":"https://www.eater.com/rss/index.xml","section":"FOOD + TRAVEL","quality":10},

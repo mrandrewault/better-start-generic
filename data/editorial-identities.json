@@ -34,8 +34,8 @@
   "food": {
     "label": "Food, Tables + Places",
     "packs": ["food-travel"],
-    "signals": ["food", "restaurant", "cooking", "recipe", "coffee", "wine", "baking", "dining", "chef", "travel"],
-    "references": ["Saveur", "Food & Wine", "Eater", "The Infatuation", "Serious Eats", "Cherry Bombe", "Whetstone", "Life & Thyme", "Sprudge"],
+    "signals": ["food", "restaurant", "cooking", "recipe", "coffee", "tea", "baking", "dining", "chef", "travel"],
+    "references": ["Saveur", "Eater", "The Infatuation", "Serious Eats", "Cherry Bombe", "Whetstone", "Life & Thyme", "Sprudge"],
     "accent": "saffron",
     "imageTarget": 0.65
   },

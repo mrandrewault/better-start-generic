@@ -14,6 +14,7 @@ const sourceFeedCache = new Map();
 const storyImageCache = new Map();
 const SOURCE_CACHE_MS = 10 * 60 * 1000;
 const IMAGE_CACHE_MS = 30 * 60 * 1000;
+const ACTIVE_POLICY_VERSION = 28;
 async function parseSourceCached(source) {
   const prior = sourceFeedCache.get(source.url);
   if (prior && prior.expires > Date.now()) return prior.promise;
@@ -50,7 +51,7 @@ const religionUnsafe = /\b(?:religion|religious|faith(?:ful)?|christian(?:ity)?|
 const editoriallyExcluded = /\b(pickleball|tesla|cybertruck|elon musk|mark zuckerberg|meta platforms?|marvel cinematic|gordon ramsay|guy fieri|wall street|stock market|james patterson|young adult fiction|horror film|horror novel|hunting)\b/i;
 // These are not merely low-priority topics. They are outside Meanwhile's
 // promise and must be rejected before ranking, personalization or backfill.
-const joyContractUnsafe = /\b(?:casino|casinos|gambling|sportsbook|wager(?:ing)?|lottery|jackpot|sam'?s club|member'?s mark|walmart|costco|big[- ]box|shopping deals?|best buys?|android|android phone|nokia phone|google pixel|samsung galaxy|prisons?|jails?|incarcerat(?:e|ed|ion)|correctional|detention center|sentenced? to|criminal sentence|private equity|leveraged buyout|portfolio compan(?:y|ies)|beverage container program|bottle bill|container deposit|redemption program|motorcycles?|motorbikes?|motocross|superbikes?|cafe racers?|choppers?|manosphere|red pill|alpha male|pickup artist|men'?s rights|incels?|andrew tate|fresh and fit)\b/i;
+const joyContractUnsafe = /\b(?:casino|casinos|gambling|sportsbook|wager(?:ing)?|lottery|jackpot|sam'?s club|member'?s mark|walmart|costco|big[- ]box|shopping deals?|best buys?|android|nokia|samsung|microsoft|windows (?:pc|computer)|pc (?:computer|computers|gaming|hardware)|surface (?:pro|laptop|computer)|prisons?|jails?|incarcerat(?:e|ed|ion)|correctional|detention center|sentenced? to|criminal sentence|private equity|leveraged buyout|portfolio compan(?:y|ies)|beverage container program|bottle bill|container deposit|redemption program|motorcycles?|motorbikes?|motocross|superbikes?|cafe racers?|choppers?|manosphere|red pill|alpha male|pickup artist|men'?s rights|incels?|andrew tate|fresh and fit|alcohol|alcoholic|beer|ale|lager|stout|brewery|breweries|taproom|wine|winery|wineries|vineyard|liquor|whisk(?:y|ey)|bourbon|vodka|gin|rum|tequila|cocktails?|champagne|prosecco|cider|distillery|distilleries|traffic circles?|roundabouts?|road construction|roadworks?|traffic|commute|highway construction|street construction|lane closures?|detours?)\b/i;
 const dullAdministrationUnsafe = /\b(?:state|county|municipal|department|agency|authority|commission|board)\b.{0,90}\b(?:program|regulation|compliance|administration|funding|contract|procurement|container|recycling)\b/i;
 function pre1965VehicleUnsafe(value = "") {
   if (!/\b(?:car|cars|automobile|automotive|roadster|coupe|sedan|wagon|convertible|vehicle)\b/i.test(value)) return false;
@@ -326,14 +327,16 @@ function enforceVisualShare(items, target = .80, minimum = 100) {
 // this contract cannot be relaxed by a later “make it 100” operation.
 function enforceFinalMagazineContract(items, count = 100) {
   const pool = unique(items).map(item => ({...item, mixLane:item.mixLane || contentLane(item)}));
-  const result = [], sourceCounts = new Map(), laneCounts = new Map();
+  const result = [], sourceCounts = new Map(), laneCounts = new Map(), vehicleCounts = new Map();
   const canTake = (item, visualOnly = false) => {
     const source = normalizeSource(item.source), lane = item.mixLane;
     const block = result.slice(result.length - result.length % 20);
+    const recent = result.slice(-60), kind = lane === "auto" ? vehicleKind(item) : "";
     const special = /^(?:nasa|jstor daily|colossal)$/.test(source);
     if (visualOnly && !(item.image || item.videoId)) return false;
     if ((sourceCounts.get(source) || 0) >= (special ? 1 : 8)) return false;
     if ((laneCounts.get(lane) || 0) >= 25) return false;
+    if (kind === "bicycle" && ((vehicleCounts.get(kind) || 0) >= 4 || recent.some(entry => entry.mixLane === "auto" && vehicleKind(entry) === "bicycle"))) return false;
     if (block.filter(entry => normalizeSource(entry.source) === source).length >= 2) return false;
     if (block.filter(entry => entry.mixLane === lane).length >= 3) return false;
     return true;
@@ -349,6 +352,7 @@ function enforceFinalMagazineContract(items, count = 100) {
     pool.splice(pool.indexOf(winner), 1); result.push(winner);
     sourceCounts.set(source, (sourceCounts.get(source) || 0) + 1);
     laneCounts.set(lane, (laneCounts.get(lane) || 0) + 1);
+    if (lane === "auto") { const kind = vehicleKind(winner); vehicleCounts.set(kind, (vehicleCounts.get(kind) || 0) + 1); }
     return true;
   };
   while (result.length < count && pool.length) {
@@ -1058,7 +1062,7 @@ async function feedResponse(params) {
   const openingWindow = gallery.slice(0, 20);
   const actualCounts = Object.fromEntries(Object.keys(BALANCED_MAGAZINE_COUNTS).map(lane => [lane, openingWindow.filter(item => item.mixLane === lane).length]));
   const personalizedCount = openingWindow.filter(item => item.personalFit !== "editorial").length;
-  return Response.json({generatedAt: new Date().toISOString(), edition: Math.floor(Date.now() / 72e5), personalized:!!interests.length, hasGoodDog, editorialIdentity:{id:editorialIdentity.id,label:editorialIdentity.label,accent:editorialIdentity.accent,references:editorialIdentity.references,imageTarget:editorialIdentity.imageTarget}, composition:{window:20,targetCounts,actualCounts,personalization:{maximum:10,actual:personalizedCount,generic:openingWindow.length-personalizedCount},labels:MIX_LABELS}, activeSourcePacks:activePacks.map(pack => ({id:pack.id,label:pack.label,hits:pack.hits})), tickerStories, ribbonFavorite, goodNews, favorites: favoriteSelection, media, gallery, visualReserve, important, serendipity, sourceStatus: {total: sources.length, auditedPool:auditedSources.length, auditedCatalog:load("approved-sources.json").filter(source => !civicPublisherUnsafe.test(source.name || "")).length, specialist:specialistSources.length, successful: results.filter(result => result.status === "fulfilled").length}}, {headers: {"Cache-Control": "no-store"}});
+  return Response.json({policyVersion:ACTIVE_POLICY_VERSION, generatedAt: new Date().toISOString(), edition: Math.floor(Date.now() / 72e5), personalized:!!interests.length, hasGoodDog, editorialIdentity:{id:editorialIdentity.id,label:editorialIdentity.label,accent:editorialIdentity.accent,references:editorialIdentity.references,imageTarget:editorialIdentity.imageTarget}, composition:{window:20,targetCounts,actualCounts,personalization:{maximum:10,actual:personalizedCount,generic:openingWindow.length-personalizedCount},labels:MIX_LABELS}, activeSourcePacks:activePacks.map(pack => ({id:pack.id,label:pack.label,hits:pack.hits})), tickerStories, ribbonFavorite, goodNews, favorites: favoriteSelection, media, gallery, visualReserve, important, serendipity, sourceStatus: {total: sources.length, auditedPool:auditedSources.length, auditedCatalog:load("approved-sources.json").filter(source => !civicPublisherUnsafe.test(source.name || "")).length, specialist:specialistSources.length, successful: results.filter(result => result.status === "fulfilled").length}}, {headers: {"Cache-Control": "no-store"}});
 }
 
 export async function GET(request) {
