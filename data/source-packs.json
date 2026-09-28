@@ -107,12 +107,16 @@
   {
     "id":"cars-boats",
     "label":"Cars, Boats + Beautiful Machines",
-    "signals":["cars","automotive","motorcycles","boat","boats","sailing","yacht","maritime","transportation","trains","aviation"],
+    "signals":["cars","automotive","scooters","bicycles","boat","boats","sailing","yacht","maritime","transportation","trains","aviation","concept cars","electric cars","vehicle design"],
     "sources":[
-      {"name":"Hagerty Culture","url":"https://news.google.com/rss/search?q=site%3Ahagerty.com+classic+car+restoration+design+history+-crash+-politics&hl=en-US&gl=US&ceid=US:en","section":"CARS + CULTURE","quality":9},
-      {"name":"Automotive Design","url":"https://news.google.com/rss/search?q=automotive+design+concept+car+restoration+classic+beautiful+-crash+-politics&hl=en-US&gl=US&ceid=US:en","section":"CARS + DESIGN","quality":9},
+      {"name":"European Vehicle Design","url":"https://news.google.com/rss/search?q=%28European+OR+French+OR+Italian+OR+German+OR+British%29+%28electric+car+OR+city+car+OR+concept+car%29+design+innovation+-Tesla+-Musk+-crash&hl=en-GB&gl=GB&ceid=GB:en","section":"CARS + DESIGN","quality":11},
+      {"name":"Concept + Prototype Cars","url":"https://news.google.com/rss/search?q=%28concept+car+OR+automotive+prototype+OR+mobility+prototype%29+design+debut+-Tesla+-Musk+-crash+-politics&hl=en-GB&gl=GB&ceid=GB:en","section":"CARS + FUTURE","quality":10},
+      {"name":"Hagerty Culture","url":"https://news.google.com/rss/search?q=site%3Ahagerty.com+%281965..2026%29+%28European+OR+Italian+OR+French+OR+German+OR+British%29+car+restoration+design+-crash+-politics&hl=en-GB&gl=GB&ceid=GB:en","section":"CARS + CULTURE","quality":10},
+      {"name":"Bring a Trailer Highlights","url":"https://news.google.com/rss/search?q=site%3Abringatrailer.com+%281965..2026%29+%28European+OR+Italian+OR+French+OR+German+OR+British%29+%28rare+OR+unusual%29+-Tesla+-Musk&hl=en-GB&gl=GB&ceid=GB:en","section":"CARS + CULTURE","quality":10},
+      {"name":"Bicycle + Cargo Design","url":"https://news.google.com/rss/search?q=%28bicycle+design+OR+cargo+bike+OR+electric+bicycle+OR+city+bike%29+innovation+beautiful+-crash+-politics&hl=en-GB&gl=GB&ceid=GB:en","section":"BICYCLES + DESIGN","quality":10},
+      {"name":"Scooters + Small Mobility","url":"https://news.google.com/rss/search?q=%28vintage+scooter+OR+electric+scooter+OR+Vespa+OR+small+mobility%29+design+restoration+-crash+-politics&hl=en-GB&gl=GB&ceid=GB:en","section":"SCOOTERS + DESIGN","quality":9},
+      {"name":"Wooden Boats + Boatbuilding","url":"https://news.google.com/rss/search?q=%28wooden+boat+OR+classic+boat+OR+boatbuilding%29+restoration+craft+launch+-politics+-accident&hl=en-GB&gl=GB&ceid=GB:en","section":"BOATS + CRAFT","quality":10},
       {"name":"Sailing Life","url":"https://news.google.com/rss/search?q=sailing+sailboat+cruising+restoration+maritime+beautiful+-politics&hl=en-US&gl=US&ceid=US:en","section":"SAILING + WATER","quality":9},
-      {"name":"Boatbuilding Craft","url":"https://news.google.com/rss/search?q=boatbuilding+wooden+boat+restoration+craft+launch+-politics&hl=en-US&gl=US&ceid=US:en","section":"BOATS + CRAFT","quality":9},
       {"name":"Rail + Aviation","url":"https://news.google.com/rss/search?q=train+aviation+design+history+restoration+museum+-politics+-crash&hl=en-US&gl=US&ceid=US:en","section":"TRANSPORT + DESIGN","quality":8}
     ]
   },

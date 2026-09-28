@@ -1,6 +1,6 @@
 {
   "name": "meanwhile-personalized",
-  "version": "24.0.0",
+  "version": "26.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",

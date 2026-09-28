@@ -48,6 +48,15 @@ const isIndependentPublisher = (publisher, source = {}) => {
 };
 const religionUnsafe = /\b(?:religion|religious|faith(?:ful)?|christian(?:ity)?|catholic(?:ism)?|protestant(?:ism)?|evangelical(?:ism)?|jewish|judaism|muslim|islam(?:ic)?|hindu(?:ism)?|buddhis(?:m|t)|sikh(?:ism)?|mormon(?:ism)?|latter[- ]day saints?|church|cathedral|chapel|synagogue|mosque|bible|biblical|torah|talmud|quran|koran|scripture|gospel|theology|theological|clergy|cleric|priest|pastor|pope|papal|vatican|rabbi|imam|monk|nun|worship|sermon|congregation|parish|diocese|god|jesus|christ|messiah|allah|yahweh|religious nationalism|christian nationalism|zionis(?:m|t)|antisemiti(?:c|sm)|islamophobi(?:a|c))\b/i;
 const editoriallyExcluded = /\b(pickleball|tesla|cybertruck|elon musk|mark zuckerberg|meta platforms?|marvel cinematic|gordon ramsay|guy fieri|wall street|stock market|james patterson|young adult fiction|horror film|horror novel|hunting)\b/i;
+// These are not merely low-priority topics. They are outside Meanwhile's
+// promise and must be rejected before ranking, personalization or backfill.
+const joyContractUnsafe = /\b(?:casino|casinos|gambling|sportsbook|wager(?:ing)?|lottery|jackpot|sam'?s club|member'?s mark|walmart|costco|big[- ]box|shopping deals?|best buys?|android|android phone|nokia phone|google pixel|samsung galaxy|prisons?|jails?|incarcerat(?:e|ed|ion)|correctional|detention center|sentenced? to|criminal sentence|private equity|leveraged buyout|portfolio compan(?:y|ies)|beverage container program|bottle bill|container deposit|redemption program|motorcycles?|motorbikes?|motocross|superbikes?|cafe racers?|choppers?|manosphere|red pill|alpha male|pickup artist|men'?s rights|incels?|andrew tate|fresh and fit)\b/i;
+const dullAdministrationUnsafe = /\b(?:state|county|municipal|department|agency|authority|commission|board)\b.{0,90}\b(?:program|regulation|compliance|administration|funding|contract|procurement|container|recycling)\b/i;
+function pre1965VehicleUnsafe(value = "") {
+  if (!/\b(?:car|cars|automobile|automotive|roadster|coupe|sedan|wagon|convertible|vehicle)\b/i.test(value)) return false;
+  const years = [...value.matchAll(/\b(18\d{2}|19\d{2}|20\d{2})\b/g)].map(match => Number(match[1]));
+  return years.some(year => year < 1965) || /\b(?:pre[- ]?war|brass era|horseless carriage)\b/i.test(value);
+}
 // Confirmed archive repeats stay retired even for readers whose older browser
 // history predates the permanent story ledger.
 const retiredRepeat = /\b(?:james hetfield.*metallica|cis football (?:field|locations?)|runway magazine covers? celebrating 25th anniversary|rocky horror.*mad scientist|chanel iman.*runway.*2009|not all boredom is the same|lush foliage permeates xanthe burdett)\b/i;
@@ -130,7 +139,7 @@ function isDisallowed(item) {
   const value = policyText(`${item.title || ""} ${item.summary || ""} ${item.contentSnippet || ""} ${item.source || ""} ${item.section || ""}`);
   const raw = `${item.title || ""} ${item.summary || ""} ${item.contentSnippet || ""} ${item.source || ""} ${item.section || ""} ${item.url || ""}`;
   const routineSports = sportsSignal.test(raw) && (!humanInterestSports(item) || routineSportsUnsafe.test(raw));
-  return bannedSource(item) || routineSports || politicsReligionZeroTolerance.test(raw) || barredTechEmpire.test(raw) || civicUnsafe.test(raw) || civicAgendaUnsafe.test(raw) || alarmingIncidentUnsafe.test(raw) || weaponsUnsafe.test(raw) || editorialToneUnsafe(raw) || retiredRepeat.test(raw) || politicsUnsafe.test(raw) || religionUnsafe.test(raw) || educationCultureWarUnsafe.test(raw) || editoriallyExcluded.test(raw) || bodyAnxiety.test(raw) || publicSpaceUnsafe.test(raw) || suggestiveFashionUnsafe.test(raw) || blockedTerms.some(term => value.includes(policyText(term)));
+  return bannedSource(item) || routineSports || joyContractUnsafe.test(raw) || dullAdministrationUnsafe.test(raw) || pre1965VehicleUnsafe(raw) || politicsReligionZeroTolerance.test(raw) || barredTechEmpire.test(raw) || civicUnsafe.test(raw) || civicAgendaUnsafe.test(raw) || alarmingIncidentUnsafe.test(raw) || weaponsUnsafe.test(raw) || editorialToneUnsafe(raw) || retiredRepeat.test(raw) || politicsUnsafe.test(raw) || religionUnsafe.test(raw) || educationCultureWarUnsafe.test(raw) || editoriallyExcluded.test(raw) || bodyAnxiety.test(raw) || publicSpaceUnsafe.test(raw) || suggestiveFashionUnsafe.test(raw) || blockedTerms.some(term => value.includes(policyText(term)));
 }
 function wasRecentlyShown(item, avoidStories) {
   if (!avoidStories?.size) return false;
@@ -142,11 +151,11 @@ function hasBadMood(value) {
 }
 function isJoyful(item) {
   const value = `${item.title || ""} ${item.summary || ""}`;
-  return /discover|new|beautiful|guide|best|love|return|release|photo|album|art|music|food|travel|space|nature|design|book|film|restor|celebrat|rescue|record|garden|recipe|festival|museum|wins?\b|victory|comeback|advance|adopt|reunited|kindness|community|uplifting|inspir|opens?|achievement|breakthrough|volunteer|conservation|recovery|success|helps?|creates?|invent/i.test(value) && !hasBadMood(value);
+  return /beautiful|delight|wonder|surpris|joy|love|photo|album|art|music|food|travel|space|nature|design|book|film|restor|celebrat|rescue|garden|recipe|festival|museum|comeback|adopt|reunited|kindness|uplifting|inspir|achievement|breakthrough|volunteer|conservation|success|creates?|invent|craft|atelier|exhibition|wildlife|animal|architecture|landscape|discovery/i.test(value) && !hasBadMood(value);
 }
 function isSpecialistWorthwhile(item) {
   const value = `${item.title || ""} ${item.summary || ""}`;
-  return /profile|interview|explainer|guide|design|history|archive|craft|studio|maker|founder|leader|company|business|market|finance|style|fashion|couture|runway|atelier|collection|costume|wardrobe|beauty|cosmetic|photographer|photography|painting|drawing|illustration|artist|gallery|exhibition|supermodel|book|author|novelist|library|museum|yoga|pilates|movement|wellness|fitness|running|garden|plant|workshop|repair|restor|car|automotive|boat|sail|maritime|train|aviation|team|player|wnba|baseball|tennis|football|soccer/i.test(value) && !hasBadMood(value);
+  return /profile|interview|explainer|design|history|archive|craft|studio|maker|style|fashion|couture|runway|atelier|collection|costume|wardrobe|photographer|photography|painting|drawing|illustration|artist|gallery|exhibition|book|author|novelist|library|museum|garden|plant|workshop|repair|restor|car|automotive|boat|sail|maritime|train|aviation|architecture|food|chef|recipe|film|cinema|music|album|wildlife|animal|outdoors|travel/i.test(value) && !hasBadMood(value);
 }
 const bodyAnxiety = /\b(bmi|body fat|weight[- ]loss|lose weight|obesity|overweight|fat burning|belly fat|calorie deficit|dieting|slim down|thinness|being thin|beach body|anti-aging)\b/i;
 const distressedAnimal = /\b(abuse|abandoned|starving|dying|near death|neglect|euthan|dumped|injured|horrific|suffering|thousands of miles away)\b/i;
@@ -324,7 +333,7 @@ function enforceFinalMagazineContract(items, count = 100) {
     const special = /^(?:nasa|jstor daily|colossal)$/.test(source);
     if (visualOnly && !(item.image || item.videoId)) return false;
     if ((sourceCounts.get(source) || 0) >= (special ? 1 : 8)) return false;
-    if ((laneCounts.get(lane) || 0) >= 10) return false;
+    if ((laneCounts.get(lane) || 0) >= 25) return false;
     if (block.filter(entry => normalizeSource(entry.source) === source).length >= 2) return false;
     if (block.filter(entry => entry.mixLane === lane).length >= 3) return false;
     return true;
@@ -422,8 +431,8 @@ function isFreshLocal(item) {
   // used to be discarded here and replaced by a blanket 14-day allowance,
   // allowing slow RSS feeds to recycle the same archive cards for days.
   const configuredDays = Number(item.freshnessDays);
-  const sourceLimit = Number.isFinite(configuredDays) ? Math.max(1, configuredDays) : 1;
-  return age <= Math.min(1, sourceLimit);
+  const sourceLimit = Number.isFinite(configuredDays) ? Math.max(2, configuredDays) : 3;
+  return age <= Math.min(5, sourceLimit);
 }
 function isGoodNews(item) {
   const value = `${item.title || ""} ${item.summary || ""}`;
@@ -584,6 +593,15 @@ function contentLane(item) {
   if (matches(/\b(did you know|trivia|strange but true|curiosity|why do|how does|explainer|deep dive|little known)\b/)) return "trivia";
   if (matches(/\b(art|artist|museum|gallery|photograph|sculpt|paint|collage|street art)\b/)) return "arts";
   return "surprise";
+}
+
+function vehicleKind(item) {
+  const value = `${item?.title || ""} ${item?.summary || ""} ${item?.section || ""}`.toLowerCase();
+  if (/\b(?:bicycle|bike|cargo bike|cycle|cycling)\b/.test(value) && !/motorcycle|motorbike/.test(value)) return "bicycle";
+  if (/\b(?:boat|sailboat|yacht|boatbuilding|maritime|canoe)\b/.test(value)) return "boat";
+  if (/\b(?:scooter|vespa|moped)\b/.test(value)) return "scooter";
+  if (/\b(?:motorcycle|motorbike|cafe racer)\b/.test(value)) return "motorcycle";
+  return "car";
 }
 
 function personalizedCounts(interests = []) {
@@ -911,7 +929,7 @@ async function feedResponse(params) {
   const genericSources = packCatalog.filter(pack => genericPackIds.has(pack.id)).flatMap(pack => {
     // Arts needs the direct Colossal feed in the standing edition; unlike the
     // two Google relay feeds before it, that feed carries its own artwork.
-    const take = pack.id === "food-travel" ? 4 : pack.id === "arts-culture" ? 3 : 2;
+    const take = pack.id === "cars-boats" ? 10 : pack.id === "food-travel" ? 4 : pack.id === "arts-culture" ? 3 : 2;
     return pack.sources.slice(0, take).map(source => ({...source, pack:pack.id, packLabel:pack.label, packHits:0}));
   });
   const gallerySources = andrewGallerySources(editionName, visit), auditedSources = rotatingAuditedSources(visit);
@@ -929,7 +947,14 @@ async function feedResponse(params) {
   }));
   let all = [];
   results.forEach(result => { if (result.status === "fulfilled") all.push(...result.value); });
-  all = unique(all.filter(item => item.score > 18 && !isDisallowed(item) && !wasRecentlyShown(item, avoidStories) && contextAllowed(item, editorialIdentity) && (isJoyful(item) || (item.sourcePack && isSpecialistWorthwhile(item))) && isFreshLocal(item)).map(item => personalize(item, interests)).sort((a, b) => b.score - a.score));
+  const vehicleRotation = ["car","bicycle","boat","scooter"];
+  const vehicleFocus = vehicleRotation[parseInt(stableHash(visit), 36) % vehicleRotation.length];
+  all = unique(all.filter(item => item.score > 18 && !isDisallowed(item) && !wasRecentlyShown(item, avoidStories) && contextAllowed(item, editorialIdentity) && (isJoyful(item) || (item.sourcePack && isSpecialistWorthwhile(item))) && isFreshLocal(item)).map(item => {
+    const personalized = personalize(item, interests);
+    if (contentLane(personalized) !== "auto") return personalized;
+    const kind = vehicleKind(personalized);
+    return {...personalized,vehicleKind:kind,score:personalized.score + (kind === vehicleFocus ? 85 : 12)};
+  }).sort((a, b) => b.score - a.score));
   all = await enrichIdentityImages(all, editorialIdentity);
   // These two visually strong archive feeds can otherwise leak into several
   // page regions. One shared gate means one NASA story and one JSTOR story in
@@ -1000,8 +1025,8 @@ async function feedResponse(params) {
   // Source images attached to current reporting remain eligible.
   const allVisualShelf = [];
   const magazinePool = galleryPool;
-  const strictMagazine = balancedMagazine(magazinePool, 140, interests, random);
-  const completedBench = completeMagazineBench(strictMagazine, magazinePool, 140, random);
+  const strictMagazine = balancedMagazine(magazinePool, 280, interests, random);
+  const completedBench = completeMagazineBench(strictMagazine, magazinePool, 280, random);
   const benchKeys = new Set(completedBench.map(item => canonicalUrl(item.url)));
   const visualBackfill = magazinePool.filter(item =>
     (item.image || item.videoId)
@@ -1015,13 +1040,13 @@ async function feedResponse(params) {
     const url = canonicalUrl(item.url), title = normalizeTitle(item.title), topic = titleFingerprint(item.title), asset = commonsAssetKey(item);
     return !usedUrls.has(url) && !usedTitles.has(title) && !(topic && usedTopics.has(topic)) && !(asset && usedAssets.has(asset));
   });
-  const selectedMagazine = composeVisualWindows(availableMagazine, editorialIdentity, 140, 20);
+  const selectedMagazine = composeVisualWindows(availableMagazine, editorialIdentity, 280, 20);
   // Preserve the editor's 20-story windows. The client may arrange cards
   // inside each ten-card layout cluster, but no visual pass can import a later
   // story and silently alter the opening subject mix.
   // Quality wins over an arbitrary card count. Never refill after this gate:
   // doing so was the precise bug that restored text cards and source floods.
-  const gallery = claim(enforceFinalMagazineContract(selectedMagazine, 100));
+  const gallery = claim(enforceFinalMagazineContract(selectedMagazine, 250));
   const galleryKeys = new Set(gallery.map(item => canonicalUrl(item.url)));
   const visualReserve = allVisualShelf.slice(56).filter(item => !galleryKeys.has(canonicalUrl(item.url))).slice(0, 24).map(item => ({...item, canonicalUrl:canonicalUrl(item.url)}));
   // Serendipity is composed from what remains after the primary magazine. It

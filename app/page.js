@@ -17,7 +17,7 @@ const DELIVERED_INVENTORY_LEDGER_KEY = "meanwhileDeliveredInventoryHashesV1";
 // V5 deliberately drops the text-heavy V4 bench. V4 is still migrated into
 // the prior-delivery ledger below, so dropping its presentation cannot grant
 // any of its stories another appearance.
-const FEED_SNAPSHOT_KEY = "meanwhileFeedSnapshotV8";
+const FEED_SNAPSHOT_KEY = "meanwhileFeedSnapshotV9";
 const STORY_HISTORY_LIMIT = 1500;
 const SEEN_STORY_LEDGER_LIMIT = 200000;
 const DAYPART_MESSAGES = {
@@ -115,6 +115,13 @@ const mixedInk = (position = 0, palette = EDITION_PALETTES[0]) => {
 const categoryClass = section => `cat-${(section || "news").toLowerCase().replace(/[^a-z]+/g, "-").replace(/(^-|-$)/g, "")}`;
 const normalizedIdentityTitle = value => (value || "").toLowerCase().replace(/\b(the|a|an|and|or|but|to|of|for|in|on|at|with|from)\b/g, " ").replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
 const emergencyBlocked = /\b(trump|maga|maha|zohran mamdani|mamdani|benjamin netanyahu|netanyahu|israel(?:i)?|palestin(?:e|ian)|gaza|west bank|middle east conflict|nazi|neo[- ]?nazi|white supremac|shooting|gunman|guns?|firearms?|rifles?|pistols?|revolvers?|shotguns?|ammunition|assault weapons?|murder|war|terroris|rape|sexual abuse|suicide|overdose|deadly|killed|outrage|religious|christian nationalism|white nationalism|nationalis(?:m|t)|religious right|religious left|culture[- ]?war|conservative|liberal|left[- ]wing|right[- ]wing|partisan|ideology|ideological|activis(?:m|t)|advocacy|protest|legislation|legislature|policy debate|government|federal agency|immigration|abortion|gun rights?|gun control|book ban|school board|voting rights?|civil rights legislation|geopolitic|diploma(?:cy|tic)|sanctions?|anti[- ]?vax|ufc|mma|gambling|google pixel|samsung galaxy|android phone|jeff bezos|bmi|body fat|weight[- ]loss|being thin|obesity|overweight|porn(?:ography|ographic)?|nsfw|nud(?:e|ity)|naked|topless|full[- ]?frontal|genitals?|penis|vulva|vagina|erotic(?:a)?|sexually explicit|miami (?:fashion|swim) week|miami nightlife|swim week|bikini(?:s)?|micro[- ]?bikini|thong(?:s)?|lingerie|underwear runway|swimwear runway|see[- ]?through (?:dress|fashion|outfit)|sheer (?:dress|fashion|outfit))\b/i;
+const joyContractBlocked = /\b(?:casino|casinos|gambling|sportsbook|wager(?:ing)?|lottery|jackpot|sam'?s club|member'?s mark|walmart|costco|big[- ]box|shopping deals?|best buys?|android|nokia phone|google pixel|samsung galaxy|prisons?|jails?|incarcerat(?:e|ed|ion)|correctional|detention center|sentenced? to|criminal sentence|private equity|leveraged buyout|portfolio compan(?:y|ies)|beverage container program|bottle bill|container deposit|redemption program|motorcycles?|motorbikes?|motocross|superbikes?|cafe racers?|choppers?|manosphere|red pill|alpha male|pickup artist|men'?s rights|incels?|andrew tate|fresh and fit)\b/i;
+const dullAdministrationBlocked = /\b(?:state|county|municipal|department|agency|authority|commission|board)\b.{0,90}\b(?:program|regulation|compliance|administration|funding|contract|procurement|container|recycling)\b/i;
+const pre1965VehicleBlocked = value => {
+  if (!/\b(?:car|cars|automobile|automotive|roadster|coupe|sedan|wagon|convertible|vehicle)\b/i.test(value)) return false;
+  const years = [...value.matchAll(/\b(18\d{2}|19\d{2}|20\d{2})\b/g)].map(match => Number(match[1]));
+  return years.some(year => year < 1965) || /\b(?:pre[- ]?war|brass era|horseless carriage)\b/i.test(value);
+};
 const religionBlocked = /\b(?:religion|religious|faith(?:ful)?|christian(?:ity)?|catholic(?:ism)?|protestant(?:ism)?|evangelical(?:ism)?|jewish|judaism|muslim|islam(?:ic)?|hindu(?:ism)?|buddhis(?:m|t)|sikh(?:ism)?|mormon(?:ism)?|church|cathedral|chapel|synagogue|mosque|bible|biblical|torah|talmud|quran|koran|scripture|gospel|theology|clergy|priest|pastor|pope|papal|vatican|rabbi|imam|monk|nun|worship|sermon|congregation|parish|diocese|god|jesus|christ|messiah|allah|yahweh|zionis(?:m|t)|antisemiti(?:c|sm)|islamophobi(?:a|c))\b/i;
 const politicsReligionZeroToleranceBlocked = /\b(?:politics?|political figures?|politicians?|elected officials?|public officials?|government officials?|officeholders?|candidates?|republicans?|democrats?|gop|conservatives?|liberals?|presidents?|prime ministers?|governors?|mayors?|senators?|representatives?|congress(?:ional)?|parliament(?:arian)?|campaigns?|elections?|ballots?|zohran mamdani|mamdani|benjamin netanyahu|netanyahu|israel(?:i)?|palestin(?:e|ian)|gaza|west bank|hamas|hezbollah|idf|religions?|religious figures?|religious leaders?|christians?|christianity|jews?|jewish|judaism|muslims?|islam(?:ic)?|catholics?|catholicism|protestants?|protestantism|evangelicals?|evangelicalism|hindus?|hinduism|buddhists?|buddhism|sikhs?|sikhism|mormons?|churches?|synagogues?|mosques?|temples?|clergy|clerics?|priests?|pastors?|popes?|papal|vatican|rabbis?|imams?|monks?|nuns?|worship|sermons?|theology|faith)\b/i;
 const bannedSource = item => /(?:\b(?:nyt|new york times|espn)\b|(?:^|\.)(?:nytimes|espn)\.com\b)/i.test(`${item?.source || ""} ${item?.publisher || ""} ${item?.url || ""} ${item?.canonicalUrl || ""}`);
@@ -131,7 +138,7 @@ const reviewContextBlocked = /\b(?:reviews?|critique|criticism|rated?|ratings?|s
 const sadNewsBlocked = /\b(?:bad news|sad news|tragic|tragedy|grief|mourning|heartbreak|devastat(?:e|ed|ing|ion)|layoffs?|job cuts?|bankrupt(?:cy)?|shuts? down|closure|collaps(?:e|ed|ing)|crisis|shortage|threatens?|suffering|deep disagreement)\b/i;
 const editorialToneBlocked = value => civicConflictBlocked.test(value) || sadNewsBlocked.test(value) || (reviewContextBlocked.test(value) && negativeCriticismBlocked.test(value));
 const barredTechEmpireBlocked = /\b(?:mark zuckerberg|zuckerberg|elon musk|musk|jeff bezos|bezos|meta(?: platforms?)?|facebook|instagram|threads|whatsapp|twitter|tweet(?:s|ed|ing)?|amazon|tesla|cybertruck|spacex|starlink|blue origin)\b|(?:^|[\s./])x\.com(?:[\s/?#]|$)/i;
-const absoluteSafetyBlocked = value => politicsReligionZeroToleranceBlocked.test(value) || emergencyBlocked.test(value) || civicBlocked.test(value) || civicAgendaBlocked.test(value) || alarmingIncidentBlocked.test(value) || editorialToneBlocked(value) || barredTechEmpireBlocked.test(value);
+const absoluteSafetyBlocked = value => politicsReligionZeroToleranceBlocked.test(value) || emergencyBlocked.test(value) || joyContractBlocked.test(value) || dullAdministrationBlocked.test(value) || pre1965VehicleBlocked(value) || civicBlocked.test(value) || civicAgendaBlocked.test(value) || alarmingIncidentBlocked.test(value) || editorialToneBlocked(value) || barredTechEmpireBlocked.test(value);
 const titleFingerprint = value => normalizedIdentityTitle(value).split(/\s+/).filter(word => word.length > 2).slice(0, 9).join(" ");
 const titleFamily = value => [...new Set(normalizedIdentityTitle(value).split(/\s+/).filter(word => word.length > 3))].sort().slice(0, 14).join(" ");
 const retiredRepeat = /\b(?:james hetfield.*metallica|cis football (?:field|locations?)|runway magazine covers? celebrating 25th anniversary|rocky horror.*mad scientist|chanel iman.*runway.*2009|not all boredom is the same|lush foliage permeates xanthe burdett)\b/i;
@@ -587,7 +594,9 @@ export default function Home() {
     const browserReload = navigationType === "reload";
     let cachedSnapshot = null;
     try {
-      cachedSnapshot = JSON.parse(localStorage.getItem(FEED_SNAPSHOT_KEY) || "null");
+      // Show the last safe edition immediately, including once during a cache
+      // version upgrade, while a new edition is assembled out of sight.
+      cachedSnapshot = JSON.parse(localStorage.getItem(FEED_SNAPSHOT_KEY) || localStorage.getItem("meanwhileFeedSnapshotV8") || "null");
       // Register every previous bench before requesting anything. A cache-key
       // upgrade may discard stale presentation, but never its delivery record.
       rotateDeliveredInventory();
@@ -598,7 +607,7 @@ export default function Home() {
       [JSON.parse(localStorage.getItem("meanwhileFeedSnapshotV5") || "null"), JSON.parse(localStorage.getItem("meanwhileFeedSnapshotV4") || "null"), JSON.parse(localStorage.getItem("meanwhileFeedSnapshotV3") || "null"), JSON.parse(localStorage.getItem("meanwhileFeedSnapshotV2") || "null")].filter(Boolean).forEach(rememberPriorInventory);
       const snapshotStartedAt = Number(cachedSnapshot?._editionStartedAt || cachedSnapshot?._generatedAt || 0);
       const snapshotCurrent = snapshotStartedAt > 0 && Date.now() - snapshotStartedAt < DAY_MS;
-      if (!browserReload && snapshotCurrent && cachedSnapshot?.gallery?.length >= BATCH_SIZE) { setData(cachedSnapshot); setEditionNote("Refreshing quietly"); }
+      if (snapshotCurrent && cachedSnapshot?.gallery?.length >= BATCH_SIZE) { setData(filterEditionGlobally(cachedSnapshot)); setEditionNote("Refreshing quietly"); }
     } catch {}
     setShowWelcome(localStorage.getItem("meanwhileWelcomeSeenV1") !== "yes");
     const priorPalette = Number(localStorage.getItem("betterStartPaletteIndex") || "-1"), nextPalette = (priorPalette + 1) % EDITION_PALETTES.length;
@@ -625,7 +634,7 @@ export default function Home() {
         const editions = await Promise.all(Array.from({length:3}, (_, desk) => requestFeed({visit:`${visit}-desk-${desk}`,avoid,avoidStories,places,interests:profileTerms,editionName:activeProfile?.title || ""})));
         const primary = editions[0], reserved = [...(primary?.tickerStories || []), primary?.goodNews, ...(primary?.favorites || [])].filter(Boolean);
         const assembled = {...primary,
-          gallery:claimSessionUnique(editions.flatMap(edition => edition?.gallery || []), reserved).slice(0, 140),
+          gallery:claimSessionUnique(editions.flatMap(edition => edition?.gallery || []), reserved).slice(0, 300),
           media:claimSessionUnique(editions.flatMap(edition => edition?.media || []), reserved).slice(0, 40),
           serendipity:claimSessionUnique(editions.flatMap(edition => edition?.serendipity || []), reserved).slice(0, 60)
         };
