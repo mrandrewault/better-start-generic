@@ -4,7 +4,7 @@ import {EDITION_PALETTES, mastheadPalette} from "./palettes";
 import {supabase, supabaseConfigured} from "../lib/supabase";
 
 const BATCH_SIZE = 25;
-const ACTIVE_POLICY_VERSION = 28;
+const ACTIVE_POLICY_VERSION = 29;
 const EDITION_MS = 2 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -341,6 +341,20 @@ const filterEditionGlobally = next => {
     visualReserve:take(next?.visualReserve)
   };
 };
+// The shared edition is prebuilt on the server and served from Vercel's cache,
+// so it arrives in about a second. The page only uses it when it still holds
+// enough stories this reader has not seen; otherwise it builds live as before.
+const SHARED_MIN_FRESH = BATCH_SIZE * 3;
+const requestSharedEdition = async () => {
+  try {
+    const response = await fetch("/api/edition");
+    if (!response.ok) return null;
+    const edition = await response.json();
+    if (edition?.policyVersion !== ACTIVE_POLICY_VERSION || !edition?.shared) return null;
+    const fresh = filterEditionGlobally(edition);
+    return (fresh.gallery || []).length >= SHARED_MIN_FRESH ? fresh : null;
+  } catch { return null; }
+};
 const blendPool = (previous = [], next = []) => {
   // Keep only one fifth of the current wall when the automatic two-hour
   // refresh runs. Slow editorial desks never occupy that carry-over, and an
@@ -640,15 +654,21 @@ export default function Home() {
         // Pull three independently rotated source desks for every assembly
         // run. One RSS page per source is not deep enough to guarantee a truly
         // fresh edition after the permanent seen-story gate has done its job.
-        const editions = await Promise.all(Array.from({length:3}, (_, desk) => requestFeed({visit:`${visit}-desk-${desk}`,avoid,avoidStories,places,interests:profileTerms,editionName:activeProfile?.title || ""})));
-        const primary = editions[0], reserved = [...(primary?.tickerStories || []), primary?.goodNews, ...(primary?.favorites || [])].filter(Boolean);
-        const assembled = {...primary,
-          gallery:claimSessionUnique(editions.flatMap(edition => edition?.gallery || []), reserved).slice(0, 300),
-          media:claimSessionUnique(editions.flatMap(edition => edition?.media || []), reserved).slice(0, 90),
-          serendipity:claimSessionUnique(editions.flatMap(edition => edition?.serendipity || []), reserved).slice(0, 180),
-          important:claimSessionUnique(editions.flatMap(edition => edition?.important || []), reserved).slice(0, 30),
-          visualReserve:claimSessionUnique(editions.flatMap(edition => edition?.visualReserve || []), reserved).slice(0, 72)
-        };
+        // Readers without a custom profile start from the prebuilt shared
+        // edition. Custom profiles, and readers who have already seen most of
+        // it, get the live per-reader build exactly as before.
+        let assembled = profileTerms ? null : await requestSharedEdition();
+        if (!assembled) {
+          const editions = await Promise.all(Array.from({length:3}, (_, desk) => requestFeed({visit:`${visit}-desk-${desk}`,avoid,avoidStories,places,interests:profileTerms,editionName:activeProfile?.title || ""})));
+          const primary = editions[0], reserved = [...(primary?.tickerStories || []), primary?.goodNews, ...(primary?.favorites || [])].filter(Boolean);
+          assembled = {...primary,
+            gallery:claimSessionUnique(editions.flatMap(edition => edition?.gallery || []), reserved).slice(0, 300),
+            media:claimSessionUnique(editions.flatMap(edition => edition?.media || []), reserved).slice(0, 90),
+            serendipity:claimSessionUnique(editions.flatMap(edition => edition?.serendipity || []), reserved).slice(0, 180),
+            important:claimSessionUnique(editions.flatMap(edition => edition?.important || []), reserved).slice(0, 30),
+            visualReserve:claimSessionUnique(editions.flatMap(edition => edition?.visualReserve || []), reserved).slice(0, 72)
+          };
+        }
         localStorage.setItem("betterStartReaderDay", today); setJoyHistory(recentHistory("betterStartReaderJoyHistory"));
         if (preserve && !hardRefresh) {
           // An open browser page is append-only. A timed refresh may add new
@@ -891,6 +911,6 @@ export default function Home() {
       {data && <div className="infiniteSentinel" ref={loadMoreRef} aria-hidden="true" />}
     </section>
 
-    <footer><b>MEANWHILE</b><span>BUILD 28</span></footer>
+    <footer><b>MEANWHILE</b><span>BUILD 29</span></footer>
   </main>;
 }
