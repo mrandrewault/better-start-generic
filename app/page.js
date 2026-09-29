@@ -4,7 +4,7 @@ import {EDITION_PALETTES, mastheadPalette} from "./palettes";
 import {supabase, supabaseConfigured} from "../lib/supabase";
 
 const BATCH_SIZE = 25;
-const ACTIVE_POLICY_VERSION = 30;
+const ACTIVE_POLICY_VERSION = 31;
 const EDITION_MS = 2 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -139,7 +139,8 @@ const reviewContextBlocked = /\b(?:reviews?|critique|criticism|rated?|ratings?|s
 const sadNewsBlocked = /\b(?:bad news|sad news|tragic|tragedy|grief|mourning|heartbreak|devastat(?:e|ed|ing|ion)|layoffs?|job cuts?|bankrupt(?:cy)?|shuts? down|closure|collaps(?:e|ed|ing)|crisis|shortage|threatens?|suffering|deep disagreement)\b/i;
 const editorialToneBlocked = value => civicConflictBlocked.test(value) || sadNewsBlocked.test(value) || (reviewContextBlocked.test(value) && negativeCriticismBlocked.test(value));
 const barredTechEmpireBlocked = /\b(?:mark zuckerberg|zuckerberg|elon musk|musk|jeff bezos|bezos|meta(?: platforms?)?|facebook|instagram|threads|whatsapp|twitter|tweet(?:s|ed|ing)?|amazon|tesla|cybertruck|spacex|starlink|blue origin)\b|(?:^|[\s./])x\.com(?:[\s/?#]|$)/i;
-const absoluteSafetyBlocked = value => politicsReligionZeroToleranceBlocked.test(value) || emergencyBlocked.test(value) || joyContractBlocked.test(value) || dullAdministrationBlocked.test(value) || pre1965VehicleBlocked(value) || civicBlocked.test(value) || civicAgendaBlocked.test(value) || alarmingIncidentBlocked.test(value) || editorialToneBlocked(value) || barredTechEmpireBlocked.test(value);
+const civicGapBlocked = /\b(?:gov\.|lt\. gov\.|sen\.|veto(?:es|ed|ing)?|signs? (?:a |the )?bills?|bills? (?:passed|signed|introduced|intended)|two bills|legislation|legislators?|lawmakers?|state officials?|city officials?|county officials?|school officials?|officials said|budget (?:gap|deficit|shortfall|hole|crisis)|tax dollars|taxpayers?|taxed|graduation requirements|water advisory|boil[- ]water|brown water|water main break|power outages?|evacuat(?:e|ed|ion|ions)|road closures?)\b/i;
+const absoluteSafetyBlocked = value => civicGapBlocked.test(value) || politicsReligionZeroToleranceBlocked.test(value) || emergencyBlocked.test(value) || joyContractBlocked.test(value) || dullAdministrationBlocked.test(value) || pre1965VehicleBlocked(value) || civicBlocked.test(value) || civicAgendaBlocked.test(value) || alarmingIncidentBlocked.test(value) || editorialToneBlocked(value) || barredTechEmpireBlocked.test(value);
 const titleFingerprint = value => normalizedIdentityTitle(value).split(/\s+/).filter(word => word.length > 2).slice(0, 9).join(" ");
 const titleFamily = value => [...new Set(normalizedIdentityTitle(value).split(/\s+/).filter(word => word.length > 3))].sort().slice(0, 14).join(" ");
 const retiredRepeat = /\b(?:james hetfield.*metallica|cis football (?:field|locations?)|runway magazine covers? celebrating 25th anniversary|rocky horror.*mad scientist|chanel iman.*runway.*2009|not all boredom is the same|lush foliage permeates xanthe burdett)\b/i;
@@ -913,6 +914,6 @@ export default function Home() {
       {data && <div className="infiniteSentinel" ref={loadMoreRef} aria-hidden="true" />}
     </section>
 
-    <footer><b>MEANWHILE</b><span>BUILD 30{loadPath ? ` · ${loadPath}` : ""}</span></footer>
+    <footer><b>MEANWHILE</b><span>BUILD 31{loadPath ? ` · ${loadPath}` : ""}</span></footer>
   </main>;
 }
