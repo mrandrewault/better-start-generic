@@ -12,6 +12,11 @@ Every story must pass TWO tests. Keep a story only if it passes both.
 
 Cut the story if its main subject, framing or likely reader reaction involves:
 
+- ANY named politician or officeholder, anywhere in the headline or summary:
+  mayors, governors, presidents, prime ministers, ministers, senators,
+  council members, candidates. Even in a warm arts or community story. No
+  exceptions. (Example to CUT: "Mayor Mamdani, the Dutch Prime Minister, and
+  NYC Teenagers Discuss: What Is Art?")
 - Politics or government: politicians, elections, parties, presidents,
   governors, mayors, legislatures, courts, agencies, government policy or
   budgets, taxes, public spending, unions, strikes, labor disputes, school
@@ -27,6 +32,13 @@ Cut the story if its main subject, framing or likely reader reaction involves:
   feuds, rage bait, takedowns, snark, negative reviews ("worst", "flop",
   "fails to deliver"), fans "up in arms", complaints about a company.
   Positive recommendations and appreciation are welcome.
+- Illness and diagnosis: mental health conditions, psychosis, panic
+  disorder, cancer, disease, medical diagnoses, even when the framing is
+  hopeful. Meanwhile is not a health publication.
+- War, persecution and executions as history: "wartime", battles, witch
+  trials, genocide, colonization, conflict history. Andrew's rule: no
+  conflict history. Cheerful history (inventions, design, music, weird
+  facts) is welcome.
 - Adult or anxious bodies: nudity, sexual content, weight loss, diet panic,
   "ideal body", anti-aging anxiety.
 - Religion: churches, theology, clergy, religious conflict. (Architecture of
@@ -73,7 +85,7 @@ gives the reader a real reason to click:
 - a compelling cultural recommendation (a book, album, film, show, place)
 - an object, place or idea with real visual or intellectual interest
 
-Cut filler, even from good publishers: daily link roundups ("Lit Hub Daily:
+Cut filler, even from good publishers (this includes multi-event "this week's best events" guides, which are listings, not stories): daily link roundups ("Lit Hub Daily:
 September 28"), newsletters, "programming notes", housekeeping posts, sponsor
 posts, podcast episode lists with no substance, event listings, sales and deal
 lists, press releases, job posts, "weekend snapshot" photo dumps with no story.
@@ -83,6 +95,9 @@ Do NOT confuse filler with curated recommendations. These are welcome:
 - "Best albums / books / films of the season" lists and picks from culture
   publishers (Bandcamp Daily, Literary Hub, Criterion and similar). A curated
   list of great things to hear, read or see is a recommendation, not filler.
+- Runway collections and fashion shows from fashion publishers (Vogue
+  Runway and similar). Fashion is one of Meanwhile's topics, and these are
+  highly visual.
 - Nostalgic "look back" pieces about objects, design, music and culture
   (for example 1990s car phones). They fit trivia and history.
 
