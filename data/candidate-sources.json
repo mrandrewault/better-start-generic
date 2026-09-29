@@ -1,486 +1,185 @@
 [
  {
   "name": "A Way to Garden",
-  "url": "https://awaytogarden.com/feed/",
+  "url": "https://awaytogarden.com/feed",
   "topic": "gardening",
   "country": "United States",
   "independent": true
  },
  {
-  "name": "Modern Farmer",
-  "url": "https://modernfarmer.com/feed/",
+  "name": "Floret Flowers",
+  "url": "https://www.floretflowers.com/feed/",
   "topic": "gardening",
   "country": "United States",
   "independent": true
  },
  {
-  "name": "Garden Rant",
-  "url": "https://gardenrant.com/feed",
-  "topic": "gardening",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "Gardens Illustrated",
-  "url": "https://www.gardensillustrated.com/feed/",
+  "name": "The English Garden",
+  "url": "https://www.theenglishgarden.co.uk/feed/",
   "topic": "gardening",
   "country": "United Kingdom",
+  "independent": true
+ },
+ {
+  "name": "Garden Collage",
+  "url": "https://gardencollage.com/feed/",
+  "topic": "gardening",
+  "country": "United States",
+  "independent": true
+ },
+ {
+  "name": "joe gardener",
+  "url": "https://joegardener.com/feed/",
+  "topic": "gardening",
+  "country": "United States",
+  "independent": true
+ },
+ {
+  "name": "Epic Gardening",
+  "url": "https://www.epicgardening.com/feed/",
+  "topic": "gardening",
+  "country": "United States",
+  "independent": true
+ },
+ {
+  "name": "Uni Watch",
+  "url": "https://uni-watch.com/feed/",
+  "topic": "sports",
+  "country": "United States",
+  "independent": true
+ },
+ {
+  "name": "Swimming World",
+  "url": "https://www.swimmingworldmagazine.com/news/feed/",
+  "topic": "sports",
+  "country": "United States",
+  "independent": true
+ },
+ {
+  "name": "Rouleur",
+  "url": "https://www.rouleur.cc/blogs/the-rouleur-journal.atom",
+  "topic": "sports",
+  "country": "United Kingdom",
+  "independent": true
+ },
+ {
+  "name": "Runner's World",
+  "url": "https://www.runnersworld.com/rss/all.xml/",
+  "topic": "sports",
+  "country": "United States",
   "independent": false
  },
  {
-  "name": "Garden Design",
-  "url": "https://www.gardendesign.com/rss.xml",
-  "topic": "gardening",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "Book Riot",
-  "url": "https://bookriot.com/feed/",
-  "topic": "books",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "Electric Literature",
-  "url": "https://electricliterature.com/feed/",
-  "topic": "books",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "The Millions",
-  "url": "https://themillions.com/feed",
-  "topic": "books",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "The Paris Review Daily",
-  "url": "https://www.theparisreview.org/blog/feed/",
-  "topic": "books",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "The Public Domain Review",
-  "url": "https://publicdomainreview.org/rss.xml",
-  "topic": "history",
+  "name": "Mundial",
+  "url": "https://mundialmag.com/blogs/magazine.atom",
+  "topic": "sports",
   "country": "United Kingdom",
   "independent": true
  },
  {
-  "name": "Poetry Foundation",
-  "url": "https://www.poetryfoundation.org/rss/feed",
-  "topic": "books",
-  "country": "United States",
+  "name": "In Bed With Maradona",
+  "url": "https://inbedwithmaradona.com/feed",
+  "topic": "sports",
+  "country": "United Kingdom",
   "independent": true
  },
  {
-  "name": "The Dieline",
-  "url": "https://thedieline.com/feed/",
-  "topic": "business",
-  "country": "United States",
-  "independent": true
+  "name": "Olympics.com",
+  "url": "https://www.olympics.com/en/news/rss",
+  "topic": "sports",
+  "country": "Switzerland",
+  "independent": false
  },
  {
-  "name": "Hodinkee",
-  "url": "https://www.hodinkee.com/articles/rss.xml",
+  "name": "Craftsmanship Magazine",
+  "url": "https://craftsmanship.net/feed/",
   "topic": "crafts",
   "country": "United States",
   "independent": true
  },
  {
-  "name": "Shareable",
-  "url": "https://www.shareable.net/feed/",
-  "topic": "business",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "Modern Retail",
-  "url": "https://www.modernretail.co/feed/",
-  "topic": "business",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "Sprudge",
-  "url": "https://sprudge.com/feed",
-  "topic": "beverage",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "Perfect Daily Grind",
-  "url": "https://perfectdailygrind.com/feed/",
-  "topic": "beverage",
-  "country": "United Kingdom",
-  "independent": true
- },
- {
-  "name": "Punch",
-  "url": "https://punchdrink.com/feed/",
-  "topic": "beverage",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "Decanter",
-  "url": "https://www.decanter.com/feed/",
-  "topic": "beverage",
-  "country": "United Kingdom",
-  "independent": false
- },
- {
-  "name": "Good Beer Hunting",
-  "url": "https://www.goodbeerhunting.com/blog?format=rss",
-  "topic": "beverage",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "Tea Epicure",
-  "url": "https://teaepicure.com/feed/",
-  "topic": "beverage",
-  "country": "Canada",
-  "independent": true
- },
- {
-  "name": "Atlas Obscura",
-  "url": "https://www.atlasobscura.com/feeds/latest",
-  "topic": "trivia",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "Mental Floss",
-  "url": "https://www.mentalfloss.com/rss.xml",
-  "topic": "trivia",
-  "country": "United States",
-  "independent": false
- },
- {
-  "name": "Kottke",
-  "url": "https://feeds.kottke.org/main",
-  "topic": "trivia",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "Open Culture",
-  "url": "https://www.openculture.com/feed",
-  "topic": "trivia",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "Futility Closet",
-  "url": "https://www.futilitycloset.com/feed/",
-  "topic": "trivia",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "Smithsonian Smart News",
-  "url": "https://www.smithsonianmag.com/rss/smart-news/",
-  "topic": "trivia",
-  "country": "United States",
-  "independent": false
- },
- {
-  "name": "Damn Interesting",
-  "url": "https://www.damninteresting.com/feed/",
-  "topic": "trivia",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "Hakai Magazine",
-  "url": "https://hakaimagazine.com/feed/",
-  "topic": "outdoors",
-  "country": "Canada",
-  "independent": true
- },
- {
-  "name": "The Trek",
-  "url": "https://thetrek.co/feed/",
-  "topic": "outdoors",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "Terrain.org",
-  "url": "https://www.terrain.org/feed/",
-  "topic": "outdoors",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "Alpinist",
-  "url": "https://alpinist.com/feed/",
-  "topic": "outdoors",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "Semi-Rad",
-  "url": "https://semi-rad.com/feed/",
-  "topic": "outdoors",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "Mundial",
-  "url": "https://mundialmag.com/blogs/news.atom",
-  "topic": "sports",
-  "country": "United Kingdom",
-  "independent": true
- },
- {
-  "name": "These Football Times",
-  "url": "https://thesefootballtimes.co/feed/",
-  "topic": "sports",
-  "country": "United Kingdom",
-  "independent": true
- },
- {
-  "name": "Ballpark Digest",
-  "url": "https://ballparkdigest.com/feed/",
-  "topic": "sports",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "Tennis Majors",
-  "url": "https://www.tennismajors.com/feed",
-  "topic": "sports",
-  "country": "France",
-  "independent": true
- },
- {
-  "name": "Permanent Style",
-  "url": "https://www.permanentstyle.com/feed",
-  "topic": "fashion",
-  "country": "United Kingdom",
-  "independent": true
- },
- {
-  "name": "Put This On",
-  "url": "https://putthison.com/feed/",
-  "topic": "fashion",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "Die, Workwear!",
-  "url": "https://dieworkwear.com/feed/",
-  "topic": "fashion",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "Fashionista",
-  "url": "https://fashionista.com/.rss/full/",
-  "topic": "fashion",
-  "country": "United States",
-  "independent": false
- },
- {
-  "name": "Highsnobiety",
-  "url": "https://www.highsnobiety.com/feed/",
-  "topic": "fashion",
-  "country": "Germany",
-  "independent": false
- },
- {
-  "name": "Hagerty Media",
-  "url": "https://www.hagerty.com/media/feed/",
-  "topic": "auto",
-  "country": "United States",
-  "independent": false
- },
- {
-  "name": "Classic Driver",
-  "url": "https://www.classicdriver.com/en/rss.xml",
-  "topic": "auto",
-  "country": "Germany",
-  "independent": true
- },
- {
-  "name": "Petrolicious",
-  "url": "https://petrolicious.com/blogs/articles.atom",
-  "topic": "auto",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "Hemmings",
-  "url": "https://www.hemmings.com/stories/feed",
-  "topic": "auto",
-  "country": "United States",
-  "independent": false
- },
- {
-  "name": "Magneto",
-  "url": "https://www.magnetomagazine.com/feed/",
-  "topic": "auto",
-  "country": "United Kingdom",
-  "independent": true
- },
- {
-  "name": "Suitcase",
-  "url": "https://suitcasemag.com/feed/",
-  "topic": "travel",
-  "country": "United Kingdom",
-  "independent": true
- },
- {
-  "name": "Remote Lands Journal",
-  "url": "https://www.remotelands.com/travelogues/feed/",
-  "topic": "travel",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "Aquarium Drunkard",
-  "url": "https://aquariumdrunkard.com/feed/",
-  "topic": "music",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "The Vinyl Factory",
-  "url": "https://thevinylfactory.com/feed/",
-  "topic": "music",
-  "country": "United Kingdom",
-  "independent": true
- },
- {
-  "name": "JazzTimes",
-  "url": "https://jazztimes.com/feed/",
-  "topic": "music",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "The Honest Broker (Ted Gioia)",
-  "url": "https://www.honest-broker.com/feed",
-  "topic": "music",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "Synthtopia",
-  "url": "https://www.synthtopia.com/feed/",
-  "topic": "music",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "CDM Create Digital Music",
-  "url": "https://cdm.link/feed/",
-  "topic": "music",
-  "country": "Germany",
-  "independent": true
- },
- {
-  "name": "KEXP",
-  "url": "https://www.kexp.org/read/feed/",
-  "topic": "music",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "Booooooom",
-  "url": "https://www.booooooom.com/feed/",
-  "topic": "arts",
-  "country": "Canada",
-  "independent": true
- },
- {
-  "name": "Juxtapoz",
-  "url": "https://www.juxtapoz.com/news/?format=feed&type=rss",
-  "topic": "arts",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "PetaPixel",
-  "url": "https://petapixel.com/feed/",
-  "topic": "arts",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "LensCulture",
-  "url": "https://www.lensculture.com/feed",
-  "topic": "arts",
-  "country": "Netherlands",
-  "independent": true
- },
- {
-  "name": "The Art Newspaper",
-  "url": "https://www.theartnewspaper.com/rss.xml",
-  "topic": "arts",
-  "country": "United Kingdom",
-  "independent": true
- },
- {
-  "name": "ArchDaily",
-  "url": "https://feeds.feedburner.com/Archdaily",
-  "topic": "home",
-  "country": "Chile",
-  "independent": true
- },
- {
-  "name": "designboom",
-  "url": "https://www.designboom.com/feed/",
-  "topic": "home",
-  "country": "Italy",
-  "independent": true
- },
- {
-  "name": "Wallpaper*",
-  "url": "https://www.wallpaper.com/feeds/all",
-  "topic": "home",
-  "country": "United Kingdom",
-  "independent": false
- },
- {
-  "name": "Remodelista",
-  "url": "https://www.remodelista.com/feed/",
-  "topic": "home",
-  "country": "United States",
-  "independent": true
- },
- {
-  "name": "Dwell",
-  "url": "https://www.dwell.com/feed",
-  "topic": "home",
+  "name": "Popular Woodworking",
+  "url": "https://www.popularwoodworking.com/feed/",
+  "topic": "crafts",
   "country": "United States",
   "independent": true
  },
  {
   "name": "Core77",
-  "url": "https://www.core77.com/rss",
+  "url": "https://feeds.feedburner.com/core77/blog",
   "topic": "crafts",
   "country": "United States",
   "independent": true
  },
  {
-  "name": "Craft Council (UK)",
-  "url": "https://www.craftscouncil.org.uk/feed",
-  "topic": "crafts",
+  "name": "The Kid Should See This",
+  "url": "https://thekidshouldseethis.com/feed",
+  "topic": "trivia",
+  "country": "United States",
+  "independent": true
+ },
+ {
+  "name": "Laughing Squid",
+  "url": "https://laughingsquid.com/feed/",
+  "topic": "surprise",
+  "country": "United States",
+  "independent": true
+ },
+ {
+  "name": "All About Birds",
+  "url": "https://www.allaboutbirds.org/news/feed/",
+  "topic": "outdoors",
+  "country": "United States",
+  "independent": true
+ },
+ {
+  "name": "ExplorersWeb",
+  "url": "https://explorersweb.com/feed/",
+  "topic": "outdoors",
+  "country": "Canada",
+  "independent": true
+ },
+ {
+  "name": "Backpacker",
+  "url": "https://www.backpacker.com/feed/",
+  "topic": "outdoors",
+  "country": "United States",
+  "independent": false
+ },
+ {
+  "name": "Bearfoot Theory",
+  "url": "https://bearfoottheory.com/feed/",
+  "topic": "outdoors",
+  "country": "United States",
+  "independent": true
+ },
+ {
+  "name": "Gear Patrol",
+  "url": "https://www.gearpatrol.com/feed/",
+  "topic": "outdoors",
+  "country": "United States",
+  "independent": true
+ },
+ {
+  "name": "Springwise",
+  "url": "https://www.springwise.com/feed/",
+  "topic": "business",
   "country": "United Kingdom",
   "independent": true
  },
  {
-  "name": "Fine Woodworking",
-  "url": "https://www.finewoodworking.com/feed",
-  "topic": "crafts",
+  "name": "Freethink",
+  "url": "https://www.freethink.com/feed",
+  "topic": "tech",
   "country": "United States",
   "independent": true
+ },
+ {
+  "name": "Fast Company",
+  "url": "https://www.fastcompany.com/latest/rss",
+  "topic": "business",
+  "country": "United States",
+  "independent": false
  },
  {
   "name": "Food52",
@@ -490,37 +189,72 @@
   "independent": true
  },
  {
-  "name": "Gastro Obscura",
-  "url": "https://www.atlasobscura.com/feeds/gastro",
+  "name": "The Kitchn",
+  "url": "https://www.thekitchn.com/main.rss",
+  "topic": "food",
+  "country": "United States",
+  "independent": false
+ },
+ {
+  "name": "Smitten Kitchen",
+  "url": "https://smittenkitchen.com/feed/",
   "topic": "food",
   "country": "United States",
   "independent": true
  },
  {
-  "name": "Aeon",
-  "url": "https://aeon.co/feed.rss",
-  "topic": "thinking",
-  "country": "United Kingdom",
-  "independent": true
- },
- {
-  "name": "Psyche",
-  "url": "https://psyche.co/feed",
-  "topic": "thinking",
-  "country": "United Kingdom",
-  "independent": true
- },
- {
-  "name": "The Dodo",
-  "url": "https://www.thedodo.com/rss",
-  "topic": "surprise",
+  "name": "Bon Appetit",
+  "url": "https://www.bonappetit.com/feed/rss",
+  "topic": "food",
   "country": "United States",
   "independent": false
  },
  {
-  "name": "Smithsonian Science",
-  "url": "https://www.smithsonianmag.com/rss/science-nature/",
-  "topic": "thinking",
+  "name": "The Vinyl Factory",
+  "url": "https://thevinylfactory.com/feed",
+  "topic": "music",
+  "country": "United Kingdom",
+  "independent": true
+ },
+ {
+  "name": "Stereogum",
+  "url": "https://www.stereogum.com/feed/",
+  "topic": "music",
+  "country": "United States",
+  "independent": true
+ },
+ {
+  "name": "Remodelista",
+  "url": "https://www.remodelista.com/feed/",
+  "topic": "home",
+  "country": "United States",
+  "independent": true
+ },
+ {
+  "name": "Car Design News",
+  "url": "https://www.cardesignnews.com/rss",
+  "topic": "auto",
+  "country": "United Kingdom",
+  "independent": true
+ },
+ {
+  "name": "evo",
+  "url": "https://www.evo.co.uk/rss",
+  "topic": "auto",
+  "country": "United Kingdom",
+  "independent": false
+ },
+ {
+  "name": "My Modern Met",
+  "url": "https://mymodernmet.com/feed/",
+  "topic": "surprise",
+  "country": "United States",
+  "independent": true
+ },
+ {
+  "name": "Upworthy",
+  "url": "https://www.upworthy.com/rss",
+  "topic": "surprise",
   "country": "United States",
   "independent": false
  }
