@@ -4,7 +4,7 @@ import {EDITION_PALETTES, mastheadPalette} from "./palettes";
 import {supabase, supabaseConfigured} from "../lib/supabase";
 
 const BATCH_SIZE = 25;
-const ACTIVE_POLICY_VERSION = 29;
+const ACTIVE_POLICY_VERSION = 30;
 const EDITION_MS = 2 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -344,7 +344,7 @@ const filterEditionGlobally = next => {
 // The shared edition is prebuilt on the server and served from Vercel's cache,
 // so it arrives in about a second. The page only uses it when it still holds
 // enough stories this reader has not seen; otherwise it builds live as before.
-const SHARED_MIN_FRESH = BATCH_SIZE * 3;
+const SHARED_MIN_FRESH = BATCH_SIZE + 5;
 const requestSharedEdition = async () => {
   try {
     const response = await fetch("/api/edition");
@@ -526,6 +526,7 @@ function Story({item, index, paletteIndex = index, palette, onRate, onSave, onSh
 }
 
 export default function Home() {
+  const [loadPath, setLoadPath] = useState("");
   const [data, setData] = useState(null), [batches, setBatches] = useState(1), [queueLoading, setQueueLoading] = useState(false), [queueExhausted, setQueueExhausted] = useState(false), [now, setNow] = useState(new Date()), [saved, setSaved] = useState([]), [showSaved, setShowSaved] = useState(false), [showWelcome, setShowWelcome] = useState(false), [showSaveNudge, setShowSaveNudge] = useState(false), [showGenericNudge, setShowGenericNudge] = useState(false), [theme, setTheme] = useState("light"), [editionNote, setEditionNote] = useState("Composing edition"), [joyHistory, setJoyHistory] = useState([]), [profile, setProfile] = useState(null), [paletteIndex, setPaletteIndex] = useState(0), [user, setUser] = useState(null), [accountOpen, setAccountOpen] = useState(false), [accountEmail, setAccountEmail] = useState(""), [accountPassword, setAccountPassword] = useState(""), [accountMode, setAccountMode] = useState("signin"), [accountStatus, setAccountStatus] = useState(""), [menuOpen, setMenuOpen] = useState(false), [laneCount, setLaneCount] = useState(3);
   const dataRef = useRef(null), queueRequestRef = useRef(false), loadMoreRef = useRef(null), revealWhenReadyRef = useRef(false), retryTimerRef = useRef(null), refreshEditionRef = useRef(null);
   useEffect(() => { dataRef.current = data; }, [data]);
@@ -658,6 +659,7 @@ export default function Home() {
         // edition. Custom profiles, and readers who have already seen most of
         // it, get the live per-reader build exactly as before.
         let assembled = profileTerms ? null : await requestSharedEdition();
+        setLoadPath(assembled ? "fast" : "live");
         if (!assembled) {
           const editions = await Promise.all(Array.from({length:3}, (_, desk) => requestFeed({visit:`${visit}-desk-${desk}`,avoid,avoidStories,places,interests:profileTerms,editionName:activeProfile?.title || ""})));
           const primary = editions[0], reserved = [...(primary?.tickerStories || []), primary?.goodNews, ...(primary?.favorites || [])].filter(Boolean);
@@ -715,11 +717,12 @@ export default function Home() {
   const wall = useMemo(() => {
     const candidates = claimSessionUnique([
       ...(data?.gallery || []),
+      ...uniqueFavorites,
       ...(data?.serendipity || []),
       ...(data?.important || []),
       ...(data?.media || []),
       ...(data?.visualReserve || [])
-    ], [...(data?.tickerStories || [data?.ribbonFavorite]), data?.goodNews, ...uniqueFavorites]);
+    ], [...(data?.tickerStories || [data?.ribbonFavorite]), data?.goodNews]);
     const result = [];
     let bicycleCount = 0;
     candidates.forEach(item => {
@@ -905,12 +908,11 @@ export default function Home() {
 
     {showSaved && <section className="savedShelf"><div className="sectionHead"><div><span>Your keepers</span><h2>Saved Good Stuff</h2></div><button onClick={() => setShowSaved(false)}>Close</button></div>{saved.length ? <div className="savedGrid">{saved.map(item => <article key={itemKey(item)}><span>{item.section}</span><h3><a href={item.url} target="_blank" rel="noreferrer">{item.title}</a></h3><div><button onClick={() => share(item)}>Share</button><button onClick={() => toggleSave(item)}>Remove</button></div></article>)}</div> : <p className="emptySaved">Things you save will wait here—even when the wall refreshes.</p>}</section>}
 
-    <section className="favoritesSection"><div className="sectionHead"><div><span>A few especially nice things</span><h2>Bright Spots</h2></div></div><div className="favorites">{uniqueFavorites.map(item => <a className="favorite" href={item.url} target="_blank" rel="noreferrer" key={item.canonicalUrl}><span>{age(item.date)}</span><h3>{item.title}</h3><b>{item.source}</b></a>)}</div></section>
 
     <section className="gallerySection"><div className="sectionHead wallHead"><div><h2>Good Stuff</h2></div></div>{visibleSequence.length ? <div className="stableGalleryWall" style={{"--lane-count":laneCount}}>{stableLanes.map((lane, laneIndex) => <div className="stableGalleryLane" key={`lane-${laneIndex}`}>{lane.map(({item,index}) => { const renderKey = item.format === "joy" ? item.signature : `${itemKey(item)}-${index}`; return item.format === "joy" ? <JoyTile item={item} index={index} key={renderKey} /> : <Story item={item} index={index} paletteIndex={index} palette={palette} onRate={rate} onSave={toggleSave} onShare={share} saved={savedKeys.has(itemKey(item))} key={renderKey} />; })}</div>)}</div> : <div className="loading" role="status" aria-live="polite"><span>Getting everything ready…</span><div className="loadingTrack" aria-hidden="true"><i /></div><small>Finding good things from around the world</small></div>}
       {data && <div className="infiniteSentinel" ref={loadMoreRef} aria-hidden="true" />}
     </section>
 
-    <footer><b>MEANWHILE</b><span>BUILD 29</span></footer>
+    <footer><b>MEANWHILE</b><span>BUILD 30{loadPath ? ` · ${loadPath}` : ""}</span></footer>
   </main>;
 }

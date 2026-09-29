@@ -14,10 +14,13 @@ import { buildFeed, ACTIVE_POLICY_VERSION, canonicalUrl, normalizeTitle, isDisal
 // the last good edition instead of replacing it with a weak one.
 export const revalidate = 1800;
 export const dynamic = "force-static";
-export const maxDuration = 60;
+export const maxDuration = 120;
 
-const DESKS = 3;
-const MIN_GALLERY = 120;
+// More desks = more of the 191 sources checked each time = a deeper edition.
+const DESKS = 6;
+// Today's filters let roughly 70 to 150 stories through per build. The floor
+// sits well below that, so only a truly broken build gets thrown out.
+const MIN_GALLERY = 45;
 const MIN_VISUAL_SHARE = 0.6;
 const SUMMARY_LIMIT = 360;
 
