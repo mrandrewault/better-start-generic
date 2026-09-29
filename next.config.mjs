@@ -7,7 +7,8 @@ export default {
   experimental: {
     outputFileTracingIncludes: {
       "/api/feed": ["./data/**/*"],
-      "/api/edition": ["./data/**/*"]
+      "/api/edition": ["./data/**/*"],
+      "/api/story-check/report": ["./data/**/*"]
     }
   }
 };
