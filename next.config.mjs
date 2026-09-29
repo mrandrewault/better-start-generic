@@ -9,7 +9,9 @@ export default {
       "/api/feed": ["./data/**/*"],
       "/api/edition": ["./data/**/*"],
       "/api/story-check/report": ["./data/**/*"],
-      "/api/sources/tryout": ["./data/**/*"]
+      "/api/sources/tryout": ["./data/**/*"],
+      "/api/cron/stock-pantry": ["./data/**/*"],
+      "/api/pantry/status": ["./data/**/*"]
     }
   }
 };

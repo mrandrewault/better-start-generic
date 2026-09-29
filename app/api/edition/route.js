@@ -1,4 +1,5 @@
 import { buildFeed, ACTIVE_POLICY_VERSION, canonicalUrl, normalizeTitle, isDisallowed } from "../../../lib/feed-builder.js";
+import { readShelf } from "../../../lib/pantry.js";
 
 // THE SHARED EDITION
 // Every visitor without a custom profile gets this same finished edition.
@@ -23,6 +24,9 @@ const DESKS = 6;
 const MIN_GALLERY = 45;
 const MIN_VISUAL_SHARE = 0.6;
 const SUMMARY_LIMIT = 360;
+// The edition is built from the AI-approved pantry once it holds this many
+// stories. Until then (or if the pantry cannot be reached) it uses live feeds.
+const PANTRY_MINIMUM = 60;
 
 const trim = item => item && typeof item === "object"
   ? {...item, summary: typeof item.summary === "string" && item.summary.length > SUMMARY_LIMIT ? `${item.summary.slice(0, SUMMARY_LIMIT).replace(/\s+\S*$/, "")}…` : item.summary}
@@ -30,9 +34,17 @@ const trim = item => item && typeof item === "object"
 
 export async function GET() {
   const slot = Math.floor(Date.now() / (revalidate * 1000));
-  const desks = await Promise.all(Array.from({length: DESKS}, (_, desk) =>
-    buildFeed(new URLSearchParams({visit: `shared-${slot}-desk-${desk}`})).catch(() => null)
-  ));
+  let pantryShelf = [];
+  try { pantryShelf = await readShelf(); } catch { pantryShelf = []; }
+  const fromPantry = pantryShelf.length >= PANTRY_MINIMUM;
+  // Pantry mode: two desks share the approved shelf, each composing its own
+  // balanced magazine, so the merged edition runs deep. Live mode: six desks
+  // of live feeds, exactly as before.
+  const desks = fromPantry
+    ? await Promise.all([0, 1].map(desk => buildFeed(new URLSearchParams({visit: `pantry-${slot}-desk-${desk}`}), {pantryStories: desk ? [...pantryShelf].reverse() : pantryShelf}).catch(() => null)))
+    : await Promise.all(Array.from({length: DESKS}, (_, desk) =>
+        buildFeed(new URLSearchParams({visit: `shared-${slot}-desk-${desk}`})).catch(() => null)
+      ));
   const working = desks.filter(Boolean);
   const primary = working[0];
   const deploying = process.env.NEXT_PHASE === "phase-production-build";
@@ -72,7 +84,8 @@ export async function GET() {
 
   const visual = edition.gallery.filter(item => item.image || item.videoId).length;
   const visualShare = edition.gallery.length ? visual / edition.gallery.length : 0;
-  edition.quality = {gallery: edition.gallery.length, visualShare: Math.round(visualShare * 100) / 100, desks: working.length, policyVersion: ACTIVE_POLICY_VERSION};
+  edition.quality = {gallery: edition.gallery.length, visualShare: Math.round(visualShare * 100) / 100, desks: working.length, policyVersion: ACTIVE_POLICY_VERSION, source: fromPantry ? "pantry" : "live", shelf: pantryShelf.length};
+  edition.source = fromPantry ? "pantry" : "live";
 
   // During a deploy, never block the release over a thin first build. The
   // page checks the size itself and falls back to the live method when needed.
