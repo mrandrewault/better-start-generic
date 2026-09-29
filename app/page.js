@@ -4,7 +4,7 @@ import {EDITION_PALETTES, mastheadPalette} from "./palettes";
 import {supabase, supabaseConfigured} from "../lib/supabase";
 
 const BATCH_SIZE = 25;
-const ACTIVE_POLICY_VERSION = 32;
+const ACTIVE_POLICY_VERSION = 33;
 const EDITION_MS = 2 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -382,7 +382,7 @@ const prepareEdition = (next, previous, preserve) => {
     serendipity:stampNew(preserve ? blendPool(previous?.serendipity, clean.serendipity) : clean.serendipity)
   };
 };
-function Feedback({item, onRate, onSave, onShare, saved}) { return <div className="controls" aria-label="Story feedback"><button onClick={() => onRate(item, "more")}>♡ More like this</button><button className={saved ? "savedControl" : ""} onClick={() => onSave(item)}>{saved ? "Saved ✓" : "Save"}</button><button onClick={() => onShare(item)}>Share</button><button onClick={() => onRate(item, "less")}>Less</button><button onClick={() => onRate(item, "political")}>Too political</button><button onClick={() => onRate(item, "depressing")}>Too depressing</button></div>; }
+function Feedback({item, onRate, onSave, onShare, saved}) { return <div className="controls" aria-label="Story feedback"><button onClick={() => onRate(item, "more")}>♡ More like this</button><button className={saved ? "savedControl" : ""} onClick={() => onSave(item)}>{saved ? "Saved ✓" : "Save"}</button><button onClick={() => onShare(item)}>Share</button><button onClick={() => onRate(item, "less")}>Less</button></div>; }
 function MeasuredTicker({children}) { const tickerRef = useRef(null); useLayoutEffect(() => { const ticker = tickerRef.current, track = ticker?.querySelector("i"); if (!ticker || !track) return; const setSpeed = () => track.style.setProperty("--ticker-duration", `${Math.max(18, track.scrollWidth / 33.3).toFixed(2)}s`); const observer = new ResizeObserver(setSpeed); observer.observe(ticker); observer.observe(track); requestAnimationFrame(setSpeed); document.fonts?.ready.then(setSpeed); return () => observer.disconnect(); }, [children]); return <span className="ticker" ref={tickerRef}><i>{children}</i></span>; }
 function RollingFact({label, children}) { return <div className="rollingFact"><b>{label}</b><MeasuredTicker>{children}</MeasuredTicker></div>; }
 function GoodNewsWire({items = []}) { return <div className="rollingFact newsWire"><b>Good news wire</b><MeasuredTicker>{items.length ? items.map((item, index) => <a href={item.url} target="_blank" rel="noreferrer" key={item.canonicalUrl || item.url}>{item.title}<em>{item.source}</em>{index < items.length - 1 && <strong>✦</strong>}</a>) : "Finding several small reasons for optimism…"}</MeasuredTicker></div>; }
@@ -914,6 +914,6 @@ export default function Home() {
       {data && <div className="infiniteSentinel" ref={loadMoreRef} aria-hidden="true" />}
     </section>
 
-    <footer><b>MEANWHILE</b><span>BUILD 32{loadPath ? ` · ${loadPath}` : ""}</span></footer>
+    <footer><b>MEANWHILE</b><span>BUILD 33{loadPath ? ` · ${loadPath}` : ""}</span></footer>
   </main>;
 }
