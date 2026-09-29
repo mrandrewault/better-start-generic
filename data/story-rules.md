@@ -49,6 +49,8 @@ Cut the story if its main subject, framing or likely reader reaction involves:
 - Civic utility: traffic, roads, roundabouts, road work, commutes, recycling
   program updates, container deposits, municipal administration.
 - Motorcycles of any kind (new, vintage, racing, lifestyle). No exceptions.
+  Bicycles, mountain bikes, e-bikes and scooters are NOT motorcycles, even
+  when a product name contains "moto".
 - Vintage cars built before 1965.
 - Combat sports (UFC, MMA, boxing) and sports betting. Routine sports news
   (scores, trades, injuries, standings, contracts, recaps) is also a cut.
@@ -76,6 +78,19 @@ September 28"), newsletters, "programming notes", housekeeping posts, sponsor
 posts, podcast episode lists with no substance, event listings, sales and deal
 lists, press releases, job posts, "weekend snapshot" photo dumps with no story.
 Generic words like "new", "best" or "guide" are not enough on their own.
+
+Do NOT confuse filler with curated recommendations. These are welcome:
+- "Best albums / books / films of the season" lists and picks from culture
+  publishers (Bandcamp Daily, Literary Hub, Criterion and similar). A curated
+  list of great things to hear, read or see is a recommendation, not filler.
+- Nostalgic "look back" pieces about objects, design, music and culture
+  (for example 1990s car phones). They fit trivia and history.
+
+Short or vague summaries: many feeds give only a headline. When the
+publisher is a strong arts, design, music, food or science source and the
+subject itself sounds delightful (an exhibition, an artist, a discovery),
+judge the subject and give it the benefit of the doubt. Only safety
+problems should cut a story automatically.
 
 ## Delight score (1 to 10)
 
