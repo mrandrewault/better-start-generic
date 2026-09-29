@@ -8,7 +8,8 @@ export default {
     outputFileTracingIncludes: {
       "/api/feed": ["./data/**/*"],
       "/api/edition": ["./data/**/*"],
-      "/api/story-check/report": ["./data/**/*"]
+      "/api/story-check/report": ["./data/**/*"],
+      "/api/sources/tryout": ["./data/**/*"]
     }
   }
 };
