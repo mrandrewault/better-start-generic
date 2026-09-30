@@ -4,7 +4,7 @@ import {EDITION_PALETTES, mastheadPalette} from "./palettes";
 import {supabase, supabaseConfigured} from "../lib/supabase";
 
 const BATCH_SIZE = 25;
-const ACTIVE_POLICY_VERSION = 33;
+const ACTIVE_POLICY_VERSION = 34;
 const EDITION_MS = 2 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -20,7 +20,10 @@ const DELIVERED_INVENTORY_LEDGER_KEY = "meanwhileDeliveredInventoryHashesV1";
 // any of its stories another appearance.
 const FEED_SNAPSHOT_KEY = "meanwhileFeedSnapshotV11";
 const STORY_HISTORY_LIMIT = 1500;
-const SEEN_STORY_LEDGER_LIMIT = 200000;
+// Build 34: was 200000. That list could outgrow the browser's storage, and
+// when a save fails the browser silently forgets what you have seen, which
+// lets old stories come back. 60000 fits comfortably and covers months.
+const SEEN_STORY_LEDGER_LIMIT = 60000;
 const DAYPART_MESSAGES = {
   morning:[
     "Let’s start the day off rage-free, shall we?",
@@ -192,7 +195,10 @@ const permanentSeenHashes = () => new Set([
 ]);
 const writeSeenLedger = hashes => {
   try { localStorage.setItem(SEEN_STORY_LEDGER_KEY, JSON.stringify([...hashes].slice(-SEEN_STORY_LEDGER_LIMIT))); return true; }
-  catch { return false; }
+  catch {
+    // Storage is full: keep the most recent part of the list rather than none.
+    try { localStorage.setItem(SEEN_STORY_LEDGER_KEY, JSON.stringify([...hashes].slice(-Math.floor(SEEN_STORY_LEDGER_LIMIT / 3)))); return true; } catch { return false; }
+  }
 };
 const claimUnique = (items = [], seen = new Set()) => items.filter(item => {
   const safetyText = `${item?.title || ""} ${item?.summary || ""} ${item?.source || ""} ${item?.section || ""} ${item?.url || ""}`;
@@ -283,11 +289,18 @@ const storyHistory = () => { try { const value = JSON.parse(localStorage.getItem
 const storyHistoryKeys = () => new Set(storyHistory().flatMap(entry => [entry.id, ...(entry.keys || [])]).filter(Boolean));
 const deliveredInventoryState = () => { try { const value = JSON.parse(localStorage.getItem(DELIVERED_INVENTORY_LEDGER_KEY) || "null"), now = Date.now(); if (Array.isArray(value)) return {startedAt:now,current:[],prior:value}; return value && typeof value === "object" ? {startedAt:Number(value.startedAt) || now,current:Array.isArray(value.current) ? value.current : [],prior:Array.isArray(value.prior) ? value.prior : []} : {startedAt:now,current:[],prior:[]}; } catch { return {startedAt:Date.now(),current:[],prior:[]}; } };
 const writeDeliveredInventory = state => { try { localStorage.setItem(DELIVERED_INVENTORY_LEDGER_KEY, JSON.stringify({...state,current:[...new Set(state.current)].slice(-SEEN_STORY_LEDGER_LIMIT),prior:[...new Set(state.prior)].slice(-SEEN_STORY_LEDGER_LIMIT)})); } catch {} };
-const rotateDeliveredInventory = () => { const state = deliveredInventoryState(), now = Date.now(); if (now - state.startedAt >= DAY_MS) { state.prior = [...new Set([...state.prior, ...state.current])].slice(-SEEN_STORY_LEDGER_LIMIT); state.current = []; state.startedAt = now; } writeDeliveredInventory(state); return state; };
+const rotateDeliveredInventory = () => { const state = deliveredInventoryState(), now = Date.now(); if (now - state.startedAt >= DAY_MS) { state.prior = []; state.current = []; state.startedAt = now; } writeDeliveredInventory(state); return state; };
 const deliveredInventoryHashes = (includeCurrent = false) => { const state = rotateDeliveredInventory(); return new Set(includeCurrent ? [...state.prior, ...state.current] : state.prior); };
 const editionInventoryItems = edition => [...(edition?.tickerStories || []), edition?.goodNews, ...(edition?.favorites || []), ...(edition?.important || []), ...(edition?.gallery || []), ...(edition?.media || []), ...(edition?.serendipity || []), ...(edition?.visualReserve || [])].filter(Boolean);
-const recordDeliveredInventory = edition => { const state = rotateDeliveredInventory(), current = new Set(state.current), permanent = permanentSeenHashes(); editionInventoryItems(edition).forEach(item => identityHashes(item).forEach(hash => { current.add(hash); permanent.add(hash); })); state.current = [...current]; writeDeliveredInventory(state); writeSeenLedger(permanent); };
-const rememberPriorInventory = edition => { const state = rotateDeliveredInventory(), prior = new Set(state.prior); editionInventoryItems(edition).forEach(item => identityHashes(item).forEach(hash => prior.add(hash))); state.prior = [...prior]; writeDeliveredInventory(state); };
+// Build 34: two lists with two jobs.
+// "Seen" (permanent) = stories that actually appeared on your screen. Those
+// never come back. It is written by the visibility tracker below.
+// "Delivered" (today only) = everything loaded into today's editions, shown
+// or not, so the same day never re-serves it. It resets every 24 hours, so a
+// story that loaded far below where you stopped scrolling can still reach
+// you another day. This keeps the pantry from running dry for regular readers.
+const recordDeliveredInventory = edition => { const state = rotateDeliveredInventory(), current = new Set(state.current); editionInventoryItems(edition).forEach(item => identityHashes(item).forEach(hash => current.add(hash))); state.current = [...current]; writeDeliveredInventory(state); };
+const rememberPriorInventory = () => { rotateDeliveredInventory(); };
 const syncDeliveredInventoryToCloud = async (edition, user) => {
   if (!supabase || !user) return;
   const lastSeenAt = new Date().toISOString(), storyKeys = new Set();
@@ -663,6 +676,7 @@ export default function Home() {
         setLoadPath(assembled ? "fast" : "live");
         if (!assembled) {
           const editions = await Promise.all(Array.from({length:3}, (_, desk) => requestFeed({visit:`${visit}-desk-${desk}`,avoid,avoidStories,places,interests:profileTerms,editionName:activeProfile?.title || ""})));
+          setLoadPath(editions.some(edition => edition?.feedSource === "pantry") ? (profileTerms ? "yours" : "pantry") : "live");
           const primary = editions[0], reserved = [...(primary?.tickerStories || []), primary?.goodNews, ...(primary?.favorites || [])].filter(Boolean);
           assembled = {...primary,
             gallery:claimSessionUnique(editions.flatMap(edition => edition?.gallery || []), reserved).slice(0, 300),
@@ -703,7 +717,19 @@ export default function Home() {
     refreshEditionRef.current = () => { setEditionNote("Making a fresh edition…"); loadEdition(false, true); };
     loadEdition(false);
     const clock = setInterval(() => setNow(new Date()), 60000), editionTimer = setInterval(() => loadEdition(true), EDITION_MS);
-    const onVisible = () => { if (!document.hidden && Date.now() - lastLoad >= EDITION_MS) loadEdition(true); };
+    // Build 34: coming back to a tab you left open. If you were away at least
+    // 30 minutes and the edition is 2+ hours old, you get a whole new edition
+    // from the top, like opening Meanwhile fresh. Short tab switches still
+    // just add new stories at the bottom without moving anything.
+    let hiddenAt = 0;
+    const onVisible = () => {
+      if (document.hidden) { hiddenAt = Date.now(); return; }
+      const awayLong = hiddenAt && Date.now() - hiddenAt >= 30 * 60 * 1000;
+      hiddenAt = 0;
+      if (Date.now() - lastLoad < EDITION_MS) return;
+      if (awayLong) { window.scrollTo(0, 0); setEditionNote("Making a fresh edition…"); loadEdition(false, true); }
+      else loadEdition(true);
+    };
     document.addEventListener("visibilitychange", onVisible);
     return () => { refreshEditionRef.current = null; clearInterval(clock); clearInterval(editionTimer); document.removeEventListener("visibilitychange", onVisible); };
   }, []);
@@ -914,6 +940,6 @@ export default function Home() {
       {data && <div className="infiniteSentinel" ref={loadMoreRef} aria-hidden="true" />}
     </section>
 
-    <footer><b>MEANWHILE</b><span>BUILD 33{loadPath ? ` · ${loadPath}` : ""}</span></footer>
+    <footer><b>MEANWHILE</b><span>BUILD 34{loadPath ? ` · ${loadPath}` : ""}</span></footer>
   </main>;
 }
