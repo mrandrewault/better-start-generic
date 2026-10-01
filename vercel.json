@@ -1,5 +1,6 @@
 {
   "crons": [
-    { "path": "/api/cron/stock-pantry", "schedule": "*/30 * * * *" }
+    { "path": "/api/cron/stock-pantry", "schedule": "*/30 * * * *" },
+    { "path": "/api/cron/social-drafts", "schedule": "5 11 * * *" }
   ]
 }

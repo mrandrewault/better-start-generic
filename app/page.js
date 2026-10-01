@@ -4,7 +4,7 @@ import {EDITION_PALETTES, mastheadPalette} from "./palettes";
 import {supabase, supabaseConfigured} from "../lib/supabase";
 
 const BATCH_SIZE = 25;
-const ACTIVE_POLICY_VERSION = 34;
+const ACTIVE_POLICY_VERSION = 35;
 const EDITION_MS = 2 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -940,6 +940,6 @@ export default function Home() {
       {data && <div className="infiniteSentinel" ref={loadMoreRef} aria-hidden="true" />}
     </section>
 
-    <footer><b>MEANWHILE</b><span>BUILD 34{loadPath ? ` · ${loadPath}` : ""}</span></footer>
+    <footer><b>MEANWHILE</b><span>BUILD 35{loadPath ? ` · ${loadPath}` : ""}</span></footer>
   </main>;
 }

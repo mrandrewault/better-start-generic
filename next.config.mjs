@@ -11,7 +11,10 @@ export default {
       "/api/story-check/report": ["./data/**/*"],
       "/api/sources/tryout": ["./data/**/*"],
       "/api/cron/stock-pantry": ["./data/**/*"],
-      "/api/pantry/status": ["./data/**/*"]
+      "/api/pantry/status": ["./data/**/*"],
+      "/api/social/card": ["./data/**/*"],
+      "/api/social/preview": ["./data/**/*"],
+      "/api/cron/social-drafts": ["./data/**/*"]
     }
   }
 };
