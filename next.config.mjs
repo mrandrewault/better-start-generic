@@ -14,7 +14,10 @@ export default {
       "/api/pantry/status": ["./data/**/*"],
       "/api/social/card": ["./data/**/*"],
       "/api/social/preview": ["./data/**/*"],
-      "/api/cron/social-drafts": ["./data/**/*"]
+      "/api/cron/social-drafts": ["./data/**/*"],
+      "/api/cron/stock-videos": ["./data/**/*"],
+      "/api/tv/status": ["./data/**/*"],
+      "/api/tv/lineup": ["./data/**/*"]
     }
   }
 };
