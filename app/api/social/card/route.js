@@ -12,10 +12,14 @@ export async function GET(request) {
   const params = new URL(request.url).searchParams;
   const id = String(params.get("id") || "").slice(0, 40);
   const size = params.get("size") === "tall" ? "tall" : "feed";
+  // slide=1 headline (default), 2 the story, 3 where to read it. carousel=1
+  // marks the headline card as the first of three ("1 / 3, swipe").
+  const slide = [1, 2, 3].includes(Number(params.get("slide"))) ? Number(params.get("slide")) : 1;
+  const carousel = params.get("carousel") === "1" || slide > 1;
   try {
     const card = id ? await cardData(id) : null;
     if (!card) return new Response("No card for that story.", {status: 404});
-    const jpeg = await renderCard(card, size);
+    const jpeg = await renderCard({...card, slides: carousel ? 3 : 0}, size, slide);
     return new Response(jpeg, {headers: {"content-type": "image/jpeg", "cache-control": "public, max-age=86400, s-maxage=86400"}});
   } catch (error) {
     return new Response(`Card failed: ${String(error?.message || error)}`, {status: 500});

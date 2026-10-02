@@ -26,8 +26,7 @@ export async function GET(request) {
     body = plans.length ? plans.map(plan => `
 <article>
   <div class="cards">
-    <img src="${escape(cardUrl(plan.story_id, "feed", origin))}" alt="Instagram card" loading="lazy">
-    <img class="tall" src="${escape(cardUrl(plan.story_id, "tall", origin))}" alt="TikTok card" loading="lazy">
+    ${[1, 2, 3].map(slide => `<img src="${escape(cardUrl(plan.story_id, "feed", origin, slide))}" alt="Slide ${slide}" loading="lazy">`).join("")}
   </div>
   <div class="words">
     <p class="meta">${escape(STATUS[plan.status] || plan.status)} · ${escape(when(plan.created_at))}${plan.buffer_ids?.length ? ` · ${escape(plan.buffer_ids.map(item => item.service).join(", "))}` : ""}</p>
@@ -47,7 +46,7 @@ body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 Georgia,serif
 h1{font-size:32px;margin:0 0 4px}a{color:var(--text)}.muted,.meta{color:var(--muted);font-size:13px}.note{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
 .button{display:inline-block;border:1px solid var(--text);border-radius:999px;padding:8px 16px;text-decoration:none;margin:10px 0}
 article{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:24px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin:18px 0}
-.cards{display:flex;gap:10px;align-items:flex-start}.cards img{width:62%;border-radius:8px;background:#000}.cards img.tall{width:35%}
+.cards{display:flex;gap:10px;align-items:flex-start}.cards img{width:32%;border-radius:8px;background:#000}
 h2{font-size:20px;margin:4px 0 10px}h3{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:14px 0 4px}
 pre{white-space:pre-wrap;font:14px/1.45 Georgia,serif;margin:0}.error{color:var(--cut)}
 @media(max-width:760px){article{grid-template-columns:1fr}}
