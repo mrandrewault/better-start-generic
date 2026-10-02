@@ -1,4 +1,4 @@
-import { latestPlans, planPreview, cardUrl, POSTS_PER_DAY, INSTAGRAM_PER_DAY } from "../../../../lib/social.js";
+import { latestPlans, planPreview, cardUrl, videoPageUrl, POSTS_PER_DAY, INSTAGRAM_PER_DAY } from "../../../../lib/social.js";
 
 // SOCIAL PREVIEW: a plain page to look at the robot's work.
 // Open it to see the latest planned posts with their cards and captions.
@@ -28,10 +28,11 @@ export async function GET(request) {
   <div class="cards">
     ${[1, 2, 3].map(slide => `<img src="${escape(cardUrl(plan.story_id, "feed", origin, slide))}" alt="Slide ${slide}" loading="lazy">`).join("")}
   </div>
+  <p class="meta"><a href="${escape(videoPageUrl(plan.story_id, origin))}" target="_blank" rel="noreferrer">Watch the TikTok video</a> (the first time takes about a minute to make)</p>
   <div class="words">
     <p class="meta">${escape(STATUS[plan.status] || plan.status)} · ${escape(when(plan.created_at))}${plan.buffer_ids?.length ? ` · ${escape(plan.buffer_ids.map(item => item.service).join(", "))}` : ""}</p>
     <h2><a href="${escape(plan.url)}" target="_blank" rel="noreferrer">${escape(plan.title)}</a></h2>
-    <h3>Instagram and TikTok caption</h3><pre>${escape(plan.caption)}</pre>
+    <h3>Instagram caption (TikTok says "Read the full story at meanwhile.now" instead)</h3><pre>${escape(plan.caption)}</pre>
     <h3>Threads caption</h3><pre>${escape(plan.threads_caption)}</pre>
     ${plan.error ? `<p class="error">${escape(plan.error)}</p>` : ""}
   </div>

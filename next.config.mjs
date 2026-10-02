@@ -17,7 +17,9 @@ export default {
       "/api/cron/social-drafts": ["./data/**/*"],
       "/api/cron/stock-videos": ["./data/**/*"],
       "/api/tv/status": ["./data/**/*"],
-      "/api/tv/lineup": ["./data/**/*"]
+      "/api/tv/lineup": ["./data/**/*"],
+      // The TikTok video maker also needs the ffmpeg program.
+      "/api/social/video": ["./data/**/*", "./node_modules/.pnpm/@ffmpeg-installer+linux-x64@4.1.0/node_modules/@ffmpeg-installer/linux-x64/**"]
     }
   }
 };
