@@ -1,4 +1,4 @@
-import { latestPlans, planPreview, cardUrl, POSTS_PER_DAY } from "../../../../lib/social.js";
+import { latestPlans, planPreview, cardUrl, POSTS_PER_DAY, INSTAGRAM_PER_DAY } from "../../../../lib/social.js";
 
 // SOCIAL PREVIEW: a plain page to look at the robot's work.
 // Open it to see the latest planned posts with their cards and captions.
@@ -9,7 +9,7 @@ export const maxDuration = 60;
 
 const escape = value => String(value ?? "").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char]));
 const when = value => value ? new Date(value).toLocaleString("en-US", {timeZone: "America/New_York", month: "short", day: "numeric", hour: "numeric", minute: "2-digit"}) : "";
-const STATUS = {preview: "Sample only", picked: "Picked, not sent", drafted: "Draft in Buffer"};
+const STATUS = {preview: "Sample only", picked: "Picked, not sent", drafted: "Sent to Buffer"};
 
 export async function GET(request) {
   const url = new URL(request.url), origin = url.origin;
@@ -53,7 +53,7 @@ pre{white-space:pre-wrap;font:14px/1.45 Georgia,serif;margin:0}.error{color:var(
 @media(max-width:760px){article{grid-template-columns:1fr}}
 </style></head><body><main>
 <h1>Social preview</h1>
-<p class="muted">Every day the robot picks ${POSTS_PER_DAY} story and loads it into Buffer as a draft for Instagram, Threads and TikTok. Nothing posts until you approve it in Buffer.</p>
+<p class="muted">Every morning the robot schedules ${POSTS_PER_DAY} stories in Buffer: one an hour from 10 AM to 5 PM on Threads and TikTok, and the best ${INSTAGRAM_PER_DAY} on Instagram (plus one Story). To stop a post, delete it from the Buffer Queue before its time.</p>
 <a class="button" href="?new=1">Make 3 new sample posts</a>
 ${note ? `<p class="note">${escape(note)}</p>` : ""}
 ${body}

@@ -1,12 +1,13 @@
 import { runDaily } from "../../../../lib/social.js";
 
-// THE DAILY SOCIAL JOB. Vercel calls this once a day (see vercel.json).
-// It picks the best new stories, writes the captions, and loads them into
-// Buffer as DRAFTS for Instagram, Threads and TikTok. Nothing is published
-// until Andrew approves it in Buffer.
+// THE DAILY SOCIAL JOB. Vercel calls this at 7:05 AM New York time (see vercel.json).
+// It picks the 8 best new stories, writes the captions, and SCHEDULES them in
+// Buffer: one an hour from 10 AM to 5 PM on Threads and TikTok, and the best 4
+// on Instagram (10, 12, 2, 4) plus one Story. Andrew can delete any post from
+// the Buffer Queue before its time; otherwise it publishes on its own.
 //
 // The launch push: open this address with your CRON_SECRET to send a bigger
-// batch right now, for example 9 stories:
+// batch right now as DRAFTS (nothing posts until approved), for example 9:
 //   https://meanwhile.now/api/cron/social-drafts?count=9&key=YOUR_CRON_SECRET
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
