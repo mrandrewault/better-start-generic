@@ -1,419 +1,290 @@
 "use client";
-import {useEffect,useMemo,useState} from "react";
+import {useEffect, useMemo, useState} from "react";
 import {supabase} from "../../lib/supabase";
+import {EDITION_PALETTES} from "../palettes.js";
 
-const STORAGE_KEY="betterStartQuickPicksV2";
-const PROFILE_KEY="betterStartPersonalProfileV1";
-const topics=[
-  {id:"music",label:"Music",color:"red",children:["Classical","Jazz","Rock","Country","Electronic","Hip-hop","Reggae","Blues","Metal","Folk","Soul + R&B","Global music"]},
-  {id:"film",label:"Movies + TV",color:"blue",children:["New movies","Great television","Classic film","Documentaries","Comedy","International cinema","Animation","Horror + suspense","Science fiction + fantasy","Independent film","Film craft","Cult classics"]},
-  {id:"food",label:"Food",color:"orange",size:"lg",children:["Eating out","Cooking + recipes","Ingredients","World cuisines","Local food near me","Kitchens + design","Kitchen tools","Food people + stories"]},
-  {id:"science",label:"Science + nature",color:"green",children:["Space","Astronomy","Nature","Engineering","Mathematics","Oceans","Medicine","How things work"]},
-  {id:"animals",label:"Animals",color:"yellow",size:"md",children:["Dogs","Cats","Wildlife","Animal rescue","Birds","Ocean life","Animal intelligence","Conservation"]},
-  {id:"sports",label:"Sports",color:"rust",children:["Football + fantasy","Baseball","Basketball","Women’s sports","Soccer","Tennis","College sports","Motor racing","Golf","Hockey","Olympic sports","Running + cycling","Great sports stories","Sports history"]},
-  {id:"photography",label:"Photography",color:"navy",size:"xl",children:["Documentary","Street photography","Film cameras","Landscape","Photo history","Portraits","Darkrooms","New photographers"]},
-  {id:"books",label:"Books + ideas",color:"brown",size:"lg",children:["Fiction, please","History rabbit holes","Essays + big ideas","Lives well lived","Poetry counts","Mysteries + thrillers","Science fiction + fantasy","Graphic novels + comics","Book design","Independent magazines","Archives + museums","Bookshops are destinations"]},
-  {id:"outdoors",label:"Nature + outdoors",color:"green",size:"xl",children:["Hiking","National parks","Gardens","Forests","Birding","Camping","Beautiful landscapes","Conservation"]},
-  {id:"travel",label:"Travel",color:"orange",size:"md",children:["Types of travel","World regions","Destinations","Hotels + resorts","Road + rail","Camping + outdoors","Food + culture trips","Slow travel"]},
-  {id:"design",label:"Art + design",color:"blue",size:"lg",children:["Painting","Sculpture","Illustration + comic art","Poster art","Photography","Graphic design","Architecture","Furniture + objects","Typography","Museums + exhibitions","Craft","Public art","Digital + new media","Creative studios"]},
-  {id:"comedy",label:"Comedy",color:"yellow",size:"sm",children:["Stand-up","Sketches","Funny interviews","Classic comedy","Late-night archives","Absurdity","Comic actors","Smart silliness"]},
-  {id:"local",label:"Local discoveries",color:"rust",size:"md",children:["New restaurants","Neighborhood history","Day trips","Local arts","Independent shops","Parks + trails","Community wins","Things happening nearby"]},
-  {id:"making",label:"Making things",color:"brown",size:"sm",children:["Woodworking","Ceramics","Printmaking","Home studios","Repair","Analog tools","Creative process","Beautiful objects"]},
-  {id:"people",label:"Good people",color:"red",size:"md",children:["Human ingenuity","Kindness","Community projects","Creative lives","Big achievements","Small victories","Mentors","Unexpected friendships"]},
-  {id:"philanthropy",label:"Philanthropy + community",color:"green",size:"lg",children:["Money put to good use","Community foundations","Libraries + schools","Arts access","Scholarships","Housing + food access","Public spaces","Giving with results"]},
-  {id:"technology",label:"Technology",color:"navy",children:["Apple","Audio gear","Cameras","Clean energy","Inventors","Robotics","Creative tools","Thoughtful AI"]},
-  {id:"business",label:"Business + money",color:"green",children:["Markets","Entrepreneurship","Personal finance","Interesting companies","Real estate","Workplace ideas","Economic history","New inventions"]},
-  {id:"health",label:"Health + fitness",color:"red",children:["Yoga","Pilates","Fitness","Women’s running","Running","Cycling","Mobility","Wellness retreats","Nutrition","Healthy aging","Everyday health"]},
-  {id:"home",label:"Home + garden",color:"yellow",children:["Interior design","Gardens","Renovation","Organization","House history","Small spaces","Plants","Useful home ideas"]},
-  {id:"family",label:"Family",color:"orange",children:["Things to do together","Parenting ideas","Children’s books","Education","College","Family travel","Youth sports","Useful local resources"]},
-  {id:"style",label:"Style + fashion",color:"blue",children:["Fashion design","Making fashion","Fashion history","Fashion photography","Runway + couture","Costume + screen style","Personal style","Fashion business"]},
-  {id:"women",label:"Women + culture",color:"red",children:["Women writers","Women leaders","Women in the arts","Women’s sports","Women’s tennis","Women’s running","Pilates","Wellness retreats","Costume design","Fashion photography","Book clubs + reading","Women founders"]},
-  {id:"gaming",label:"Gaming",color:"navy",children:["New games","Retro gaming","Game design","Nintendo","PlayStation","Xbox","PC gaming","Indie games"]},
-  {id:"cars",label:"Cars, boats + transportation",color:"rust",children:["New cars","Classic cars","Automotive design","Motorcycles","Boats + sailing","Boatbuilding","Trains","Aviation"]}
+// MAKE IT YOURS, one screen.
+// Tap a big bubble and its smaller bubbles pop open right below it. Real
+// stories from the pantry update as you tap. The bubbles float in once,
+// then hold still, so they are easy to tap, so you can see your Meanwhile
+// taking shape. The finished profile has the same shape as before, so the
+// feed reads it exactly the same way.
+
+const STATE_KEY = "meanwhileMakeItYoursV3";
+const PROFILE_KEY = "betterStartPersonalProfileV1";
+
+// line: the big bubble. name: the plain topic name the feed understands.
+// topics: the pantry's own topic tags. kids: the smaller bubbles.
+const PICKS = [
+  {id: "music", line: "Music is usually playing", name: "Music", topics: ["music"], kids: ["Jazz", "Classical", "Rock", "Hip-hop", "Country + folk", "Electronic", "Soul + R&B", "Live music", "Global sounds"]},
+  {id: "food", line: "I know a good place to eat", name: "Food", topics: ["food", "beverage"], kids: ["Restaurants", "Cooking at home", "Bakeries", "Coffee + tea", "Wine + cocktails", "World cuisines", "Food history"]},
+  {id: "outside", line: "I’d rather be outside", name: "Nature + outdoors", topics: ["outdoors", "gardening"], kids: ["Hiking", "National parks", "Gardens", "Birds", "Oceans", "Camping"]},
+  {id: "works", line: "I want to know how things work", name: "Science + technology", topics: ["tech", "thinking"], kids: ["Space", "Inventions", "Engineering", "Robots", "Clean energy", "Science"]},
+  {id: "design", line: "Art and design are part of my life", name: "Art + design", topics: ["arts"], kids: ["Painting", "Architecture", "Photography", "Graphic design", "Museums", "Furniture", "Typography"]},
+  {id: "screen", line: "I love a good movie", name: "Movies + TV", topics: ["entertainment"], kids: ["Classic film", "New movies", "Great TV", "Documentaries", "Animation", "Comedy"]},
+  {id: "read", line: "I read for fun", name: "Books + ideas", topics: ["books", "history"], kids: ["Fiction", "History", "Poetry", "Comics", "Bookshops", "Biographies"]},
+  {id: "team", line: "I follow a team", name: "Sports", topics: ["sports"], kids: ["Baseball", "Football", "Basketball", "Soccer", "Tennis", "Running", "Golf"]},
+  {id: "travel", line: "I’m usually planning a trip", name: "Travel", topics: ["travel"], kids: ["Great cities", "Small towns", "Train journeys", "Hotels", "Islands", "Road trips"]},
+  {id: "animals", line: "Animals make almost everything better", name: "Animals", topics: ["outdoors", "surprise"], kids: ["Dogs", "Cats", "Wildlife", "Birds", "Rescue stories", "Ocean life"]},
+  {id: "making", line: "I like making or fixing things", name: "Making things", topics: ["crafts", "home"], kids: ["Woodworking", "Ceramics", "Repair", "Sewing", "Home projects", "Tools"]},
+  {id: "style", line: "Fashion with a capital F", name: "Style + fashion", topics: ["fashion"], kids: ["Runway", "Designers", "Vintage", "Fashion photography", "Personal style", "Sneakers"]},
+  {id: "money", line: "I keep up with business and money", name: "Business + money", topics: ["business"], kids: ["Founders", "Small businesses", "Clever companies", "Personal finance", "Markets"]},
+  {id: "wheels", line: "Things with wheels (and sails)", name: "Cars, boats + transportation", topics: ["auto"], kids: ["Classic cars", "Car design", "Motorcycles", "Boats + sailing", "Trains", "Aviation"]},
+  {id: "home", line: "Home is my happy place", name: "Home + garden", topics: ["home", "gardening"], kids: ["Interior design", "Small spaces", "Old houses", "Plants", "Organizing"]},
+  {id: "people", line: "People doing good things", name: "Good people", topics: ["surprise", "thinking"], kids: ["Kindness", "Community projects", "Giving", "Teachers", "Neighbors"]},
+  {id: "curious", line: "I’ll happily learn something new", name: "History + curiosities", topics: ["trivia", "history", "thinking", "surprise"], kids: ["History", "Did you know", "Archaeology", "Maps", "Language"]}
 ];
-const doorways=[
-  {id:"music-on",label:"Music is usually playing",signals:["music"],color:"red",size:"xl"},
-  {id:"team",label:"I follow a team",signals:["sports"],color:"rust",size:"lg"},
-  {id:"fantasy",label:"Fantasy football is life",signals:["sports"],color:"green",size:"md"},
-  {id:"eat",label:"Food",signals:["food","local","travel"],color:"orange",size:"xl"},
-  {id:"works",label:"I want to know how things work",signals:["science","technology","making"],color:"navy",size:"lg"},
-  {id:"outside",label:"I’d rather be outside",signals:["outdoors","travel","animals"],color:"green",size:"lg"},
-  {id:"business",label:"I keep up with business and money",signals:["business","technology"],color:"green",size:"xl"},
-  {id:"fashion-first",label:"Fashion with a capital F",signals:["style","women","photography"],color:"blue",size:"xl"},
-  {id:"money-mind",label:"Mind on my money",signals:["business"],color:"green",size:"lg"},
-  {id:"movie",label:"I love a good movie",signals:["film","comedy"],color:"blue",size:"lg"},
-  {id:"read",label:"I read for fun",signals:["books"],color:"brown",size:"md"},
-  {id:"design",label:"Art and design are part of my life",signals:["design","photography"],color:"blue",size:"lg"},
-  {id:"make",label:"I like making or fixing things",signals:["making","technology","home"],color:"brown",size:"md"},
-  {id:"trip",label:"I’m usually planning a trip",signals:["travel","food","outdoors"],color:"orange",size:"lg"},
-  {id:"games",label:"I play games",signals:["gaming","technology"],color:"navy",size:"md"},
-  {id:"active",label:"Staying active matters to me",signals:["health","sports","outdoors"],color:"red",size:"lg"},
-  {id:"family",label:"I enjoy finding things to do with my family",signals:["family","local","travel"],color:"yellow",size:"xl"},
-  {id:"style",label:"I care about personal style",signals:["style","design"],color:"blue",size:"md"},
-  {id:"nearby",label:"I like knowing what’s happening nearby",signals:["local","food","family"],color:"rust",size:"lg"},
-  {id:"animals",label:"Animals make almost everything better",signals:["animals","outdoors"],color:"yellow",size:"xl"},
-  {id:"new",label:"I’ll happily learn about something completely new",signals:["science","people","books"],color:"red",size:"lg"}
-  ,{id:"giving",label:"I like people putting money to good use",signals:["philanthropy","people","business"],color:"green",size:"xl"}
-  ,{id:"projects",label:"I almost always have a project going",signals:["making","home"],color:"brown",size:"lg"}
-  ,{id:"garden",label:"I’m happiest in a garden",signals:["home","outdoors"],color:"green",size:"md"}
-  ,{id:"water",label:"I love boats and being on the water",signals:["cars","outdoors","travel"],color:"navy",size:"xl"}
-  ,{id:"history",label:"History sends me down rabbit holes",signals:["books","design"],color:"brown",size:"lg"}
-  ,{id:"fashion",label:"I follow fashion beyond what’s in stores",signals:["style","women","photography"],color:"blue",size:"xl"}
-  ,{id:"women-stories",label:"I want more stories about remarkable women",signals:["women","books","people"],color:"red",size:"lg"}
-  ,{id:"costumes",label:"I notice the costumes before the plot",signals:["style","film","women"],color:"yellow",size:"lg"}
-  ,{id:"fashion-week",label:"Fashion Week is my World Series",signals:["style","women","photography"],color:"red",size:"xl"}
-  ,{id:"bergdorfs",label:"Scatter my ashes at Bergdorf’s",signals:["style","women","travel"],color:"blue",size:"lg"}
-  ,{id:"bon-marche",label:"Le Bon Marché is my happy place",signals:["style","women","travel"],color:"yellow",size:"lg"}
-  ,{id:"runway-save",label:"I save runway looks",signals:["style","photography"],color:"blue",size:"md"}
-  ,{id:"magazine-photo",label:"I buy magazines for the photography",signals:["style","photography","books"],color:"brown",size:"lg"}
-  ,{id:"designer-not-trend",label:"I follow designers, not trends",signals:["style","women"],color:"red",size:"lg"}
-  ,{id:"costume-binge",label:"I’ll watch anything with excellent production design",signals:["style","film","design"],color:"navy",size:"xl"}
-  ,{id:"travel-first",label:"Travel",signals:["travel"],color:"orange",size:"xl"}
-];
-const primaryDoorwayIds=["music-on","team","eat","works","outside","business","fashion-first","movie","read","design","active","animals","giving","travel-first"];
-const primaryDoorways=doorways.filter(item=>primaryDoorwayIds.includes(item.id));
-const doorwayTopic={"music-on":"music",team:"sports",eat:"food",works:"science",outside:"outdoors",business:"business","fashion-first":"style",movie:"film",read:"books",design:"design",active:"health",animals:"animals",giving:"philanthropy","travel-first":"travel"};
-const specifics={
-  "Hip-hop all day":["Old school","Golden age","New school","Beat tapes","Independent rap","Southern hip-hop","Live cyphers","Hip-hop history"],
-  "Jam bands":["Long strange trips","Live tapes","Improvisation","Festival sets","Cosmic country","Funk jams"],
-  "Indie":["Indie rock","Indie pop","College radio","Shoegaze","Post-punk","DIY scenes","New discoveries"],
-  "More rock, less talk":["Get the Led Out","Garage rock","Punk","Glam","Heavy metal","Classic albums","Guitar heroes","Live archives"],
-  "Country AND western":["Americana","Outlaw country","Honky-tonk","Bluegrass","Western swing","Songwriters","Cosmic country"],
-  "Classical":["Amadeus, Amadeus","Philip Glass + minimalism","Solo piano","Baroque","Chamber music","Great orchestras","New music","Opera without homework"],
-  "Close enough for jazz":["Hard bop","Ethiopian jazz","Spiritual jazz","Cool jazz","Free jazz","ECM","Blue Note","Jazz-funk","Big bands"],
-  "Last night a DJ saved my life":["EDM","House","Techno","Disco","Dub","Drum + bass","Ambient","Turntablism","Synthesizers"],
-  "R&B + soul":["Classic soul","New R&B","Motown","Philly soul","Funk","Quiet storm","Great vocalists","Live sessions"],
-  "Global sounds":["Afrobeat","Brazilian grooves","Highlife","Cumbia","Reggae + dub","Japanese city pop","Arabic music","Ethiopian jazz"],
-  "Live music":["Tiny Desk","Concert films","Festival sets","Small clubs","Live archives","Sessions + soundchecks"],
-  "New releases":["New albums","New songs","Debuts","Comebacks","Record labels","Studio stories"],
-  "Old movies forever":["Film noir","70mm","Restorations","Pre-Code Hollywood","Screwball comedy","Movie palaces"],
-  "How movies get made":["Cinematography","Sound design","Editing","Production design","Casting","Stunt craft"],
-  "Practical magic":["Practical effects","Miniatures","Creature design","Stop motion","Matte paintings"],
-  "Cult classics":["Midnight movies","Camp","Forgotten gems","Video-store discoveries","Repertory cinemas"],
-  "Baseball is a way of life":["MLB","Ballparks","Baseball history","Minor leagues","Great defensive plays","Scorecards + ephemera"],
-  "Tennis, anyone?":["Grand Slams","US Open","Tennis history","Rising players","Great rivalries"],
-  "The beautiful game":["Premier League","Champions League","Women’s soccer","Supporter culture","Great goals","Historic clubs"],
-  "Motor racing":["Formula 1","IndyCar","Le Mans","Rally","Historic racing","Engineering stories"],
-  "Golf without the whispering":["Great courses","Golf design","The majors","Amateur golf","Equipment history"],
-  "Illustration + comic art":["Editorial illustration","Comics","Graphic memoirs","New illustrators","Sequential art","Ink + paint"],
-  "Poster art":["Concert posters","Film posters","Screen printing","Poster archives","Polish poster art"],
-  "Fine art":["Painting","Sculpture","Installation","Printmaking","Artist studios","Major rediscoveries"],
-  "Photography":["Photo books","Portraiture","Conceptual photography","Darkrooms","New photographers"],
-  "Public art":["Murals","Sculpture parks","Transit art","Community commissions","Street art"],
-  "Fiction, please":["Literary fiction","Short stories","Debut novels","Translated fiction","Funny novels","Big old novels"],
-  "History rabbit holes":["Social history","Design history","Archaeology","Local history","Archives","Odd little histories"],
-  "Essays + big ideas":["Cultural criticism","Science writing","Nature writing","Personal essays","Philosophy without pain"],
-  "Lives well lived":["Biography","Memoir","Oral history","Creative lives","Remarkable eccentrics"],
-  "Poetry counts":["New poetry","Poetry in translation","Poet interviews","Performance poetry","Small presses"],
-  "Mysteries + thrillers":["Classic mysteries","Literary suspense","Spy novels","Cozy mysteries","Crime fiction"],
-  "Science fiction + fantasy":["Space opera","Speculative fiction","Fantasy worlds","Afrofuturism","New wave sci-fi"],
-  "Graphic novels + comics":["Graphic memoirs","Independent comics","Comic art","Manga","New releases"],
-  "Bookshops are destinations":["Independent bookshops","Beautiful bookstores","Bookseller recommendations","Shop histories","Literary travel"],
-  "Pop":["New pop","Live performances","Songwriting","Pop history","Great producers"],
-  "NFL + fantasy football":["NFL","Fantasy lineups","Player news","Great plays","Football history"],
-  "Baseball":["MLB","Ballparks","Baseball history","Minor leagues","Great defensive plays"],"Tennis":["Grand Slams","US Open","Tennis history","Rising players"],"Great sports stories":["Comebacks","Teamwork","Amateur athletes","Sportsmanship"],
-  "Space":["NASA","Telescopes","The Moon","New discoveries","Space photography"],"Astronomy":["Eclipses","Night skies","Planetary science","Cosmic mysteries"],"How things work":["Ingenious machines","Everyday engineering","Unexpected inventions"],
-  "Dogs":["Excellent dogs","Working dogs","Senior dogs","Dog photography"],"Animal rescue":["Second chances","Wildlife rehabilitation","Sanctuaries"],"Animal intelligence":["Clever creatures","Animal communication","Unexpected behavior"],
-  "Classic film":["Film noir","70mm","Restorations","Old Hollywood","Movie palaces"],"Documentaries":["Art documentaries","Music films","Nature films","Curious people"],"Film craft":["Cinematography","Sound design","Practical effects","Production design"],
-  "Restaurants":["Neighborhood favorites","New openings","Chef stories","Useful best-of lists"],"Bakeries":["Bread","Doughnuts","Pastry","Small bakeries"],"Coffee + tea":["Coffee shops","Roasters","Tea culture","Beautiful cafés"],
-  "Street photography":["New York street photography","Contact sheets","Photo walks","Great light"],"Film cameras":["Leica","Medium format","Darkroom craft","Vintage lenses"],"Photo history":["Photo archives","Master photographers","Lost negatives"],
-  "Architecture":["Modernism","Adaptive reuse","Small spaces","Public buildings","Architecture history"],"Graphic design":["Posters","Identity design","Print","Great packaging"],"Museums":["Small museums","New exhibitions","Museum architecture"],
-  "Hiking":["Local trails","Mountain walks","Coastal paths","Trail restoration"],"Gardens":["Botanical gardens","Garden design","Native plants","Secret gardens"],"Beautiful landscapes":["Photo essays","Scenic routes","Natural wonders"],
-  "Day trips":["Within driving distance","Worth the detour","Unexpected nearby places"],"Great cities":["New York","Paris","Copenhagen","Tokyo","London"],"Small towns":["Main streets","Independent shops","Local character"],
-  "Stand-up":["Great sets","Comedian interviews","Comedy history"],"Classic comedy":["Norm Macdonald","Steve Martin","SCTV","Vintage television"],"Smart silliness":["Joyful nonsense","Tiny visual jokes","Playful websites"],
-  "Apple":["Mac","iPhone","Apple design","Creative workflows"],"Audio gear":["Synthesizers","Speakers","Recording studios","Hi-fi"],"Creative tools":["Cameras","Music tools","Design software","Clever utilities"],
-  "Markets":["Companies worth knowing","Long-term investing","Market history","Useful explainers"],"Entrepreneurship":["Founders","Small businesses","How companies grow","Useful business ideas"],"Personal finance":["Saving","Retirement","Simple money habits","Useful explainers"],"Interesting companies":["Great products","Company histories","Thoughtful leaders","Behind the scenes"],
-  "Fitness":["Strength","Mobility","Everyday movement","Training ideas"],"Running":["Running stories","Great routes","Training","Running gear"],"Healthy aging":["Longevity research","Strength + balance","Healthy habits","Active lives"],
-  "Things to do together":["Weekend ideas","Museums","Outdoor activities","Local events"],"Children’s books":["Picture books","Middle grade","Illustrators","New releases"],"Family travel":["Easy trips","Great museums","National parks","Useful travel ideas"],
-  "New games":["Reviews","Upcoming releases","Game studios","Beautiful games"],"Retro gaming":["Classic consoles","Arcades","Game history","Restorations"],"Game design":["How games are made","Visual design","Music + sound","Independent studios"],
-  "Personal style":["Everyday style","Great basics","Independent brands","Style history"],"Sneakers":["New releases","Sneaker design","Classic models","Independent shops"],"Watches":["Watch design","Vintage watches","Independent makers","How watches work"],
-  "Classic cars":["Automotive history","Beautiful restorations","Design icons","Great road stories"],"Automotive design":["Concept cars","Design history","Interiors","How cars are made"],"Trains":["Rail journeys","Train design","Historic railways","Great stations"]
-  ,"Boats + sailing":["Sailboats","Cruising stories","Maritime history","Beautiful harbors","Sailing craft"]
-  ,"Boatbuilding":["Wooden boats","Restorations","Working boatyards","Marine design"]
-  ,"Yoga":["Yoga practice","Mobility","Breathwork","Yoga history","Teachers worth knowing"]
-  ,"History":["Social history","Design history","Archives","Archaeology","Local history","Museums"]
-  ,"Gardens":["Garden design","Native plants","Botanical gardens","Small gardens","Horticultural craft"]
-  ,"Runway + couture":["Paris couture","Milan fashion week","Atelier craft","Runway reviews","Fashion houses","Emerging designers"]
-  ,"International fashion":["French fashion","Italian fashion","Japanese designers","London fashion","Global street style"]
-  ,"Womenswear":["Missoni","Pucci","Oscar de la Renta","Prada","Vintage designer fashion","Independent labels"]
-  ,"Costume design":["Television wardrobes","Film costume design","Emily in Paris style","Period costume","Costume designer interviews"]
-  ,"Fashion photography":["Editorial photography","Legendary image-makers","1990s supermodels","Fashion archives","New photographers"]
-  ,"1990s fashion":["Supermodel era","Runway archives","Carolyn Bessette-Kennedy style","Minimalism","Vintage magazines"]
-  ,"Beauty + cosmetics":["Beauty as design","Cosmetic history","Independent founders","Fragrance","Packaging + formulation"]
-  ,"Women’s sports":["WNBA","Women’s soccer","Women’s tennis","Elite runners","Athlete profiles","Great comebacks"]
-  ,"Women’s tennis":["WTA","US Open","Player profiles","Tennis history","Rising players"]
-  ,"Women’s running":["Runner profiles","Movement for joy","Training","Trail running","Running communities"]
-  ,"Pilates":["Pilates practice","Studio design","Mobility","Teachers worth knowing","Movement history"]
-  ,"Wellness retreats":["Destination wellness","Spa design","Restorative travel","Mindful movement","Beautiful settings"]
-  ,"Women leaders":["Creative leaders","Women founders","Scientists","Designers","Cultural leaders"]
-  ,"Women writers":["Margaret Atwood","Chimamanda Ngozi Adichie","Zadie Smith","Elena Ferrante","Sally Rooney","Isabel Allende","Barbara Kingsolver","Donna Tartt","Jhumpa Lahiri","Ali Smith","Bernardine Evaristo","Elif Shafak","Yaa Gyasi","Celeste Ng","Ottessa Moshfegh","Rachel Kushner","Carmen Maria Machado","Han Kang","Claire Keegan","Maggie O’Farrell","Edwidge Danticat","Ling Ma","Sigrid Nunez","Rachel Cusk","Banana Yoshimoto","Sayaka Murata","Gillian Flynn","Taffy Brodesser-Akner","Claudia Rankine","Roxane Gay","Rebecca Solnit","Mary Karr","Joy Harjo","Natasha Trethewey","Maggie Nelson","Leslie Jamison","Elizabeth Strout","N. K. Jemisin","Susanna Clarke","Martha Wells","Naomi Alderman","V. E. Schwab","Rebecca Yarros","S. A. Chakraborty","Nnedi Okorafor","Leigh Bardugo","Elin Hilderbrand","Ann Patchett"]
-  ,"Women in the arts":["Artists","Photographers","Architects","Curators","Major retrospectives"]
-  ,"Fashion Week":["Paris Fashion Week","Milan Fashion Week","Couture Week","Resort collections","Front-row reports","Street style"]
-  ,"Fashion insiders":["Miranda Priestly energy","Grace Coddington","André Leon Talley","Diana Vreeland","Isabella Blow","Bill Cunningham","Creative-director moves"]
-  ,"Independent fashion press":["The Gentlewoman","AnOther","System Magazine","Acne Paper","Vestoj","1 Granary","SHOWstudio","Purple Magazine"]
-  ,"Boutique labels":["The Row","Khaite","Toteme","Alaïa","Loewe","Dries Van Noten","Gabriela Hearst","Ulla Johnson"]
-  ,"Vintage runway":["Archive pulls","Vintage YSL","Vintage Halston","Phoebe Philo years","Lee McQueen","Runway archaeology"]
-  ,"Department stores":["Bergdorf Goodman","Le Bon Marché","Liberty London","La Rinascente","Fashion windows","Legendary buyers"]
-  ,"Emerging designers":["Fashion-school graduates","Central Saint Martins","Independent ateliers","Design competitions","Designers to watch"]
-  ,"Book clubs + reading":["Reese’s Book Club","Read with Jenna","Service95 Books","Independent booksellers","Beach reads","Literary fiction"]
-  ,"Women founders":["Fashion founders","Beauty founders","Creative entrepreneurs","Women-led companies","Independent studios"]
-  ,"Money put to good use":["MacKenzie Scott","Giving Pledge follow-through","Transformational gifts","Community-led giving","What changed afterward"]
-  ,"Community foundations":["Local grantmakers","Mutual aid","Neighborhood funds","Rural communities","Small organizations doing big work"]
-  ,"Libraries + schools":["New libraries","Literacy access","Scholarships","Teacher support","Arts education"]
-  ,"Giving with results":["Measurable impact","Long-term follow-up","Beneficiaries first","Quiet generosity","Responsible corporate giving"]
+// Extra words to look for in headlines, when a bubble's own name is not enough.
+const WORDS = {
+  "Country + folk": ["country", "folk", "bluegrass"], "Soul + R&B": ["soul", "motown", "r b"], "Global sounds": ["afrobeat", "reggae", "cumbia", "world music"],
+  "Cooking at home": ["recipe", "cooking", "cook"], "Coffee + tea": ["coffee", "tea", "cafe"], "Wine + cocktails": ["wine", "cocktail", "beer", "whisk"],
+  "World cuisines": ["cuisine", "dish", "noodle", "taco", "curry"], "Food history": ["food history", "recipe from"], "Birds": ["bird", "owl", "eagle"],
+  "Oceans": ["ocean", "sea", "reef", "coral"], "Robots": ["robot"], "Inventions": ["invent", "invention", "prototype"], "Clean energy": ["solar", "wind power", "battery", "clean energy"],
+  "Science": ["scientist", "discover", "study"], "Space": ["space", "nasa", "telescope", "moon", "planet", "galaxy"], "Classic film": ["classic film", "restored", "hollywood"],
+  "Great TV": ["series", "television", "tv"], "Fiction": ["novel", "fiction"], "Comics": ["comic", "graphic novel", "manga"], "Bookshops": ["bookshop", "bookstore"],
+  "Biographies": ["biography", "memoir"], "Great cities": ["city", "paris", "tokyo", "london", "new york"], "Train journeys": ["train", "rail"], "Hotels": ["hotel", "inn", "resort"],
+  "Islands": ["island"], "Road trips": ["road trip", "drive"], "Dogs": ["dog", "puppy"], "Cats": ["cat", "kitten"], "Wildlife": ["wildlife", "bear", "whale", "elephant", "wolf"],
+  "Rescue stories": ["rescue", "rescued", "sanctuary"], "Ocean life": ["whale", "dolphin", "otter", "octopus", "seal"], "Repair": ["repair", "restore", "fix"],
+  "Home projects": ["renovat", "diy", "makeover"], "Tools": ["tool", "workshop"], "Runway": ["runway", "fashion week", "couture"], "Designers": ["designer", "collection"],
+  "Vintage": ["vintage", "archive"], "Personal style": ["style", "wardrobe"], "Founders": ["founder", "startup"], "Small businesses": ["small business", "shop", "family business"],
+  "Clever companies": ["company", "brand"], "Personal finance": ["saving", "money", "budget"], "Car design": ["concept car", "car design"], "Classic cars": ["classic car", "vintage car"],
+  "Boats + sailing": ["boat", "sail", "yacht"], "Trains": ["train", "railway"], "Aviation": ["plane", "aircraft", "flight", "aviation"], "Interior design": ["interior", "living room", "kitchen"],
+  "Small spaces": ["small space", "tiny house", "studio apartment"], "Old houses": ["historic home", "old house", "farmhouse"], "Plants": ["plant", "houseplant"],
+  "Kindness": ["kind", "kindness", "generous"], "Community projects": ["community", "neighborhood", "volunteer"], "Giving": ["donat", "gift", "charity", "philanthrop"],
+  "Teachers": ["teacher", "school"], "Neighbors": ["neighbor"], "Did you know": ["did you know", "turns out", "secret"], "Maps": ["map"], "Language": ["language", "word"]
 };
-const defaultSpecifics=label=>[`${label} stories`,`${label} discoveries`,`${label} history`,`${label} people`];
-const funnelSpecifics={
-  "Classical":["Baroque","Romantic era","Modern + contemporary","Minimalism","Opera","Chamber music","Solo piano","Orchestral","Choral","Early music"],
-  "Jazz":["Bebop","Hard bop","Cool jazz","Spiritual jazz","Free jazz","Jazz-funk","Big band","Vocal jazz","Ethiopian jazz","ECM + European jazz"],
-  "Rock":["Classic rock","Indie rock","Punk","Post-punk","Garage rock","Glam","Psychedelic rock","Progressive rock","Alternative","Live archives"],
-  "Country":["Classic country","Outlaw country","Americana","Bluegrass","Honky-tonk","Western swing","Cosmic country","Alt-country","Songwriters"],
-  "Electronic":["House","Techno","Ambient","Disco","EDM","Drum + bass","Dubstep","Electro","Experimental electronic","Synth music"],
-  "Hip-hop":["Old school hip-hop","Golden age hip-hop","East Coast hip-hop","West Coast hip-hop","Southern hip-hop","Independent rap","Beat-making","New school hip-hop","Live cyphers"],
-  "Reggae":["Roots reggae","Dub","Ska","Rocksteady","Dancehall","Lovers rock","Soundsystem culture"],
-  "Blues":["Delta blues","Chicago blues","Electric blues","Country blues","Gospel blues","Blues-rock","Great blues guitarists"],
-  "Metal":["Heavy metal","Thrash","Doom","Stoner metal","Black metal","Death metal","Progressive metal","Metal history"],
-  "Folk":["Traditional folk","Singer-songwriters","Folk revival","British folk","Appalachian music","Story songs","Contemporary folk"],
-  "Soul + R&B":["Motown","Stax + Southern soul","Philly soul","Funk","Quiet storm","Neo-soul","New R&B","Great soul vocalists"],
-  "Global music":["Afrobeat","Highlife","Cumbia","Brazilian music","Ethiopian jazz","Arabic music","Japanese city pop","South Asian sounds","Caribbean sounds"],
-  "New movies":["In theaters","Festival discoveries","Independent releases","International releases","New documentaries","Awards contenders"],
-  "Great television":["Prestige drama","Comedy series","Limited series","International television","Documentary series","Television craft"],
-  "Classic film":["Film noir","Pre-Code Hollywood","Screwball comedy","Silent film","New Hollywood","Restorations","Movie palaces"],
-  "Documentaries":["Art documentaries","Music documentaries","Nature documentaries","Social history","Portrait films","Documentary craft"],
-  "Comedy":["Screwball comedy","Deadpan comedy","Satire","Romantic comedy","Physical comedy","Cult comedy"],
-  "International cinema":["French cinema","Italian cinema","Japanese cinema","Korean cinema","Indian cinema","African cinema","Latin American cinema"],
-  "Animation":["Hand-drawn animation","Stop motion","Anime","Experimental animation","Animation history","Studio craft"],
-  "Horror + suspense":["Gothic horror","Psychological thrillers","Creature features","Folk horror","Classic suspense","Practical effects"],
-  "Science fiction + fantasy":["Space opera","Speculative film","Fantasy worlds","Retro futurism","Creature design","Science-fiction classics"],
-  "Independent film":["Festival films","Microbudget cinema","First features","Independent studios","Regional filmmaking","Director profiles"],
-  "Film craft":["Cinematography","Editing","Sound design","Production design","Costume design","Casting","Stunt craft","Practical effects"],
-  "Cult classics":["Midnight movies","Camp","Forgotten gems","Repertory cinema","Video-store discoveries","Fan communities"],
-  "Football + fantasy":["NFL","Fantasy football","College football","Great plays","Football history","Stadium culture"],
-  "Baseball":["MLB","Ballparks","Minor leagues","Baseball history","Negro Leagues","Scorecards + ephemera"],
-  "Basketball":["NBA","WNBA","College basketball","Streetball","Basketball history","Great rivalries"],
-  "Women’s sports":["WNBA","Women’s soccer","Women’s tennis","Elite runners","Women’s hockey","Athlete profiles"],
-  "Soccer":["Premier League","Champions League","Women’s soccer","International football","Supporter culture","Historic clubs"],
-  "Tennis":["Grand Slams","ATP","WTA","Tennis history","Rising players","Great rivalries"],
-  "College sports":["College football","College basketball","College baseball","Women’s college sports","Traditions","Great programs"],
-  "Motor racing":["Formula 1","IndyCar","Le Mans","Rally","NASCAR","Historic racing","Engineering stories"],
-  "Golf":["The majors","Course design","Women’s golf","Amateur golf","Golf history","Equipment + craft"],
-  "Hockey":["NHL","Women’s hockey","College hockey","International hockey","Original Six","Hockey history"],
-  "Olympic sports":["Summer Olympics","Winter Olympics","Paralympic sport","Track + field","Swimming","Gymnastics","Olympic history"],
-  "Running + cycling":["Road running","Trail running","Track + field","Road cycling","Mountain biking","Great routes","Endurance stories"],
-  "Great sports stories":["Comebacks","Sportsmanship","Amateur athletes","Underdogs","Teamwork","Great coaches"],
-  "Sports history":["Legendary teams","Historic venues","Sports archives","Forgotten champions","Equipment history","Great rivalries"],
-  "Types of travel":["City breaks","Beach trips","Adventure travel","Cultural travel","Wellness travel","Family travel","Solo travel","Luxury travel"],
-  "World regions":["Europe","East Asia","Southeast Asia","South Asia","Africa","Middle East","North America","Latin America","Caribbean","Oceania"],
-  "Destinations":["Great cities","Small towns","Islands","Mountain destinations","Coastal escapes","Desert destinations","Countryside stays"],
-  "Hotels + resorts":["Boutique hotels","Grand hotels","Beach resorts","Mountain lodges","Design hotels","Historic inns","Wellness resorts"],
-  "Road + rail":["Train journeys","Scenic railways","Road trips","Sleeper trains","Ferry routes","Great stations","Driving routes"],
-  "Camping + outdoors":["Camping","Glamping","National parks","Hiking trips","Cabins","Wildlife trips","Dark-sky travel"],
-  "Food + culture trips":["Food cities","Market trips","Museum trips","Architecture trips","Music pilgrimages","Festival travel","Craft traditions"],
-  "Slow travel":["Long stays","Off-season travel","Car-free travel","Local neighborhoods","Independent shops","Regional routes","Quiet escapes"],
-  "Eating out":["Neighborhood restaurants","New openings","Independent restaurants","Fine dining","Casual favorites","Bakeries + cafés","Food halls + markets","Restaurant history"],
-  "Cooking + recipes":["Weeknight cooking","Baking","Grilling","Vegetarian cooking","Comfort food","Dinner parties","Technique lessons","Family recipes"],
-  "Ingredients":["Seasonal produce","Spices + flavor","Cheese","Bread + grains","Seafood","Chocolate","Coffee + tea","Small producers"],
-  "World cuisines":["Italian","Indian","Mexican","Chinese","Japanese","French","Middle Eastern","Southeast Asian","African + diaspora","Regional American"],
-  "Local food near me":["Best pizza nearby","Best Indian nearby","Best burritos nearby","Best bakeries nearby","Best coffee nearby","Great new restaurants","Worth the drive","Local food events"],
-  "Kitchens + design":["Kitchen architecture","Small kitchens","Historic kitchens","Restaurant interiors","Pantries + storage","Lighting + surfaces","Outdoor kitchens","Dream kitchens"],
-  "Kitchen tools":["Knives","Cookware","Coffee gear","Baking tools","Beautiful appliances","Vintage kitchenware","Restaurant equipment","Tools that last"],
-  "Food people + stories":["Chef profiles","Family businesses","Farmers + growers","Food artisans","Restaurant families","Cookbook authors","Regional traditions","Food history"],
-  "Fashion design":["Womenswear","Menswear","Accessories","Textile design","Knitwear","Tailoring","Emerging design"],
-  "Making fashion":["Atelier craft","Pattern cutting","Garment construction","Embroidery","Millinery","Shoemaking","Manufacturing"],
-  "Fashion history":["Costume history","Vintage runway","Fashion archives","Department stores","House histories","Fashion exhibitions"],
-  "Fashion photography":["Editorial photography","Runway photography","Street style photography","Magazine photography","Portraiture","Image-makers"],
-  "Runway + couture":["Paris Fashion Week","Milan Fashion Week","London Fashion Week","New York Fashion Week","Haute couture","Resort collections","Ready-to-wear"],
-  "Costume + screen style":["Film costume","Television wardrobes","Period costume","Stage costume","Costume archives","Production design"],
-  "Personal style":["Preppy style","Minimalism","Vintage style","Street style","Classic dressing","Color + pattern","Great basics"],
-  "Fashion business":["Independent labels","Fashion houses","Retail + buying","Fashion media","Creative directors","Sustainable production","New brands"],
-  "Painting":["Modern painting","Old masters","Abstract painting","Contemporary painters","Watercolor","Murals","Artist studios"],
-  "Sculpture":["Modern sculpture","Public sculpture","Ceramics","Installation","Stone + metal","Sculpture parks"],
-  "Illustration + comic art":["Editorial illustration","Comics","Graphic memoirs","New illustrators","Sequential art","Ink + paint"],
-  "Poster art":["Concert posters","Film posters","Screen printing","Poster archives","Polish poster art","Political-free public posters"],
-  "Photography":["Photo books","Portraiture","Conceptual photography","Darkrooms","New photographers","Photo archives"],
-  "Graphic design":["Identity design","Editorial design","Packaging","Print design","Wayfinding","Design archives"],
-  "Architecture":["Modernism","Adaptive reuse","Residential architecture","Public buildings","Architecture history","Sustainable design"],
-  "Furniture + objects":["Furniture design","Industrial design","Lighting","Everyday objects","Collectible design","Independent makers"],
-  "Typography":["Type design","Lettering","Book typography","Sign painting","Type history","Independent foundries"],
-  "Museums + exhibitions":["Major exhibitions","Small museums","Artist retrospectives","Museum architecture","Curatorial ideas","Collection discoveries"],
-  "Craft":["Textiles","Ceramics","Glass","Wood","Metalwork","Paper craft","Master makers"],
-  "Public art":["Murals","Sculpture parks","Transit art","Community commissions","Street art","Land art"],
-  "Digital + new media":["Digital art","Interactive art","Generative art","Video art","Creative coding","Immersive installations"],
-  "Creative studios":["Studio visits","Creative process","Design teams","Independent practices","Workspaces","Tools of the trade"]
-};
-const optionsFor=label=>funnelSpecifics[label]||specifics[label]||defaultSpecifics(label);
-const granularSpecifics={
-  "Baroque":["Bach","Handel","Vivaldi","Period instruments","Baroque opera","Sacred works"],"Minimalism":["Philip Glass","Steve Reich","Terry Riley","John Adams","New minimalism","Pattern + pulse"],
-  "Hard bop":["Art Blakey","Horace Silver","Clifford Brown","Lee Morgan","Blue Note sessions","1950s jazz"],"Bebop":["Charlie Parker","Dizzy Gillespie","Bud Powell","Thelonious Monk","Small groups","Bebop history"],
-  "Classic rock":["Album deep cuts","Guitar heroes","Studio stories","Live archives","Classic tours","Record collecting"],"Indie rock":["College radio","DIY scenes","Small labels","New bands","Live rooms","Indie archives"],
-  "House":["Chicago house","Deep house","Acid house","French house","Vocal house","Club history"],"Techno":["Detroit techno","Minimal techno","Berlin techno","Dub techno","Live hardware","Club design"],
-  "Roots reggae":["Bob Marley + the Wailers","Studio One","Lee Scratch Perry","Jamaican studios","Sound systems","Reggae history"],"Funk":["James Brown","P-Funk","Sly Stone","Rare grooves","Funk guitar","Live funk"],
-  "Film noir":["Noir cinematography","Femme fatales","City at night","Noir directors","Forgotten noirs","Restorations"],"Cinematography":["Great cinematographers","Film stocks","Lighting","Camera movement","Lenses","Visual storytelling"],
-  "NFL":["Team news","Draft + prospects","Stadiums","Great plays","Football history","Coaching craft"],"MLB":["Team stories","Ballparks","Prospects","Great defense","Baseball history","Statistical curiosities"],
-  "Modernism":["Bauhaus","International Style","Midcentury modern","Brazilian modernism","Modernist homes","Preservation"],"Editorial illustration":["Magazine illustration","New illustrators","Ink + collage","Visual essays","Illustration archives","Studio visits"],
-  "Paris Fashion Week":["Chanel","Dior","Saint Laurent","Balenciaga","Schiaparelli","Loewe"],
-  "Haute couture":["Schiaparelli","Dior Couture","Chanel Couture","Valentino","Armani Privé","Iris van Herpen"],
-  "Womenswear":["Prada","Miu Miu","Dries Van Noten","Loewe","Alaïa","The Row"],
-  "Editorial photography":["Steven Meisel","Tim Walker","Paolo Roversi","Sarah Moon","Campbell Addy","Harley Weir"],
-  "Costume history":["Charles James","Madeleine Vionnet","Cristóbal Balenciaga","Claire McCardell","Norman Norell","Bonnie Cashin"],
-  "Boutique hotels":["Aman","Firmdale Hotels","Ace Hotel","The Hoxton","Experimental Group","Design Hotels"],
-  "Beach resorts":["Amanpuri","Rosewood Mayakoba","COMO Maalifushi","One&Only","Six Senses","Belmond"],
-  "Great cities":["Paris","Tokyo","London","Copenhagen","Mexico City","Lisbon"],
-  "Europe":["France","Italy","Spain","Portugal","Greece","Scandinavia"],
-  "East Asia":["Japan","South Korea","Taiwan","Hong Kong","Shanghai","Kyoto"],
-  "Train journeys":["Orient Express","Glacier Express","Rocky Mountaineer","Caledonian Sleeper","The Ghan","Shinkansen"],
-  "National parks":["Yosemite","Yellowstone","Acadia","Olympic","Banff","Torres del Paine"]
-  ,"Italian":["Roman cooking","Sicilian cooking","Emilia-Romagna","Piedmont","Tuscan food","Italian-American classics"]
-  ,"Indian":["South Indian","Punjabi","Bengali","Gujarati","Goan","Indian street food"]
-  ,"Mexican":["Oaxacan","Yucatecan","Mexico City","Baja","Pueblan","Mexican-American traditions"]
-  ,"Best pizza nearby":["Neapolitan pizza","New York slices","Detroit style","Tavern style","Wood-fired pizza","Old-school pizzerias"]
-  ,"Knives":["Japanese knives","French chef’s knives","Independent makers","Sharpening","Vintage cutlery","Knife skills"]
-};
-const granularFor=label=>granularSpecifics[label]||[`${label}: people`,`${label}: places`,`${label}: makers`,`${label}: history`,`${label}: what’s new`,`${label}: deep cuts`];
-const featuredLanes={
-  music:[
-    {label:"Classical + composed",children:["Classical"]},
-    {label:"Jazz in all directions",children:["Jazz"]},
-    {label:"Rockin’",children:["Rock","Metal"]},
-    {label:"Roots + songs",children:["Country","Folk","Blues"]},
-    {label:"Beats + soul",children:["Hip-hop","Electronic","Soul + R&B"]},
-    {label:"Sounds around the world",children:["Reggae","Global music"]}
-  ],
-  film:[
-    {label:"What’s new on screen",children:["New movies","Great television","Independent film"]},
-    {label:"Classics + cult favorites",children:["Classic film","Cult classics"]},
-    {label:"Real life on film",children:["Documentaries","International cinema"]},
-    {label:"Big imagined worlds",children:["Animation","Horror + suspense","Science fiction + fantasy"]},
-    {label:"How movies get made",children:["Film craft","Comedy"]}
-  ],
-  sports:[
-    {label:"Big team sports",children:["Football + fantasy","Baseball","Basketball","Hockey"]},
-    {label:"The world’s games",children:["Soccer","Tennis","Golf"]},
-    {label:"Speed + endurance",children:["Motor racing","Running + cycling","Olympic sports"]},
-    {label:"College + women’s sports",children:["College sports","Women’s sports"]},
-    {label:"Great stories + history",children:["Great sports stories","Sports history"]}
-  ],
-  design:[
-    {label:"Fine art",children:["Painting","Sculpture","Public art"]},
-    {label:"Pictures + print",children:["Illustration + comic art","Poster art","Photography"]},
-    {label:"Graphic + type",children:["Graphic design","Typography"]},
-    {label:"Buildings + objects",children:["Architecture","Furniture + objects","Craft"]},
-    {label:"Exhibitions + new media",children:["Museums + exhibitions","Digital + new media","Creative studios"]}
-  ],
-  books:[
-    {label:"Stories, please",children:["Fiction, please","Mysteries + thrillers","Science fiction + fantasy","Graphic novels + comics"]},
-    {label:"Ideas + real lives",children:["Essays + big ideas","Lives well lived","History rabbit holes"]},
-    {label:"Poetry + literary culture",children:["Poetry counts","Independent magazines","Book design"]},
-    {label:"Archives + bookish places",children:["Archives + museums","Bookshops are destinations"]}
-  ]
-};
-Object.assign(featuredLanes,{
-  animals:[
-    {label:"Dogs, cats + home life",children:["Dogs","Cats"]},
-    {label:"Wildlife + birds",children:["Wildlife","Birds","Ocean life","Conservation"]},
-    {label:"Rescue + clever creatures",children:["Animal rescue","Animal intelligence"]}
-  ],
-  science:[
-    {label:"Space + the night sky",children:["Space","Astronomy"]},
-    {label:"Nature, oceans + medicine",children:["Nature","Oceans","Medicine"]},
-    {label:"How the world works",children:["Engineering","Mathematics","How things work"]}
-  ],
-  photography:[
-    {label:"People + life through a lens",children:["Documentary","Street photography","Portraits"]},
-    {label:"Film cameras + darkrooms",children:["Film cameras","Darkrooms"]},
-    {label:"Landscapes, history + new eyes",children:["Landscape","Photo history","New photographers"]}
-  ],
-  outdoors:[
-    {label:"Trails + camping",children:["Hiking","Camping","National parks"]},
-    {label:"Gardens, forests + birds",children:["Gardens","Forests","Birding"]},
-    {label:"Beautiful places worth saving",children:["Beautiful landscapes","Conservation"]}
-  ],
-  travel:[
-    {label:"Easy escapes",children:["Day trips","Road trips","Small towns"]},
-    {label:"Cities, trains + places to stay",children:["Great cities","Train travel","Hotels"]},
-    {label:"Museums + places to eat",children:["Museums","Places to eat"]}
-  ],
-  comedy:[
-    {label:"Stand-up + funny people",children:["Stand-up","Funny interviews","Comic actors"]},
-    {label:"Sketches + classic comedy",children:["Sketches","Classic comedy","Late-night archives"]},
-    {label:"Absurdity + smart silliness",children:["Absurdity","Smart silliness"]}
-  ],
-  making:[
-    {label:"Wood, clay + ink",children:["Woodworking","Ceramics","Printmaking"]},
-    {label:"Studios, tools + process",children:["Home studios","Analog tools","Creative process"]},
-    {label:"Repair + beautiful objects",children:["Repair","Beautiful objects"]}
-  ],
-  technology:[
-    {label:"Useful new machines",children:["Apple","Robotics","Inventors"]},
-    {label:"Cameras, sound + creative tools",children:["Audio gear","Cameras","Creative tools"]},
-    {label:"Cleaner, more thoughtful tech",children:["Clean energy","Thoughtful AI"]}
-  ]
-});
-const friendlyLaneLabels={
-  food:["I know a good place","Let’s make something delicious","Food has stories"],
-  science:["Big ideas + tiny wonders","Earth, sea + sky","How the world works"],
-  animals:["Pets are people too","Wild things","Clever creatures + second chances"],
-  photography:["Life through a lens","Film cameras forever","Pictures with a past"],
-  outdoors:["Take me outside","Gardens, forests + birds","Wild places worth saving"],
-  travel:["Let’s go somewhere","Cities, towns + trains","Worth the detour"],
-  comedy:["Make me laugh","Old-school funny","Smart silliness"],
-  local:["What’s good nearby?","A perfect local day","Neighborhood treasures"],
-  making:["I make things","Tools + studios","Fix it, don’t toss it"],
-  people:["People doing good things","Lives worth knowing","Small wins, big heart"],
-  philanthropy:["Money put to good use","Stronger communities","Giving that actually works"],
-  technology:["Useful new toys","Machines with brains","Technology for making things"],
-  business:["Follow the money","People building things","Companies with a story"],
-  health:["Move a little","Feel better for longer","Everyday wellbeing"],
-  home:["Make home nicer","Plants + gardens","Old houses, new ideas"],
-  family:["Good things to do together","Growing up curious","Let’s take the family somewhere"],
-  style:["Runway dreams","Style in real life","Fashion’s people + pictures"],
-  women:["Women making culture","Women changing the game","Stories worth following"],
-  gaming:["What’s new to play?","Old games, still great","How games get made"],
-  cars:["Things with wheels","Life on the water","Planes, trains + beautiful machines"]
-};
-const lanesForTopic=topic=>featuredLanes[topic.id]||(()=>{const labels=friendlyLaneLabels[topic.id]||["The good stuff","A little curious","Take me deeper"],count=Math.min(labels.length,Math.ceil(topic.children.length/3)),size=Math.ceil(topic.children.length/count);return Array.from({length:count},(_,index)=>({label:labels[index],children:topic.children.slice(index*size,(index+1)*size)})).filter(item=>item.children.length)})();
-const readerDefaults={design:"Established Meanwhile layout on desktop and mobile",safety:"Established rage-free, politics-free and blocked-content policy",radio:"Ambient",feedback:"More like this, Less, Too political and Too depressing",memory:"No duplicate content and no repeats within seven days",connections:"Offer optional service connections only in context, after the person uses the relevant feature"};
-const roundRobin=(groups,limit)=>{const result=[];for(let row=0;result.length<limit;row++){let added=false;groups.forEach(group=>{if(result.length<limit&&group[row]){result.push(group[row]);added=true}});if(!added)break}return result};
-const bubbleKey=value=>String(value||"").trim().toLocaleLowerCase();
-const uniqueBubbles=(items,blocked=[])=>{const seen=new Set([...blocked].map(bubbleKey));return items.filter(item=>{const key=bubbleKey(typeof item==="string"?item:item.label);if(!key||seen.has(key))return false;seen.add(key);return true})};
+const wordsFor = label => WORDS[label] || [label.toLowerCase()];
 
-function Bubble({label,selected,onClick,index,depth,size="md",color="blue"}){return <button type="button" className={`bubble size-${size} color-${color} ${selected?"selected":""} depth-${depth}`} style={{"--delay":`${(index%11)*-0.23}s`,"--tilt":`${(index%5)-2}deg`}} aria-pressed={selected} onClick={onClick}><span>{label}</span><i>{selected?"✓":"+"}</i></button>}
-function StepHeader({eyebrow,title,copy}){return <div className="stepHeader"><span>{eyebrow}</span><h1>{title}</h1><p>{copy}</p></div>}
-const toggle=(list,item)=>list.includes(item)?list.filter(value=>value!==item):[...list,item];
+// Colors: every big bubble gets its own Color Hunt palette, the same palettes
+// as the logo and the Instagram cards.
+const paletteFor = index => EDITION_PALETTES[(index * 7 + 3) % EDITION_PALETTES.length];
+const lum = hex => { const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(v => v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+const inkOn = hex => (lum(hex) > 0.36 ? "#141414" : "#FFFDF7");
+const strongest = palette => [...palette].sort((a, b) => Math.abs(lum(b) - 0.45) - Math.abs(lum(a) - 0.45)).reverse()[0];
+const toggle = (list, value) => list.includes(value) ? list.filter(item => item !== value) : [...list, value];
+const WORDMARK = EDITION_PALETTES.flat().filter(color => lum(color) < 0.3).filter((color, index) => index % 7 === 0).slice(0, 4);
 
-export default function MakeItYours(){
-  const [step,setStep]=useState(0),[doorwayPicks,setDoorwayPicks]=useState([]),[details,setDetails]=useState([]),[granular,setGranular]=useState([]),[fine,setFine]=useState([]),[extra,setExtra]=useState(""),[name,setName]=useState(""),[loaded,setLoaded]=useState(false);
-  useEffect(()=>{try{const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||"null");if(saved){setStep(saved.step||0);setDoorwayPicks(saved.doorwayPicks||[]);setDetails(saved.details||[]);setGranular(saved.granular||[]);setFine(saved.fine||[]);setExtra(saved.extra||"");setName(saved.name||"");}}catch{}setLoaded(true)},[]);
-  useEffect(()=>{if(loaded)localStorage.setItem(STORAGE_KEY,JSON.stringify({step,doorwayPicks,details,granular,fine,extra,name,updatedAt:new Date().toISOString()}))},[step,doorwayPicks,details,granular,fine,extra,name,loaded]);
-  useEffect(()=>{window.scrollTo({top:0,behavior:"smooth"})},[step]);
-  const broad=useMemo(()=>[...new Set(doorways.filter(item=>doorwayPicks.includes(item.id)).flatMap(item=>item.signals))],[doorwayPicks]);
-  const fashionLed=doorwayPicks.some(id=>["fashion-first","fashion","women-stories","costumes","fashion-week","bergdorfs","bon-marche","runway-save","magazine-photo","designer-not-trend","costume-binge"].includes(id));
-  const chosenTopics=topics.filter(topic=>broad.includes(topic.id)).sort((a,b)=>fashionLed?(["style","women","photography","film","books","travel","design"].indexOf(a.id)+1||99)-(["style","women","photography","film","books","travel","design"].indexOf(b.id)+1||99):0);
-  const journeyTopics=useMemo(()=>doorwayPicks.map(id=>topics.find(topic=>topic.id===doorwayTopic[id])).filter((topic,index,array)=>topic&&array.findIndex(other=>other.id===topic.id)===index),[doorwayPicks]);
-  const topicCount=journeyTopics.length,deepStep=topicCount+1,fineStep=topicCount+2,readyStep=topicCount+3,currentTopic=step>=1&&step<=topicCount?journeyTopics[step-1]:null;
-  const topicOptionsById=useMemo(()=>{const used=new Set(primaryDoorways.map(item=>bubbleKey(item.label))),result=new Map();journeyTopics.forEach(topic=>{const choices=uniqueBubbles(topic.children,used);choices.forEach(label=>used.add(bubbleKey(label)));result.set(topic.id,choices)});return result},[journeyTopics]);
-  const topicBubbleLabels=useMemo(()=>journeyTopics.flatMap(topic=>topicOptionsById.get(topic.id)||[]),[journeyTopics,topicOptionsById]);
-  const currentTopicOptions=currentTopic?topicOptionsById.get(currentTopic.id)||[]:[];
-  const earlierBubbleLabels=useMemo(()=>[...primaryDoorways.map(item=>item.label),...topicBubbleLabels],[topicBubbleLabels]);
-  const granularOptions=useMemo(()=>uniqueBubbles(roundRobin(details.map((label,index)=>optionsFor(label).map(value=>({label:value,parent:label,color:topics[(index*3)%topics.length].color,size:index%5===0?"lg":"md"}))),24),earlierBubbleLabels),[details,earlierBubbleLabels]);
-  const fineOptions=useMemo(()=>uniqueBubbles(roundRobin(granular.map((label,index)=>granularFor(label).map(value=>({label:value,parent:label,color:topics[(index*5+2)%topics.length].color,size:index%4===0?"lg":"md"}))),18),[...earlierBubbleLabels,...granularOptions.map(item=>item.label)]),[granular,earlierBubbleLabels,granularOptions]);
-  const profile=useMemo(()=>({version:5,name:name.trim(),title:name.trim()?`${name.trim()}’s Edition`:"My Edition",openingChoices:doorways.filter(item=>doorwayPicks.includes(item.id)).map(item=>item.label),broadInterests:chosenTopics.map(topic=>topic.label),specificInterests:details,details:granular,granularInterests:fine,anythingElse:extra.split(/,|\n/).map(value=>value.trim()).filter(Boolean),readerDefaults}),[name,doorwayPicks,chosenTopics,details,granular,fine,extra]);
-  const progress=["Start",...journeyTopics.map(topic=>topic.label),"Go deeper","Fine-tune","Ready"];
-  const reset=()=>{if(confirm("Clear these choices and begin again?")){localStorage.removeItem(STORAGE_KEY);setStep(0);setDoorwayPicks([]);setDetails([]);setGranular([]);setFine([]);setExtra("");setName("")}};
-  const buildEdition=async()=>{const finished={...profile,updatedAt:new Date().toISOString()};localStorage.setItem(PROFILE_KEY,JSON.stringify(finished));if(supabase){const {data:{user}}=await supabase.auth.getUser();if(user)await supabase.from("profiles").upsert({user_id:user.id,display_name:finished.name||null,edition_name:finished.title,preferences:finished});}window.location.href="/?personalized=true"};
-  const next=()=>setStep(value=>Math.min(readyStep,value+1));
-  const toggleDoorway=item=>{setDoorwayPicks(toggle(doorwayPicks,item.id));setDetails([]);setGranular([]);setFine([])};
-  const toggleDetail=label=>{setDetails(toggle(details,label));setGranular([]);setFine([])};
-  const toggleGranular=label=>{setGranular(toggle(granular,label));setFine([])};
-  return <main className="app interviewApp">
-    <header><a href="/">Meanwhile</a><div><span>Make it yours</span><button onClick={reset}>Start over</button></div></header>
-    <div className="progress"><div>{progress.map((label,index)=><span className={index===step?"active":index<step?"done":""} key={label}><i>{index<step?"✓":index+1}</i>{label}</span>)}</div><em>About 90 seconds</em></div>
-    {step===0&&<section className="screen"><StepHeader eyebrow="MAKE IT YOURS" title="Which of these sound like you?" copy="Pick what sounds good. We’ll build your edition."/><div className={`constellation broad openingConstellation ${doorwayPicks.length?"hasSelection":""}`}>{primaryDoorways.map((item,index)=><Bubble key={item.id} label={item.label} size={item.size} color={item.color} depth={0} index={index} selected={doorwayPicks.includes(item.id)} onClick={()=>toggleDoorway(item)}/>)}</div><div className="tip">Choose as many as you like.</div></section>}
-    {currentTopic&&<section className="screen"><StepHeader eyebrow={`${currentTopic.label.toUpperCase()} · ${step} OF ${topicCount}`} title={currentTopic.id==="music"?"What do you like to hear?":currentTopic.id==="sports"?"What do you follow?":currentTopic.id==="style"?"What’s your kind of style?":currentTopic.id==="travel"?"How do you like to travel?":currentTopic.id==="film"?"What do you like to watch?":`What sounds good in ${currentTopic.label.toLowerCase()}?`} copy="Choose as many as you like—or none and keep moving."/><div className={`constellation details ${details.some(value=>currentTopicOptions.includes(value))?"hasSelection":""}`}>{currentTopicOptions.map((label,index)=><Bubble key={`${currentTopic.id}-${label}`} label={label} parent={currentTopic.label} color={currentTopic.color} size={index%5===0?"lg":"md"} depth={1} index={index} selected={details.includes(label)} onClick={()=>toggleDetail(label)}/>)}</div></section>}
-    {step===deepStep&&<section className="screen"><StepHeader eyebrow="GO A LITTLE DEEPER" title="Anything feel especially you?" copy="A balanced handful drawn from all your choices. No category gets to take over."/><div className={`constellation details ${granular.length?"hasSelection":""}`}>{granularOptions.map((item,index)=><Bubble key={`${item.parent}-${item.label}`} {...item} depth={3} index={index} selected={granular.includes(item.label)} onClick={()=>toggleGranular(item.label)}/>)}</div></section>}
-    {step===fineStep&&<section className="screen"><StepHeader eyebrow="ONE LAST PASS" title="Let’s get wonderfully specific." copy="A short final set of artists, eras, leagues, crafts and deep cuts."/><div className={`constellation details ${fine.length?"hasSelection":""}`}>{fineOptions.map((item,index)=><Bubble key={`${item.parent}-${item.label}`} {...item} depth={4} index={index} selected={fine.includes(item.label)} onClick={()=>setFine(toggle(fine,item.label))}/>)}</div><div className="optional"><label><span>Anything we missed? <i>Optional</i></span><input value={extra} onChange={event=>setExtra(event.target.value)} placeholder="Toss in an artist, director, team, author, style, place—anything."/></label></div></section>}
-    {step===readyStep&&<section className="screen finish"><StepHeader eyebrow="THAT’S PLENTY TO BEGIN" title="Your edition is ready." copy="Meanwhile can learn the rest while you enjoy it."/><div className="profile"><div className="profileName"><span>Name your edition <i>Optional</i></span><input value={name} onChange={event=>setName(event.target.value)} placeholder="Your first name"/><h2>{profile.title}</h2></div><div className="profileCloud">{[...profile.broadInterests,...details,...granular,...fine,...profile.anythingElse].slice(0,30).map((item,index)=><span className={`p-${index%5}`} key={`${item}-${index}`}>{item}</span>)}</div><div className="promise"><b>Already taken care of</b><p>The playful Reader design, mobile layout, ambient radio, rage-free editorial rules, source variety, duplicate protection and seven-day memory are all built in. You can teach it more with <em>More like this</em> and <em>Less</em> while you browse.</p></div></div></section>}
-    <nav><button disabled={step===0} onClick={()=>setStep(value=>Math.max(0,value-1))}>← Back</button>{step<readyStep&&<button className="primary" disabled={step===0&&!doorwayPicks.length} onClick={next}>{step===0?"Start my mini-sections":step<topicCount?`Next: ${journeyTopics[step]?.label||"section"}`:step===topicCount?"Go a little deeper":step===deepStep?"Fine-tune it":"This feels like me"}<span>→</span></button>}{step===readyStep&&<button className="primary" onClick={buildEdition}>Open my edition <span>→</span></button>}</nav>
-    <footer><span>No account connections. No setup homework.</span><span>Personalized V9 · Saved privately in this browser</span></footer>
-  </main>
+export default function MakeItYoursOneScreen() {
+  const [picks, setPicks] = useState([]);           // big bubble ids
+  const [kids, setKids] = useState([]);             // small bubble labels, as "id:label"
+  const [extras, setExtras] = useState([]);
+  const [draft, setDraft] = useState("");
+  const [name, setName] = useState("");
+  const [stories, setStories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false);
+
+  // Start from earlier choices, if there are any.
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STATE_KEY) || "null");
+      if (saved) { setPicks(saved.picks || []); setKids(saved.kids || []); setExtras(saved.extras || []); setName(saved.name || ""); }
+      else {
+        const old = JSON.parse(localStorage.getItem(PROFILE_KEY) || "null");
+        if (old) {
+          const names = [...(old.broadInterests || []), ...(old.openingChoices || [])];
+          const fromOld = PICKS.filter(pick => names.includes(pick.name) || names.includes(pick.line)).map(pick => pick.id);
+          setPicks(fromOld);
+          setKids(PICKS.filter(pick => fromOld.includes(pick.id)).flatMap(pick => pick.kids.filter(kid => (old.specificInterests || []).includes(kid)).map(kid => `${pick.id}:${kid}`)));
+          setExtras(old.anythingElse || []); setName(old.name || "");
+        }
+      }
+    } catch {}
+    setLoaded(true);
+  }, []);
+  useEffect(() => { if (loaded) try { localStorage.setItem(STATE_KEY, JSON.stringify({picks, kids, extras, name})); } catch {} }, [picks, kids, extras, name, loaded]);
+
+  const chosen = PICKS.filter(pick => picks.includes(pick.id));
+  const kidLabels = kids.map(value => value.split(":").slice(1).join(":"));
+
+  // The live preview: real stories for these picks, a moment after each tap.
+  useEffect(() => {
+    const topics = [...new Set(chosen.flatMap(pick => pick.topics))];
+    const terms = [
+      ...kids.flatMap(value => { const label = value.split(":").slice(1).join(":"); return wordsFor(label).map(word => `${word}~${label}`); }),
+      ...extras.map(word => `${word}~${word}`)
+    ];
+    const timer = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const response = await fetch(`/api/pantry/sample?topics=${encodeURIComponent(topics.join(","))}&terms=${encodeURIComponent(terms.join("|"))}`);
+        const result = await response.json();
+        setStories(result.stories || []);
+      } catch { setStories([]); }
+      setLoading(false);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [picks.join(","), kids.join(","), extras.join(",")]);
+
+    const tapBig = pick => { setPicks(toggle(picks, pick.id)); if (picks.includes(pick.id)) setKids(kids.filter(value => !value.startsWith(`${pick.id}:`))); };
+  const tapKid = (pick, label) => setKids(toggle(kids, `${pick.id}:${label}`));
+  const addExtra = () => { const words = draft.split(",").map(value => value.trim()).filter(Boolean).filter(value => !extras.includes(value)); if (words.length) setExtras([...extras, ...words].slice(0, 20)); setDraft(""); };
+  const reset = () => { if (confirm("Clear your picks and start over?")) { setPicks([]); setKids([]); setExtras([]); setName(""); try { localStorage.removeItem(STATE_KEY); } catch {} } };
+
+  const topicName = useMemo(() => { const map = {}; chosen.forEach(pick => pick.topics.forEach(topic => { map[topic] = map[topic] || pick.name; })); return map; }, [picks.join(",")]);
+  const count = picks.length + kids.length + extras.length;
+
+  const open = async () => {
+    const profile = {
+      version: 6, name: name.trim(), title: name.trim() ? `${name.trim()}’s Edition` : "My Edition",
+      openingChoices: chosen.map(pick => pick.line), broadInterests: chosen.map(pick => pick.name),
+      specificInterests: kidLabels, details: [], granularInterests: [], anythingElse: extras,
+      updatedAt: new Date().toISOString()
+    };
+    try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); } catch {}
+    try {
+      if (supabase) { const {data: {user}} = await supabase.auth.getUser(); if (user) await supabase.from("profiles").upsert({user_id: user.id, display_name: profile.name || null, edition_name: profile.title, preferences: profile}); }
+    } catch {}
+    window.location.href = "/?personalized=true";
+  };
+
+  return (
+    <main className="miy">
+      <style>{CSS}</style>
+      <header>
+        <a href="/" className="mark" aria-label="Meanwhile home">{"Meanwhile,".split("").map((letter, index) => <span key={index} style={{color: WORDMARK[index % WORDMARK.length]}}>{letter}</span>)}</a>
+        <button onClick={reset}>Start over</button>
+      </header>
+      <div className="layout">
+        <section className="left">
+          <p className="eyebrow">Make it yours · about 30 seconds</p>
+          <h1>What makes your day better?</h1>
+          <p className="lede">Tap anything that sounds like you. Tap again to go deeper. Your stories change as you go.</p>
+          <div className="field">
+            {PICKS.map((pick, index) => {
+              const palette = paletteFor(index), on = picks.includes(pick.id), fill = strongest(palette);
+              const size = pick.line.length > 30 ? "lg" : pick.line.length > 22 ? "md" : "sm";
+              return [
+                <button key={pick.id} type="button" className={`big ${size} ${on ? "on" : ""}`} aria-pressed={on}
+                  style={{"--fill": fill, "--ink": inkOn(fill), "--edge": palette[2], "--soft": palette[0], "--delay": `${index * 45}ms`}}
+                  onClick={() => tapBig(pick)}>
+                  <span>{pick.line}</span><i>{on ? "✓" : "+"}</i>
+                </button>,
+                on && (
+                  <div key={`${pick.id}-kids`} className="kids" style={{"--edge": palette[2]}}>
+                    <small>Go deeper in {pick.name.toLowerCase()}</small>
+                    <div>
+                      {pick.kids.map((label, kidIndex) => {
+                        const kidOn = kids.includes(`${pick.id}:${label}`), color = palette[kidIndex % palette.length];
+                        return <button key={label} type="button" className={`kid ${kidOn ? "on" : ""}`} aria-pressed={kidOn}
+                          style={{"--fill": color, "--ink": inkOn(color), "--edge": palette[2], animationDelay: `${kidIndex * 40}ms`}}
+                          onClick={() => tapKid(pick, label)}>{label}</button>;
+                      })}
+                    </div>
+                  </div>
+                )
+              ];
+            })}
+          </div>
+          <div className="extras">
+            <label htmlFor="extra">Anything else? <span>A band, a team, a hobby, a place.</span></label>
+            <div className="extraRow">
+              <input id="extra" value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (event.key === "Enter" || event.key === ",") { event.preventDefault(); addExtra(); } }} placeholder="woodworking, Wes Anderson, the Mets" />
+              <button type="button" onClick={addExtra}>Add</button>
+            </div>
+            {!!extras.length && <div className="chips">{extras.map(word => <button key={word} type="button" onClick={() => setExtras(extras.filter(item => item !== word))}>{word} <span>×</span></button>)}</div>}
+          </div>
+          <div className="finish">
+            <label htmlFor="name">Name your edition <span>Optional</span></label>
+            <input id="name" value={name} onChange={event => setName(event.target.value)} placeholder="Your first name" />
+            <button className="go" disabled={!picks.length} onClick={open}>{picks.length ? `Open ${name.trim() ? `${name.trim()}’s` : "my"} edition` : "Pick at least one"} <span>→</span></button>
+            <p>Saved privately in this browser. Keep teaching it with More and Less while you read.</p>
+          </div>
+        </section>
+        <aside className="right"><Preview stories={stories} loading={loading} chosen={chosen} topicName={topicName} /></aside>
+      </div>
+      <div className="dock">
+        <Preview compact stories={stories} loading={loading} chosen={chosen} topicName={topicName} />
+        <button className="go" disabled={!picks.length} onClick={open}>{picks.length ? `Open my edition · ${count}` : "Pick something you like"} <span>→</span></button>
+      </div>
+    </main>
+  );
 }
+
+function Preview({compact, stories, loading, chosen, topicName}) {
+  return (
+    <div className={`preview ${compact ? "compact" : ""}`}>
+      {!compact && <div className="previewHead"><span>Your Meanwhile, so far</span><b>{chosen.length ? "Updates as you tap" : "Today’s best, until you pick"}</b></div>}
+      <div className="stories">
+        {loading && !stories.length ? [0, 1, 2, 3].map(index => <div className="story ghost" key={index}><i style={{background: paletteFor(index)[1]}} /></div>) : stories.map((story, index) => {
+          const palette = paletteFor(index + 2);
+          const because = story.because ? `Because you like ${story.because}` : topicName[story.topic] ? `Because you like ${topicName[story.topic]}` : "Today’s best";
+          return (
+            <a className="story" key={story.id} href={story.url} target="_blank" rel="noreferrer">
+              <div className="bands">{palette.map(color => <i key={color} style={{background: color}} />)}</div>
+              {story.image && <img src={story.image} alt="" loading="lazy" />}
+              <div className="storyBody"><em>{because}</em><b>{story.title}</b><small>{story.source}</small></div>
+            </a>
+          );
+        })}
+        {!loading && !stories.length && <p className="empty">Stories will show up here as you pick.</p>}
+      </div>
+    </div>
+  );
+}
+
+const CSS = `
+.miy{--paperx:#f6f1e6;max-width:1320px;margin:0 auto;padding:22px 28px 60px;color:#171713;font-family:"DM Sans",sans-serif}
+.miy header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #171713;padding-bottom:14px}
+.miy .mark{font:700 26px/1 "Space Grotesk",sans-serif;letter-spacing:-.06em}
+.miy header button{border:0;background:none;font:700 10px "DM Sans";letter-spacing:.12em;text-transform:uppercase;text-decoration:underline;cursor:pointer}
+.miy .layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:40px;margin-top:30px}
+.miy .eyebrow{font:700 10px "DM Sans";letter-spacing:.16em;text-transform:uppercase;color:#d23d32;margin:0 0 10px}
+.miy h1{font:800 clamp(44px,6.4vw,86px)/.86 "Fraunces",serif;letter-spacing:-.055em;margin:0;max-width:11ch}
+.miy .lede{font:19px/1.35 "DM Serif Display",serif;color:#57534a;margin:16px 0 26px;max-width:34ch}
+.miy .field{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.miy .big{position:relative;border:2px solid var(--fill);background:color-mix(in srgb,var(--fill) 14%,#fffdf7);color:#171713;border-radius:999px;padding:16px 46px 16px 22px;font:600 18px/1.1 "Space Grotesk",sans-serif;letter-spacing:-.02em;cursor:pointer;text-align:left;
+  animation:miyFloatIn .6s cubic-bezier(.2,1.3,.4,1) both;animation-delay:var(--delay);transition:background .18s,color .18s,transform .18s,box-shadow .18s;box-shadow:0 0 0 transparent}
+.miy .big.lg{font-size:20px;padding:20px 50px 20px 26px}.miy .big.sm{font-size:16px}
+.miy .big i{position:absolute;right:16px;top:50%;transform:translateY(-50%);font-style:normal;font-size:16px;opacity:.7}
+.miy .big:hover{transform:translateY(-2px)}
+.miy .big.on{background:var(--fill);color:var(--ink);border-color:var(--fill);box-shadow:5px 5px 0 #171713}
+@keyframes miyFloatIn{from{opacity:0;transform:translateY(26px) scale(.85)}to{opacity:1;transform:none}}
+.miy .kids{flex-basis:100%;border-left:4px solid var(--edge);padding:6px 0 10px 14px;margin:-2px 0 6px 10px}
+.miy .kids small{display:block;font:700 9px "DM Sans";letter-spacing:.14em;text-transform:uppercase;color:#716d63;margin-bottom:8px}
+.miy .kids>div{display:flex;flex-wrap:wrap;gap:8px}
+.miy .kid{border:1.5px solid color-mix(in srgb,var(--edge) 70%,#171713);background:#fffdf7;border-radius:999px;padding:9px 15px;font:600 14px "DM Sans";cursor:pointer;animation:miyPop .28s cubic-bezier(.2,1.4,.4,1) both;transition:background .15s,color .15s}
+.miy .kid.on{background:var(--fill);color:var(--ink);border-color:var(--fill)}
+@keyframes miyPop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
+.miy .extras,.miy .finish{margin-top:34px;border-top:1px solid #d4cdbd;padding-top:20px;max-width:620px}
+.miy label{display:block;font:600 18px "Space Grotesk";letter-spacing:-.02em;margin-bottom:10px}
+.miy label span{font:14px "DM Serif Display";color:#716d63;letter-spacing:0;margin-left:6px}
+.miy input{width:100%;border:1.5px solid #171713;background:#fffdf7;padding:13px 14px;font:16px "DM Sans";border-radius:0}
+.miy .extraRow{display:flex;gap:8px}.miy .extraRow button{border:1.5px solid #171713;background:#171713;color:#fff;padding:0 18px;font:700 12px "DM Sans";cursor:pointer}
+.miy .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.miy .chips button{border:0;background:#171713;color:#fffdf7;border-radius:999px;padding:7px 12px;font:600 13px "DM Sans";cursor:pointer}.miy .chips span{opacity:.6;margin-left:4px}
+.miy .go{margin-top:16px;border:0;background:#171713;color:#fff;padding:16px 20px;font:700 12px "DM Sans";letter-spacing:.08em;text-transform:uppercase;cursor:pointer;box-shadow:5px 5px 0 #df7027;display:flex;gap:18px;align-items:center}
+.miy .go:disabled{opacity:.35;cursor:default;box-shadow:none}
+.miy .finish p{font:13px "DM Serif Display";color:#716d63;margin-top:14px}
+.miy .right{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow:auto}
+.miy .previewHead{display:flex;flex-direction:column;gap:3px;border-top:5px solid #171713;padding-top:10px;margin-bottom:12px}
+.miy .previewHead span{font:600 20px "Space Grotesk";letter-spacing:-.03em}.miy .previewHead b{font:700 9px "DM Sans";letter-spacing:.14em;text-transform:uppercase;color:#d23d32}
+.miy .stories{display:flex;flex-direction:column;gap:12px}
+.miy .story{display:block;background:#fffdf7;border:1px solid #d4cdbd;overflow:hidden}
+.miy .story .bands{display:flex;height:6px}.miy .story .bands i{flex:1}
+.miy .story img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover}
+.miy .storyBody{padding:10px 12px 12px;display:flex;flex-direction:column;gap:4px}
+.miy .storyBody em{font:700 9px "DM Sans";font-style:normal;letter-spacing:.12em;text-transform:uppercase;color:#277448}
+.miy .storyBody b{font:400 17px/1.15 "DM Serif Display",serif}.miy .storyBody small{font-size:11px;color:#716d63}
+.miy .story.ghost{height:120px;display:flex;align-items:flex-end}.miy .story.ghost i{display:block;width:100%;height:6px}
+.miy .empty{font:15px "DM Serif Display";color:#716d63}
+.miy .dock{display:none}
+@media(max-width:900px){
+  .miy{padding:16px 16px 230px}
+  .miy .layout{grid-template-columns:1fr;margin-top:22px}
+  .miy .right{display:none}
+  .miy .finish .go{display:none}
+  .miy .big{font-size:16px;padding:13px 40px 13px 17px}.miy .big.lg{font-size:17px;padding:15px 42px 15px 19px}.miy .big.sm{font-size:15px}
+  .miy .dock{display:block;position:fixed;left:0;right:0;bottom:0;background:#f6f1e6;border-top:2px solid #171713;padding:10px 12px calc(12px + env(safe-area-inset-bottom));z-index:20;box-shadow:0 -10px 30px #0001}
+  .miy .dock .stories{flex-direction:row;overflow-x:auto;gap:8px;padding-bottom:4px;scroll-snap-type:x mandatory}
+  .miy .dock .story{flex:0 0 220px;display:flex;scroll-snap-align:start}
+  .miy .dock .story .bands{width:6px;height:auto;flex-direction:column}
+  .miy .dock .story img{width:64px;height:auto;aspect-ratio:auto;flex:0 0 64px}
+  .miy .dock .storyBody{padding:7px 9px;gap:2px;min-width:0}
+  .miy .dock .storyBody b{font-size:13px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .miy .dock .storyBody small{display:none}.miy .dock .storyBody em{font-size:8px}
+  .miy .dock .story.ghost{height:74px}.miy .dock .empty{font-size:13px;margin:6px 0}
+  .miy .dock .go{width:100%;justify-content:space-between;margin-top:10px;box-shadow:none}
+}
+@media(prefers-reduced-motion:reduce){.miy .big,.miy .kid{animation:none}}
+`;
